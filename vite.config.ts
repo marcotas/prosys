@@ -55,5 +55,13 @@ function prosysWs(): Plugin {
 }
 
 export default defineConfig({
-	plugins: [prosysWs(), tailwindcss(), sveltekit()]
+	plugins: [prosysWs(), tailwindcss(), sveltekit()],
+
+	// Force Vite to bundle all pure-JS dependencies into the SSR output so
+	// the Tauri production build doesn't need to ship node_modules for them.
+	// Only native addons (better-sqlite3) stay external.
+	ssr: {
+		noExternal: true,
+		external: ['better-sqlite3']
+	}
 });

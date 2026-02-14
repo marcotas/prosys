@@ -7,7 +7,7 @@
     "frontendDist": "../build/client",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm dev --host",
-    "beforeBuildCommand": "pnpm build"
+    "beforeBuildCommand": "pnpm build && node scripts/prepare-server-bundle.js"
   },
   "app": {
     "windows": [
@@ -32,6 +32,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "resources": {
+      "server-bundle/": "server/"
+    }
   }
 }

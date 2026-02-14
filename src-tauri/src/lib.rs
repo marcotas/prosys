@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use tauri::Manager;
@@ -15,45 +16,48 @@ pub fn run() {
                 return Ok(());
             }
 
-            // ── Production: spawn the Node.js server as a sidecar ────────
+            // ── Production: spawn the Node.js server ─────────────────────
 
-            // Resolve the path to server.js relative to the app's resource dir.
-            // When bundled, the executable lives inside the .app bundle, so we
-            // navigate up to the project root where server.js is located.
-            let exe_dir = std::env::current_exe()
-                .ok()
-                .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-                .unwrap_or_default();
+            // Locate the Node.js binary (GUI apps don't inherit the user's
+            // shell PATH, so we search common installation locations).
+            let node_path = find_node().ok_or_else(|| {
+                "Node.js not found. Please install Node.js (https://nodejs.org) \
+                 and make sure it is available at one of the standard paths \
+                 (/opt/homebrew/bin/node, /usr/local/bin/node, ~/.nvm, ~/.volta, etc.)."
+                    .to_string()
+            })?;
 
-            // In a macOS .app bundle the binary is at:
-            //   ProSys.app/Contents/MacOS/ProSys
-            // server.js and build/ sit next to the .app, so go up 3 levels.
-            // During development (cargo run), the binary is in target/debug/,
-            // and server.js is at the workspace root (2 levels up).
-            let project_root = if exe_dir.ends_with("Contents/MacOS") {
-                exe_dir
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .and_then(|p| p.parent())
-                    .map(|p| p.to_path_buf())
-                    .unwrap_or_else(|| exe_dir.clone())
-            } else {
-                exe_dir
-                    .parent()
-                    .and_then(|p| p.parent())
-                    .map(|p| p.to_path_buf())
-                    .unwrap_or_else(|| exe_dir.clone())
-            };
+            // Bundled server files live inside the app's resource directory
+            // (Contents/Resources/ on macOS).
+            let resource_dir = app
+                .path()
+                .resource_dir()
+                .map_err(|e| format!("Failed to resolve resource directory: {e}"))?;
 
-            let server_js = project_root.join("server.js");
+            let server_dir = resource_dir.join("server");
+            let server_js = server_dir.join("server.js");
 
-            let child = Command::new("node")
+            if !server_js.exists() {
+                return Err(format!(
+                    "Server entry point not found at {}. \
+                     The app bundle may be incomplete.",
+                    server_js.display()
+                )
+                .into());
+            }
+
+            let child = Command::new(&node_path)
                 .arg(&server_js)
                 .env("PORT", "3000")
                 .env("HOST", "0.0.0.0")
-                .current_dir(&project_root)
+                .current_dir(&server_dir)
                 .spawn()
-                .expect("Failed to start Node.js server — is `node` on PATH?");
+                .map_err(|e| {
+                    format!(
+                        "Failed to start Node.js server ({}):\n{e}",
+                        node_path.display()
+                    )
+                })?;
 
             app.manage(ServerProcess(Mutex::new(Some(child))));
 
@@ -86,6 +90,70 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Search for the `node` binary in common macOS installation paths.
+///
+/// macOS GUI apps (launched from Finder / Launchpad) do not inherit the
+/// user's shell PATH.  We check well-known locations for Homebrew, nvm,
+/// Volta, fnm, and fall back to asking a login shell.
+fn find_node() -> Option<PathBuf> {
+    // Well-known system-wide locations
+    let system_candidates = [
+        "/opt/homebrew/bin/node", // Homebrew – Apple Silicon
+        "/usr/local/bin/node",   // Homebrew – Intel / manual install
+    ];
+
+    for path in &system_candidates {
+        let p = PathBuf::from(path);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+
+    // Version-manager shims under $HOME
+    if let Ok(home) = std::env::var("HOME") {
+        let home_candidates = [
+            format!("{home}/.nvm/current/bin/node"),
+            format!("{home}/.volta/bin/node"),
+            format!("{home}/.fnm/aliases/default/bin/node"),
+            format!("{home}/.local/bin/node"),
+        ];
+        for path in home_candidates {
+            let p = PathBuf::from(&path);
+            if p.exists() {
+                return Some(p);
+            }
+        }
+    }
+
+    // Last resort: ask the user's login shell
+    if let Ok(output) = Command::new("/bin/bash")
+        .args(["-l", "-c", "which node"])
+        .output()
+    {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Some(PathBuf::from(path));
+            }
+        }
+    }
+
+    // Also try zsh (common default on macOS)
+    if let Ok(output) = Command::new("/bin/zsh")
+        .args(["-l", "-c", "which node"])
+        .output()
+    {
+        if output.status.success() {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Some(PathBuf::from(path));
+            }
+        }
+    }
+
+    None
 }
 
 /// Poll `url` up to `max_attempts` times, sleeping `interval_ms` between tries.

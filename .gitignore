@@ -7,3 +7,4 @@ data/
 drizzle/meta/
 build/
 src-tauri/target/
+src-tauri/server-bundle/

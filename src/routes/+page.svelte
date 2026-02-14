@@ -243,13 +243,30 @@
           </div>
         </div>
 
-        <FamilySwitcher
-          members={memberStore.members.length > 0 ? memberStore.members : data.members}
-          selectedId={memberStore.selectedMemberId || data.defaultMemberId}
-          onSelect={(id) => memberStore.select(id)}
-          onAdd={openCreateDialog}
-          onEdit={openEditDialog}
-        />
+        <div class="flex items-center gap-3">
+          <FamilySwitcher
+            members={memberStore.members.length > 0 ? memberStore.members : data.members}
+            selectedId={memberStore.selectedMemberId || data.defaultMemberId}
+            onSelect={(id) => memberStore.select(id)}
+            onAdd={openCreateDialog}
+            onEdit={openEditDialog}
+          />
+          <a
+            href="/connect"
+            class="flex items-center justify-center w-9 h-9 rounded-lg
+              bg-white border border-gray-200 text-gray-400 hover:text-green-600
+              hover:border-green-300 transition-colors shadow-sm"
+            title="Connect a device"
+          >
+            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="2" y="2" width="8" height="8" rx="1" />
+              <rect x="14" y="2" width="8" height="8" rx="1" />
+              <rect x="2" y="14" width="8" height="8" rx="1" />
+              <rect x="14" y="14" width="4" height="4" rx="1" />
+              <path d="M22 14h-4v4" /><path d="M22 22h-4v-4" /><path d="M18 22h4" />
+            </svg>
+          </a>
+        </div>
       </header>
 
       <!-- Week Navigator -->

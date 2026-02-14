@@ -7,6 +7,7 @@
 	import { habitStore } from '$lib/stores/habits.svelte';
 	import { memberStore } from '$lib/stores/members.svelte';
 	import type { Task, Habit, Member } from '$lib/types';
+	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 
 	let { children } = $props();
 
@@ -50,6 +51,9 @@
 <div class="min-h-screen bg-gray-50">
 	{@render children()}
 </div>
+
+<!-- PWA install banner (mobile browsers only) -->
+<PwaInstallBanner />
 
 <!-- Connection indicator -->
 {#if browser}
