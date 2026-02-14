@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Member, ThemeConfig, DayData } from "$lib/types";
+  import { untrack } from "svelte";
   import { computeWeekDays, getWeekStart, getTodayWeekOffset } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
@@ -17,9 +18,11 @@
   // Hydrate stores on the client with server data (skips if already cached)
   $effect(() => {
     if (data.members.length > 0) {
-      memberStore.hydrate(data.members, data.defaultMemberId);
-      taskStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
-      habitStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.habits);
+      untrack(() => {
+        memberStore.hydrate(data.members, data.defaultMemberId);
+        taskStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
+        habitStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.habits);
+      });
     }
   });
 
