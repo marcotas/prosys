@@ -1,12 +1,15 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
+import { Bonjour } from 'bonjour-service';
 
 /**
- * Vite plugin that attaches a WebSocket server to the dev HTTP server.
- * Handles upgrade requests on the `/ws` path.
+ * Vite plugin that attaches a WebSocket server and mDNS broadcast
+ * to the dev HTTP server. Handles upgrade requests on the `/ws` path.
  */
 function prosysWs(): Plugin {
+	let bonjour: InstanceType<typeof Bonjour> | null = null;
+
 	return {
 		name: 'prosys-ws',
 		configureServer(server) {
@@ -22,6 +25,31 @@ function prosysWs(): Plugin {
 					}
 				});
 			});
+
+			// Start mDNS broadcast once the server is listening
+			server.httpServer?.once('listening', () => {
+				const addr = server.httpServer?.address();
+				const port = typeof addr === 'object' && addr ? addr.port : 5173;
+
+				bonjour = new Bonjour();
+				bonjour.publish({
+					name: 'ProSys',
+					type: 'prosys',
+					protocol: 'tcp',
+					port
+				});
+
+				console.log(`mDNS: broadcasting _prosys._tcp on port ${port}`);
+			});
+		},
+
+		// Clean up mDNS on server close
+		buildEnd() {
+			if (bonjour) {
+				bonjour.unpublishAll();
+				bonjour.destroy();
+				bonjour = null;
+			}
 		}
 	};
 }
