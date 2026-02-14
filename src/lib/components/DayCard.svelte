@@ -1,6 +1,5 @@
 <script lang="ts">
-  import type { DayData, ThemeConfig } from "$lib/data/fake";
-  import { getCompletionPercent } from "$lib/data/fake";
+  import type { DayData, ThemeConfig } from "$lib/types";
   import ProgressRing from "./ProgressRing.svelte";
 
   let {
@@ -19,7 +18,11 @@
     onUpdateTask: (taskId: string, updates: { title?: string; emoji?: string }) => void;
   }>();
 
-  let percent = $derived(getCompletionPercent(day.tasks));
+  let percent = $derived(
+    day.tasks.length === 0
+      ? 0
+      : Math.round((day.tasks.filter((t: { completed: boolean }) => t.completed).length / day.tasks.length) * 100)
+  );
   let playful = $derived(theme.variant === "playful");
   let hasTasks = $derived(day.tasks.length > 0);
 

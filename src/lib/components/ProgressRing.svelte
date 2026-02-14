@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { getKidCompletionMessage } from '$lib/data/fake';
-	import type { ThemeVariant } from '$lib/data/fake';
+	import type { ThemeVariant } from '$lib/types';
 
 	let {
 		percent = 0,
@@ -15,6 +14,16 @@
 	let offset = $derived(circumference - (percent / 100) * circumference);
 
 	let playful = $derived(variant === 'playful');
+
+	function getKidCompletionMessage(pct: number): string {
+		if (pct === 100) return 'Perfect! ⭐';
+		if (pct >= 80) return 'Amazing! 🎉';
+		if (pct >= 60) return 'Great job! 💪';
+		if (pct >= 40) return 'Keep going! 🚀';
+		if (pct >= 20) return 'Good start! 🌱';
+		return "Let's go! 🏁";
+	}
+
 	let kidMessage = $derived(getKidCompletionMessage(percent));
 	let fontSize = $derived(playful ? 'text-lg' : 'text-xl');
 </script>

@@ -1,7 +1,8 @@
 <script lang="ts">
   import type { Member, ThemeConfig, DayData } from "$lib/types";
-  import { computeWeekDays, getTodayWeekOffset } from "$lib/utils/dates";
+  import { computeWeekDays, getWeekStart, getTodayWeekOffset } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
+  import { taskStore } from "$lib/stores/tasks.svelte";
   import FamilySwitcher from "$lib/components/FamilySwitcher.svelte";
   import WeekNavigator from "$lib/components/WeekNavigator.svelte";
   import OverallProgress from "$lib/components/OverallProgress.svelte";
@@ -24,14 +25,26 @@
   // Week navigation state
   let todayOffset = $derived(getTodayWeekOffset());
   let isTodayWeek = $derived(weekOffset === todayOffset);
+  let currentWeekStart = $derived(getWeekStart(weekOffset));
 
-  // ── Week data (placeholder until task 02-tasks wires up the task store) ──
+  // ── Load tasks when member or week changes ──
+  $effect(() => {
+    const memberId = memberStore.selectedMemberId;
+    const weekStart = currentWeekStart;
+    if (memberId) {
+      taskStore.loadWeek(memberId, weekStart);
+    }
+  });
+
+  // ── Week data with tasks from store ──
   let visibleDays = $derived.by(() => {
-    return computeWeekDays(weekOffset).map((d) => ({
+    const memberId = memberStore.selectedMemberId;
+    const weekStart = currentWeekStart;
+    return computeWeekDays(weekOffset).map((d, i) => ({
       dayName: d.dayName,
       date: d.date,
       isoDate: d.isoDate,
-      tasks: [] as DayData["tasks"],
+      tasks: memberId ? taskStore.getTasksForDay(memberId, weekStart, i) : [],
     }));
   });
 
@@ -40,15 +53,25 @@
     () => [] as { id: string; name: string; emoji?: string; days: boolean[] }[],
   );
 
-  // Task operations — stubs until task 02-tasks implements proper store
-  function toggleTask(_dayIndex: number, _taskId: string) {}
-  function addTask(_dayIndex: number, _title: string, _emoji?: string) {}
-  function deleteTask(_dayIndex: number, _taskId: string) {}
+  // Task operations — wired to task store
+  function toggleTask(_dayIndex: number, taskId: string) {
+    taskStore.toggle(taskId);
+  }
+  function addTask(dayIndex: number, title: string, emoji?: string) {
+    const memberId = memberStore.selectedMemberId;
+    if (!memberId) return;
+    taskStore.create({ memberId, weekStart: currentWeekStart, dayIndex, title, emoji });
+  }
+  function deleteTask(_dayIndex: number, taskId: string) {
+    taskStore.delete(taskId);
+  }
   function updateTask(
     _dayIndex: number,
-    _taskId: string,
-    _updates: { title?: string; emoji?: string },
-  ) {}
+    taskId: string,
+    updates: { title?: string; emoji?: string },
+  ) {
+    taskStore.update(taskId, updates);
+  }
 
   // Habit operations — stubs until task 03-habits implements proper store
   function toggleHabit(_habitId: string, _dayIndex: number) {}
