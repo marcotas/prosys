@@ -1,7 +1,7 @@
 # Progress
 
 ## Setup (sequential)
-- [ ] 00-setup — Project scaffold, shared types, DB schema, layout, utilities
+- [x] 00-setup — Project scaffold, shared types, DB schema, layout, utilities
 
 ## Features (parallel)
 - [ ] 01-profiles — Family member CRUD (API + store + components)
