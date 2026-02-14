@@ -296,6 +296,53 @@ function createHabitStore() {
 		},
 
 		/**
+		 * Reorder habits for a member (optimistic).
+		 * habitIds is the new order of habit IDs.
+		 */
+		async reorder(memberId: string, habitIds: string[]): Promise<void> {
+			// Snapshot all cached weeks for this member
+			const previousByKey = new Map<string, HabitWithDays[]>();
+			for (const [key, habits] of weekCache) {
+				if (key.startsWith(`${memberId}:`)) {
+					previousByKey.set(key, [...habits]);
+				}
+			}
+
+			// Optimistic: update sortOrder based on new array position
+			const next = new Map(weekCache);
+			for (const [key, habits] of next) {
+				if (key.startsWith(`${memberId}:`)) {
+					next.set(
+						key,
+						habits.map((h) => {
+							const idx = habitIds.indexOf(h.id);
+							if (idx === -1) return h;
+							return { ...h, sortOrder: idx };
+						}).sort((a, b) => a.sortOrder - b.sortOrder)
+					);
+				}
+			}
+			weekCache = next;
+
+			try {
+				const res = await fetch('/api/habits/reorder', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ memberId, habitIds })
+				});
+				if (!res.ok) throw new Error(`Failed to reorder habits: ${res.status}`);
+			} catch (err) {
+				// Rollback
+				const rollback = new Map(weekCache);
+				for (const [key, prev] of previousByKey) {
+					rollback.set(key, prev);
+				}
+				weekCache = rollback;
+				throw err;
+			}
+		},
+
+		/**
 		 * Clear all cached data (e.g. when switching members).
 		 */
 		clearCache() {

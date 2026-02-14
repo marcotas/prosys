@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { HabitWithDays, ThemeConfig } from "$lib/types";
+  import { dragHandleZone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from "svelte-dnd-action";
+  import { flip } from "svelte/animate";
   import { dayAbbreviations } from "$lib/utils/dates";
+  import DragHandle from "./DragHandle.svelte";
 
   function getHabitProgress(habit: HabitWithDays): number {
     const completed = habit.days.filter(Boolean).length;
@@ -14,7 +17,8 @@
     onAddHabit,
     onUpdateHabit,
     onDeleteHabit,
-  } = $props<{
+    onReorderHabits,
+  }: {
     habits: HabitWithDays[];
     theme: ThemeConfig;
     onToggleHabit: (habitId: string, dayIndex: number) => void;
@@ -24,7 +28,8 @@
       updates: { name?: string; emoji?: string },
     ) => void;
     onDeleteHabit: (habitId: string) => void;
-  }>();
+    onReorderHabits?: (habitIds: string[]) => void;
+  } = $props();
 
   let playful = $derived(theme.variant === "playful");
   let hasHabits = $derived(habits.length > 0);
@@ -43,7 +48,7 @@
     }
   }
 
-  // Edit habit inline — always an input, track focus state for value management
+  // Edit habit inline
   let editingHabitId = $state<string | null>(null);
   let editValue = $state("");
 
@@ -65,7 +70,7 @@
     editValue = "";
   }
 
-  // Add habit — always-visible input at bottom of table
+  // Add habit
   let newHabitName = $state("");
 
   function submitNewHabit() {
@@ -75,11 +80,33 @@
     newHabitName = "";
   }
 
-  // Swipe to delete — only on the habit name cell
+  // ── Drag & Drop (svelte-dnd-action) ───────────────────
+  const FLIP_DURATION = 200;
+  let dndItems = $state<HabitWithDays[]>([]);
+
+  $effect(() => {
+    dndItems = [...habits];
+  });
+
+  function handleDndConsider(e: CustomEvent<{ items: any[] }>) {
+    dndItems = e.detail.items as HabitWithDays[];
+  }
+
+  function handleDndFinalize(e: CustomEvent<{ items: any[] }>) {
+    const items = (e.detail.items as HabitWithDays[]).filter(
+      (h: any) => !h[SHADOW_ITEM_MARKER_PROPERTY_NAME],
+    );
+    dndItems = items;
+
+    const habitIds = items.map((h) => h.id);
+    onReorderHabits?.(habitIds);
+  }
+
+  // ── Swipe to delete ───────────────────────────────────
   const DELETE_ZONE = 64;
   const SWIPE_THRESHOLD = 30;
   let swipedOpenId = $state<string | null>(null);
-  let dragState = $state<{
+  let swipeState = $state<{
     habitId: string;
     startX: number;
     startY: number;
@@ -88,8 +115,8 @@
   } | null>(null);
 
   function getSwipeOffset(habitId: string): number {
-    if (dragState && dragState.habitId === habitId && dragState.locked) {
-      const raw = dragState.currentX - dragState.startX;
+    if (swipeState && swipeState.habitId === habitId && swipeState.locked) {
+      const raw = swipeState.currentX - swipeState.startX;
       return Math.max(-DELETE_ZONE, Math.min(0, raw));
     }
     if (swipedOpenId === habitId) return -DELETE_ZONE;
@@ -98,12 +125,14 @@
 
   function onPointerDown(e: PointerEvent, habitId: string) {
     if (e.button !== 0) return;
+    // Don't initiate swipe on drag handle
+    if ((e.target as HTMLElement).closest(".drag-handle")) return;
     if (editingHabitId === habitId) return;
     if (swipedOpenId && swipedOpenId !== habitId) {
       swipedOpenId = null;
     }
     const startOffset = swipedOpenId === habitId ? -DELETE_ZONE : 0;
-    dragState = {
+    swipeState = {
       habitId,
       startX: e.clientX - startOffset,
       startY: e.clientY,
@@ -113,35 +142,35 @@
   }
 
   function onPointerMove(e: PointerEvent) {
-    if (!dragState) return;
-    const dx = e.clientX - dragState.startX;
-    const dy = e.clientY - dragState.startY;
-    if (!dragState.locked) {
+    if (!swipeState) return;
+    const dx = e.clientX - swipeState.startX;
+    const dy = e.clientY - swipeState.startY;
+    if (!swipeState.locked) {
       if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
-        dragState = null;
+        swipeState = null;
         return;
       }
       if (Math.abs(dx) > 5) {
-        dragState.locked = true;
+        swipeState.locked = true;
       } else {
         return;
       }
     }
     e.preventDefault();
-    dragState.currentX = e.clientX;
+    swipeState.currentX = e.clientX;
   }
 
   function onPointerUp() {
-    if (!dragState) return;
-    if (dragState.locked) {
-      const dx = dragState.currentX - dragState.startX;
+    if (!swipeState) return;
+    if (swipeState.locked) {
+      const dx = swipeState.currentX - swipeState.startX;
       if (dx < -SWIPE_THRESHOLD) {
-        swipedOpenId = dragState.habitId;
+        swipedOpenId = swipeState.habitId;
       } else {
         swipedOpenId = null;
       }
     }
-    dragState = null;
+    swipeState = null;
   }
 
   function handleDeleteSwiped(habitId: string) {
@@ -154,7 +183,7 @@
 
 <section
   class="bg-white shadow-sm overflow-hidden
-		{playful ? 'rounded-3xl border-2' : 'rounded-2xl border border-gray-200/60'}"
+    {playful ? 'rounded-3xl border-2' : 'rounded-2xl border border-gray-200/60'}"
   style={playful ? `border-color: ${theme.accent}25` : ""}
   aria-label="Habit tracker"
 >
@@ -200,7 +229,7 @@
             style="border-color: {playful ? `${theme.accent}12` : '#f3f4f6'}"
           >
             <th
-              class="text-left px-4 py-2.5 text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap"
+              class="text-left pl-[24px] pr-2 py-2.5 text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap"
               style="color: {playful ? theme.accent : '#9ca3af'}"
             >
               Habit
@@ -221,18 +250,31 @@
             </th>
           </tr>
         </thead>
-        <tbody>
-          {#each habits as habit (habit.id)}
+        <!-- Sortable habit rows -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <tbody
+          use:dragHandleZone={{
+            items: dndItems,
+            flipDurationMs: FLIP_DURATION,
+            type: "habit",
+            dropTargetStyle: {},
+          }}
+          onconsider={handleDndConsider}
+          onfinalize={handleDndFinalize}
+        >
+          {#each dndItems as habit (habit.id)}
             {@const progress = getHabitProgress(habit)}
             {@const offset = getSwipeOffset(habit.id)}
             {@const isSwiping =
-              dragState?.habitId === habit.id && dragState?.locked}
+              swipeState?.habitId === habit.id && swipeState?.locked}
             {@const isRevealed = offset < 0 || swipedOpenId === habit.id}
+            {@const isShadow = (habit as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
             <tr
-              class="border-b last:border-b-0 hover:bg-gray-50/40 transition-colors"
+              animate:flip={{ duration: FLIP_DURATION }}
+              class="border-b last:border-b-0 hover:bg-gray-50/40 transition-colors {isShadow ? 'dnd-shadow-row' : ''}"
               style="border-color: {playful ? `${theme.accent}06` : '#f9fafb'}"
             >
-              <!-- Habit name cell — swipeable + always-editable input -->
+              <!-- Habit name cell — with drag handle + swipeable input -->
               <td class="relative overflow-hidden p-0">
                 <!-- Delete zone — only render when swiped -->
                 {#if isRevealed}
@@ -262,23 +304,26 @@
                 <!-- Swipeable name content -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
-                  class="relative bg-white px-4 py-2 flex items-center {isSwiping
+                  class="relative bg-white pl-1 pr-4 py-1 flex items-center {isSwiping
                     ? ''
                     : 'transition-transform duration-200 ease-out'}"
                   style="transform: translateX({offset}px); touch-action: pan-y; z-index: 1;"
                   onpointerdown={(e) => onPointerDown(e, habit.id)}
                 >
+                  <DragHandle {theme} />
                   {#if habit.emoji}<span
                       class="mr-1 select-none"
                       aria-hidden="true">{habit.emoji}</span
                     >{/if}
                   <input
                     type="text"
-                    value={editingHabitId === habit.id ? editValue : habit.name}
+                    value={editingHabitId === habit.id
+                      ? editValue
+                      : habit.name}
                     oninput={(e) => {
                       editValue = e.currentTarget.value;
                     }}
-                    onfocus={(e) => {
+                    onfocus={() => {
                       startEdit(habit.id, habit.name);
                     }}
                     onblur={() => commitEdit(habit.id, habit.name)}
@@ -302,7 +347,7 @@
                 </div>
               </td>
 
-              <!-- Day checkboxes — proper table cells -->
+              <!-- Day checkboxes -->
               {#each habit.days as checked, dayIdx}
                 <td class="px-1.5 py-1.5 text-center">
                   <button
@@ -311,7 +356,7 @@
                     aria-checked={checked}
                     aria-label="{habit.name}, {dayAbbreviations[dayIdx]}"
                     class="w-[26px] h-[26px] rounded-md flex items-center justify-center mx-auto
-											transition-all duration-150 hover:scale-110"
+                      transition-all duration-150 hover:scale-110"
                     style={checked
                       ? `background-color: ${theme.checkColor}; color: white`
                       : `background-color: ${playful ? `${theme.accent}08` : "#f5f5f5"}`}
@@ -378,10 +423,11 @@
               </td>
             </tr>
           {/each}
-
-          <!-- Add habit row — always visible inline input -->
+        </tbody>
+        <!-- Add habit row (outside dnd zone) -->
+        <tfoot>
           <tr>
-            <td colspan="9" class="px-4 py-2">
+            <td colspan="9" class="pl-[24px] pr-4 py-1.5">
               <input
                 type="text"
                 bind:value={newHabitName}
@@ -403,7 +449,7 @@
               />
             </td>
           </tr>
-        </tbody>
+        </tfoot>
       </table>
     </div>
 
@@ -427,3 +473,22 @@
     {/if}
   {/if}
 </section>
+
+<style>
+  /* Dragged row: lifted with shadow */
+  :global(tr[aria-grabbed="true"]) {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: white;
+    opacity: 0.95;
+    z-index: 50;
+  }
+
+  /* Shadow placeholder row */
+  .dnd-shadow-row {
+    opacity: 0.3;
+    background: #f9fafb;
+  }
+  .dnd-shadow-row > * {
+    visibility: hidden;
+  }
+</style>

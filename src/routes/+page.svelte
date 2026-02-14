@@ -134,6 +134,29 @@
     habitStore.delete(habitId);
   }
 
+  // ── Reorder operations (drag & drop) ──
+
+  function reorderTasks(dayIndex: number, taskIds: string[]) {
+    const memberId = memberStore.selectedMemberId;
+    if (!memberId) return;
+    taskStore.reorder(memberId, currentWeekStart, dayIndex, taskIds);
+  }
+
+  async function moveTask(taskId: string, toDayIndex: number, orderedTaskIds: string[]) {
+    const memberId = memberStore.selectedMemberId;
+    await taskStore.moveToDay(taskId, toDayIndex);
+    // If we have the drop-position order, reorder so the task lands where it was dropped
+    if (memberId && orderedTaskIds.length > 0) {
+      await taskStore.reorder(memberId, currentWeekStart, toDayIndex, orderedTaskIds);
+    }
+  }
+
+  function reorderHabits(habitIds: string[]) {
+    const memberId = memberStore.selectedMemberId;
+    if (!memberId) return;
+    habitStore.reorder(memberId, habitIds);
+  }
+
   // ── Profile dialog handlers ──
 
   function openCreateDialog() {
@@ -247,6 +270,7 @@
             onAddHabit={addHabit}
             onUpdateHabit={updateHabit}
             onDeleteHabit={deleteHabit}
+            onReorderHabits={reorderHabits}
           />
         </div>
 
@@ -258,11 +282,14 @@
             {#each visibleDays as day, dayIndex (day.dayName)}
               <DayCard
                 {day}
+                {dayIndex}
                 theme={currentMember.theme}
                 onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
                 onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
                 onDeleteTask={(taskId) => deleteTask(dayIndex, taskId)}
                 onUpdateTask={(taskId, updates) => updateTask(dayIndex, taskId, updates)}
+                onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
+                onMoveTask={moveTask}
               />
             {/each}
           </div>

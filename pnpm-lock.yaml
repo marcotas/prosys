@@ -20,6 +20,9 @@ importers:
       svelte:
         specifier: ^5.0.0
         version: 5.50.3
+      svelte-dnd-action:
+        specifier: ^0.9.69
+        version: 0.9.69(svelte@5.50.3)
     devDependencies:
       '@sveltejs/adapter-node':
         specifier: ^5.5.3
@@ -1157,6 +1160,11 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  svelte-dnd-action@0.9.69:
+    resolution: {integrity: sha512-NAmSOH7htJoYraTQvr+q5whlIuVoq88vEuHr4NcFgscDRUxfWPPxgie2OoxepBCQCikrXZV4pqV86aun60wVyw==}
+    peerDependencies:
+      svelte: '>=3.23.0 || ^5.0.0-next.0'
+
   svelte@5.50.3:
     resolution: {integrity: sha512-5JCO8P/cFlwyfi1LeZ9uppMZvuaHWygyZmqxyKOIqbV3PoHKaddvV1C6njL/InpDXplNYZnAVEbn8mLslycBxQ==}
     engines: {node: '>=18'}
@@ -2082,6 +2090,10 @@ snapshots:
   strip-json-comments@2.0.1: {}
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  svelte-dnd-action@0.9.69(svelte@5.50.3):
+    dependencies:
+      svelte: 5.50.3
 
   svelte@5.50.3:
     dependencies:

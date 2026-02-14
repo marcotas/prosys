@@ -8,7 +8,7 @@
 - [x] 02-tasks — Weekly task management (API + store + DayCard + ProgressRing)
 - [x] 03-habits — Habit tracking (API + store + HabitTracker)
 - [x] 04-dashboard — Dashboard page assembly (progress, chart, week nav, composition)
-- [ ] 05-drag-drop — Drag handles, reorder APIs, sortable utility
+- [x] 05-drag-drop — Drag handles, reorder APIs, sortable utility
 - [ ] 06-realtime — WebSocket server + client store + broadcast
 - [ ] 07-platform — Tauri v2 desktop shell + PWA manifest + mDNS discovery
 

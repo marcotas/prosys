@@ -259,6 +259,93 @@ function createTaskStore() {
 		},
 
 		/**
+		 * Reorder tasks within a day (optimistic).
+		 * taskIds is the new order of task IDs for that day.
+		 */
+		async reorder(memberId: string, weekStart: string, dayIndex: number, taskIds: string[]): Promise<void> {
+			if (taskIds.length === 0) return; // Nothing to reorder
+			const key = cacheKey(memberId, weekStart);
+			const previousList = weekCache.get(key) ? [...weekCache.get(key)!] : [];
+
+			// Optimistic: update sortOrder based on new array position
+			const next = new Map(weekCache);
+			const all = next.get(key) ?? [];
+			const updated = all.map((t) => {
+				if (t.dayIndex !== dayIndex) return t;
+				const idx = taskIds.indexOf(t.id);
+				if (idx === -1) return t;
+				return { ...t, sortOrder: idx };
+			});
+			next.set(key, updated);
+			weekCache = next;
+
+			try {
+				const res = await fetch('/api/tasks/reorder', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ memberId, weekStart, dayIndex, taskIds })
+				});
+				if (!res.ok) throw new Error(`Failed to reorder tasks: ${res.status}`);
+			} catch (err) {
+				// Rollback
+				const rollback = new Map(weekCache);
+				rollback.set(key, previousList);
+				weekCache = rollback;
+				throw err;
+			}
+		},
+
+		/**
+		 * Move a task to a different day (optimistic).
+		 */
+		async moveToDay(taskId: string, toDayIndex: number): Promise<void> {
+			// Find the task in cache
+			let foundKey = '';
+			let foundTask: Task | undefined;
+			for (const [key, tasks] of weekCache) {
+				const t = tasks.find((t) => t.id === taskId);
+				if (t) {
+					foundKey = key;
+					foundTask = t;
+					break;
+				}
+			}
+			if (!foundTask || !foundKey) return;
+			if (foundTask.dayIndex === toDayIndex) return;
+
+			const previousList = [...(weekCache.get(foundKey) ?? [])];
+
+			// Compute sortOrder for the new day (append at end)
+			const targetDayTasks = previousList.filter((t) => t.dayIndex === toDayIndex);
+			const maxSort = targetDayTasks.reduce((max, t) => Math.max(max, t.sortOrder), -1);
+
+			// Optimistic: change dayIndex and sortOrder
+			const moved = { ...foundTask, dayIndex: toDayIndex, sortOrder: maxSort + 1 };
+			const next = new Map(weekCache);
+			const all = next.get(foundKey) ?? [];
+			next.set(
+				foundKey,
+				all.map((t) => (t.id === taskId ? moved : t))
+			);
+			weekCache = next;
+
+			try {
+				const res = await fetch(`/api/tasks/${taskId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ dayIndex: toDayIndex, sortOrder: maxSort + 1 })
+				});
+				if (!res.ok) throw new Error(`Failed to move task: ${res.status}`);
+			} catch (err) {
+				// Rollback
+				const rollback = new Map(weekCache);
+				rollback.set(foundKey, previousList);
+				weekCache = rollback;
+				throw err;
+			}
+		},
+
+		/**
 		 * Clear all cached data (e.g. when switching members).
 		 */
 		clearCache() {
