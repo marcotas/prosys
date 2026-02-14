@@ -1,9 +1,9 @@
 <script lang="ts">
-	import type { FamilyMember, DayData } from '$lib/data/fake';
+	import type { Member, DayData } from '$lib/types';
 	import ProgressRing from './ProgressRing.svelte';
 	import WeeklyBarChart from './WeeklyBarChart.svelte';
 
-	let { member, days } = $props<{ member: FamilyMember; days: DayData[] }>();
+	let { member, days } = $props<{ member: Member; days: DayData[] }>();
 
 	let totalTasks = $derived(days.reduce((sum: number, d: DayData) => sum + d.tasks.length, 0));
 	let totalCompleted = $derived(days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t: { completed: boolean }) => t.completed).length, 0));

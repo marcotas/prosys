@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ThemeConfig, ThemeVariant } from '$lib/data/fake';
-	import { themePresets, emojiOptions } from '$lib/stores/profiles.svelte';
+	import type { ThemeConfig, ThemeVariant } from '$lib/types';
+	import { themePresets, emojiOptions } from '$lib/types';
 
 	let { value, onChange } = $props<{
 		value: ThemeConfig;

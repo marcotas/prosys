@@ -1,12 +1,12 @@
 <script lang="ts">
-	import type { FamilyMember } from '$lib/data/fake';
+	import type { Member } from '$lib/types';
 
 	let { members, selectedId, onSelect, onAdd, onEdit } = $props<{
-		members: FamilyMember[];
+		members: Member[];
 		selectedId: string;
 		onSelect: (id: string) => void;
 		onAdd: () => void;
-		onEdit: (member: FamilyMember) => void;
+		onEdit: (member: Member) => void;
 	}>();
 </script>
 

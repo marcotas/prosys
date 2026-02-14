@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { ThemeConfig, FamilyMember } from '$lib/data/fake';
-	import { themePresets } from '$lib/stores/profiles.svelte';
+	import type { Member, ThemeConfig } from '$lib/types';
+	import { themePresets } from '$lib/types';
 	import ThemePicker from './ThemePicker.svelte';
 
 	let {
 		open = false,
-		member = null as FamilyMember | null,
+		member = null as Member | null,
 		onSave,
 		onDelete,
 		onClose
 	} = $props<{
 		open: boolean;
-		member: FamilyMember | null;
+		member: Member | null;
 		onSave: (data: { name: string; theme: ThemeConfig; quote: { text: string; author: string } }) => void;
 		onDelete?: (id: string) => void;
 		onClose: () => void;
