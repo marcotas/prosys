@@ -23,7 +23,9 @@ function cacheKey(memberId: string, weekStart: string): string {
 
 function createTaskStore() {
 	// Map of "memberId:weekStart" → Task[]
-	let weekCache = $state<Map<string, Task[]>>(new Map());
+	// Use $state.raw to avoid deep-proxy issues with Map — we always
+	// create a new Map on every mutation, so reference tracking suffices.
+	let weekCache = $state.raw<Map<string, Task[]>>(new Map());
 	let loading = $state(false);
 
 	return {

@@ -8,7 +8,9 @@ function cacheKey(memberId: string, weekStart: string): string {
 function createHabitStore() {
 	// Cache of loaded weeks: "memberId:weekStart" → HabitWithDays[]
 	// This holds the merged habit definitions + completions for each week
-	let weekCache = $state<Map<string, HabitWithDays[]>>(new Map());
+	// Use $state.raw to avoid deep-proxy issues with Map — we always
+	// create a new Map on every mutation, so reference tracking suffices.
+	let weekCache = $state.raw<Map<string, HabitWithDays[]>>(new Map());
 	let loading = $state(false);
 
 	return {

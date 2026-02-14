@@ -4,10 +4,14 @@ import * as schema from './schema.js';
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-const DB_PATH = resolve('data', 'prosys.db');
+// In production (Tauri), PROSYS_DATA_DIR points to a persistent location
+// outside the app bundle (~/Library/Application Support/com.prosys.app/).
+// In dev mode, fall back to a local ./data directory.
+const dataDir = process.env.PROSYS_DATA_DIR || resolve('data');
+const DB_PATH = resolve(dataDir, 'prosys.db');
 
 // Ensure data directory exists
-mkdirSync(resolve('data'), { recursive: true });
+mkdirSync(dataDir, { recursive: true });
 
 const sqlite = new Database(DB_PATH);
 

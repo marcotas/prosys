@@ -46,10 +46,18 @@ pub fn run() {
                 .into());
             }
 
+            // Store the database in a persistent location outside the app
+            // bundle so data survives app updates and rebuilds.
+            let data_dir = app
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("Failed to resolve app data directory: {e}"))?;
+
             let child = Command::new(&node_path)
                 .arg(&server_js)
                 .env("PORT", "3000")
                 .env("HOST", "0.0.0.0")
+                .env("PROSYS_DATA_DIR", &data_dir)
                 .current_dir(&server_dir)
                 .spawn()
                 .map_err(|e| {

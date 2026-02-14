@@ -35,7 +35,13 @@ function createWsStore() {
 
 		// Generate a stable client ID per session
 		if (!clientId) {
-			clientId = crypto.randomUUID();
+			try {
+				clientId = crypto.randomUUID();
+			} catch {
+				// crypto.randomUUID() requires a secure context (HTTPS/localhost).
+				// Fall back to a manual ID for LAN HTTP connections.
+				clientId = 'fallback-' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+			}
 		}
 
 		const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';

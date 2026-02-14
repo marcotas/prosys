@@ -54,14 +54,23 @@ function prosysWs(): Plugin {
 	};
 }
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
 	plugins: [prosysWs(), tailwindcss(), sveltekit()],
 
 	// Force Vite to bundle all pure-JS dependencies into the SSR output so
 	// the Tauri production build doesn't need to ship node_modules for them.
 	// Only native addons (better-sqlite3) stay external.
+	//
+	// In dev mode, ws and qrcode are also kept external because their CJS
+	// internals use require() which breaks in Vite's ESM-based SSR loader.
+	// In production builds, Vite properly transforms CJS → ESM, so they
+	// can be safely bundled (and MUST be, since the Tauri server-bundle
+	// doesn't ship them in node_modules).
 	ssr: {
 		noExternal: true,
-		external: ['better-sqlite3']
+		external:
+			command === 'serve'
+				? ['better-sqlite3', 'ws', 'qrcode']
+				: ['better-sqlite3']
 	}
-});
+}));
