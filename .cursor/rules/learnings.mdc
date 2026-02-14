@@ -1,0 +1,14 @@
+---
+description: Load project learnings (architecture + gotchas) when editing core files
+globs: src/**/*.svelte.ts, src/**/*.svelte, vite.config.ts, src-tauri/**, scripts/prepare-server-bundle.js, src/lib/server/**, server.js
+alwaysApply: false
+---
+
+# Project Learnings
+
+Before making changes to these files, read the relevant learnings:
+
+- **`.learnings/architecture.md`** -- Production topology, server bundle pipeline, data persistence, WebSocket architecture, macOS constraints
+- **`.learnings/gotchas.md`** -- Non-obvious pitfalls with Svelte 5 reactivity, Vite SSR externals, secure context APIs, ephemeral app bundles, and more
+
+Read both files when working on build/deployment. Read `gotchas.md` when debugging unexpected behavior.
