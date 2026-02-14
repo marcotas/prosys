@@ -61,10 +61,17 @@
     editValue = currentName;
   }
 
-  function commitEdit(habitId: string, originalName: string) {
-    const val = editValue.trim();
-    if (editingHabitId === habitId && val && val !== originalName) {
+  function commitEditFromContentEditable(
+    habitId: string,
+    originalName: string,
+    newValue: string,
+    el: HTMLElement,
+  ) {
+    const val = newValue.trim();
+    if (val && val !== originalName) {
       onUpdateHabit(habitId, { name: val });
+    } else {
+      el.textContent = originalName;
     }
     editingHabitId = null;
     editValue = "";
@@ -315,35 +322,37 @@
                       class="mr-1 select-none"
                       aria-hidden="true">{habit.emoji}</span
                     >{/if}
-                  <input
-                    type="text"
-                    value={editingHabitId === habit.id
-                      ? editValue
-                      : habit.name}
-                    oninput={(e) => {
-                      editValue = e.currentTarget.value;
+                  <span
+                    contenteditable="true"
+                    role="textbox"
+                    tabindex="0"
+                    aria-label="Habit: {habit.name}"
+                    onfocus={() => startEdit(habit.id, habit.name)}
+                    onblur={(e) => {
+                      const val = (e.currentTarget as HTMLElement).textContent?.trim() ?? "";
+                      commitEditFromContentEditable(habit.id, habit.name, val, e.currentTarget as HTMLElement);
                     }}
-                    onfocus={() => {
-                      startEdit(habit.id, habit.name);
-                    }}
-                    onblur={() => commitEdit(habit.id, habit.name)}
                     onkeydown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault();
-                        e.currentTarget.blur();
+                        (e.currentTarget as HTMLElement).blur();
                       }
                       if (e.key === "Escape") {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLElement).textContent = habit.name;
                         editingHabitId = null;
-                        editValue = "";
-                        e.currentTarget.value = habit.name;
-                        e.currentTarget.blur();
+                        (e.currentTarget as HTMLElement).blur();
                       }
                     }}
-                    class="text-[13px] w-full bg-transparent border-none outline-hidden p-0 m-0 whitespace-nowrap focus:outline-hidden {playful
+                    onpaste={(e) => {
+                      e.preventDefault();
+                      const text = e.clipboardData?.getData("text/plain") ?? "";
+                      document.execCommand("insertText", false, text);
+                    }}
+                    class="text-[13px] w-full outline-none whitespace-nowrap cursor-text {playful
                       ? 'font-medium'
                       : 'text-gray-700'}"
-                    aria-label="Habit: {habit.name}"
-                  />
+                  >{habit.name}</span>
                 </div>
               </td>
 

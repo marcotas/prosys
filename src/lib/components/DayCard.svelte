@@ -1,6 +1,9 @@
 <script lang="ts">
   import type { DayData, Task, ThemeConfig } from "$lib/types";
-  import { dragHandleZone, SHADOW_ITEM_MARKER_PROPERTY_NAME } from "svelte-dnd-action";
+  import {
+    dragHandleZone,
+    SHADOW_ITEM_MARKER_PROPERTY_NAME,
+  } from "svelte-dnd-action";
   import { flip } from "svelte/animate";
   import ProgressRing from "./ProgressRing.svelte";
   import DragHandle from "./DragHandle.svelte";
@@ -22,16 +25,24 @@
     onToggleTask: (taskId: string) => void;
     onAddTask: (title: string, emoji?: string) => void;
     onDeleteTask: (taskId: string) => void;
-    onUpdateTask: (taskId: string, updates: { title?: string; emoji?: string }) => void;
+    onUpdateTask: (
+      taskId: string,
+      updates: { title?: string; emoji?: string },
+    ) => void;
     onReorderTasks?: (taskIds: string[]) => void;
-    onMoveTask?: (taskId: string, toDayIndex: number, orderedTaskIds: string[]) => void;
+    onMoveTask?: (
+      taskId: string,
+      toDayIndex: number,
+      orderedTaskIds: string[],
+    ) => void;
   } = $props();
 
   let percent = $derived(
     day.tasks.length === 0
       ? 0
       : Math.round(
-          (day.tasks.filter((t) => t.completed).length / day.tasks.length) * 100,
+          (day.tasks.filter((t) => t.completed).length / day.tasks.length) *
+            100,
         ),
   );
   let playful = $derived(theme.variant === "playful");
@@ -213,10 +224,18 @@
     editValue = currentTitle;
   }
 
-  function commitEdit(taskId: string, originalTitle: string) {
-    const val = editValue.trim();
-    if (editingTaskId === taskId && val && val !== originalTitle) {
+  function commitEditFromContentEditable(
+    taskId: string,
+    originalTitle: string,
+    newValue: string,
+    el: HTMLElement,
+  ) {
+    const val = newValue.trim();
+    if (val && val !== originalTitle) {
       onUpdateTask(taskId, { title: val });
+    } else {
+      // Revert to original if empty or unchanged
+      el.textContent = originalTitle;
     }
     editingTaskId = null;
     editValue = "";
@@ -227,7 +246,9 @@
 
 <article
   class="bg-white shadow-sm flex flex-col overflow-hidden
-    {playful ? 'rounded-3xl border-2' : 'rounded-2xl border border-gray-200/60'}"
+    {playful
+    ? 'rounded-3xl border-2'
+    : 'rounded-2xl border border-gray-200/60'}"
   style={playful ? `border-color: ${theme.accent}25` : ""}
   aria-label="{day.dayName} tasks"
 >
@@ -307,7 +328,9 @@
         {@const isShadow = (task as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
         <div
           animate:flip={{ duration: FLIP_DURATION }}
-          class="relative overflow-hidden group/task {isShadow ? 'dnd-shadow-item' : ''}"
+          class="relative overflow-hidden group/task {isShadow
+            ? 'dnd-shadow-item'
+            : ''}"
           role="listitem"
         >
           <!-- Swipe-reveal zone: Move + Delete -->
@@ -364,13 +387,13 @@
           <!-- Swipeable task content -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
-            class="relative bg-white flex items-center w-full pl-1 pr-4 py-1.5 select-none
+            class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none
               {isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
             style="transform: translateX({offset}px); touch-action: pan-y;"
             onpointerdown={(e) => onPointerDown(e, task.id)}
           >
             <!-- Drag handle -->
-            <DragHandle {theme} />
+            <div class="mt-[4px]"><DragHandle {theme} /></div>
 
             <!-- Checkbox -->
             <button
@@ -380,7 +403,7 @@
               aria-label="Mark {task.title} as {task.completed
                 ? 'incomplete'
                 : 'complete'}"
-              class="shrink-0 w-[18px] h-[18px] rounded-[5px] flex items-center justify-center
+              class="shrink-0 w-[18px] h-[18px] mt-[2px] rounded-[5px] flex items-center justify-center
                 transition-all duration-150 mr-2.5
                 {task.completed ? '' : 'border-2 hover:border-opacity-80'}"
               style={task.completed
@@ -404,39 +427,48 @@
               {/if}
             </button>
 
-            <!-- Task title -->
+            <!-- Task title (contenteditable for wrapping + inline edit) -->
             {#if task.emoji}<span class="mr-0.5 select-none" aria-hidden="true"
                 >{task.emoji}</span
               >{/if}
-            <input
-              type="text"
-              value={editingTaskId === task.id ? editValue : task.title}
-              oninput={(e) => {
-                editValue = e.currentTarget.value;
+            <span
+              contenteditable="true"
+              role="textbox"
+              tabindex="0"
+              aria-label="Task: {task.title}"
+              onfocus={() => startEdit(task.id, task.title)}
+              onblur={(e) => {
+                const val =
+                  (e.currentTarget as HTMLElement).textContent?.trim() ?? "";
+                commitEditFromContentEditable(
+                  task.id,
+                  task.title,
+                  val,
+                  e.currentTarget as HTMLElement,
+                );
               }}
-              onfocus={() => {
-                startEdit(task.id, task.title);
-              }}
-              onblur={() => commitEdit(task.id, task.title)}
               onkeydown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  e.currentTarget.blur();
+                  (e.currentTarget as HTMLElement).blur();
                 }
                 if (e.key === "Escape") {
+                  e.preventDefault();
+                  (e.currentTarget as HTMLElement).textContent = task.title;
                   editingTaskId = null;
-                  editValue = "";
-                  e.currentTarget.value = task.title;
-                  e.currentTarget.blur();
+                  (e.currentTarget as HTMLElement).blur();
                 }
               }}
-              class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent border-none outline-hidden p-0 m-0
-                focus:outline-hidden
+              onpaste={(e) => {
+                e.preventDefault();
+                const text = e.clipboardData?.getData("text/plain") ?? "";
+                document.execCommand("insertText", false, text);
+              }}
+              class="flex-1 min-w-0 mt-px text-[13px] leading-normal outline-none cursor-text wrap-anywhere
                 {task.completed
                 ? 'line-through text-gray-400 decoration-gray-300'
-                : 'text-gray-700'}"
-              aria-label="Task: {task.title}"
-            />
+                : 'text-gray-700'}">{task.title}</span
+            >
 
             <!-- Delete icon — visible on hover (desktop) -->
             <button
@@ -471,8 +503,7 @@
             <div
               class="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex items-center justify-center gap-1.5 px-2"
               onclick={() => (movePickerTaskId = null)}
-              onkeydown={(e) =>
-                e.key === "Escape" && (movePickerTaskId = null)}
+              onkeydown={(e) => e.key === "Escape" && (movePickerTaskId = null)}
             >
               <span class="text-[11px] font-medium text-gray-400 mr-1"
                 >Move to</span
@@ -492,7 +523,15 @@
                   style={i !== dayIndex
                     ? `background-color: ${theme.accent}`
                     : ""}
-                  aria-label="Move to {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][i]}"
+                  aria-label="Move to {[
+                    'Sunday',
+                    'Monday',
+                    'Tuesday',
+                    'Wednesday',
+                    'Thursday',
+                    'Friday',
+                    'Saturday',
+                  ][i]}"
                 >
                   {label}
                 </button>
@@ -517,7 +556,9 @@
         onkeydown={handleAddKeydown}
         placeholder={playful ? "Add task ✨" : "+ Add task"}
         class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent outline-hidden focus:outline-hidden
-          placeholder:text-gray-300 {playful ? 'placeholder:opacity-60' : ''} text-gray-700"
+          placeholder:text-gray-300 {playful
+          ? 'placeholder:opacity-60'
+          : ''} text-gray-700"
         aria-label="Add task to {day.dayName}"
       />
     </div>
@@ -527,7 +568,9 @@
 <style>
   /* Dragged item: lifted with shadow */
   :global([aria-grabbed="true"]) {
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow:
+      0 8px 24px rgba(0, 0, 0, 0.15),
+      0 2px 8px rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     opacity: 0.95;
     z-index: 50;
