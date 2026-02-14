@@ -60,7 +60,13 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	}
 
 	const task = rowToTask(updated);
-	broadcast({ type: 'task:updated', payload: task }, locals.wsClientId);
+
+	// If dayIndex changed, this is a move — broadcast the more specific message
+	if (dayIndex !== undefined && dayIndex !== existing.dayIndex) {
+		broadcast({ type: 'task:moved', payload: { task, fromDay: existing.dayIndex } }, locals.wsClientId);
+	} else {
+		broadcast({ type: 'task:updated', payload: task }, locals.wsClientId);
+	}
 
 	return json(task);
 };

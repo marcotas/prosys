@@ -13,4 +13,7 @@
 - [x] 07-platform — Tauri v2 desktop shell + PWA manifest + mDNS discovery
 
 ## Integration (sequential)
-- [ ] integration — Wire drag handles into components, WS into stores, cross-day drag, platform verification, end-to-end smoke test
+- [x] integration — Wire drag handles into components, WS into stores, cross-day drag, platform verification, end-to-end smoke test
+
+## QA (sequential)
+- [x] 08-qa — End-to-end verification: member CRUD, task CRUD, habit tracking, drag-drop, week nav, member switching, real-time sync, themes, zero console errors
