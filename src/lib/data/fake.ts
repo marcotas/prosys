@@ -483,6 +483,69 @@ export function getOverallHabitProgress(habits: Habit[]): number {
 }
 
 export const dayAbbreviations = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+export const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+// Week date computation — base week starts Sunday Nov 2, 2025
+// Uses setDate to avoid DST issues (millisecond math breaks on DST boundaries)
+
+function getBaseDate(weekOffset: number, dayOffset: number = 0): Date {
+	const d = new Date(2025, 10, 2); // Nov 2, 2025
+	d.setDate(d.getDate() + weekOffset * 7 + dayOffset);
+	return d;
+}
+
+function formatDD_MM_YYYY(d: Date): string {
+	const dd = String(d.getDate()).padStart(2, '0');
+	const mm = String(d.getMonth() + 1).padStart(2, '0');
+	return `${dd}.${mm}.${d.getFullYear()}`;
+}
+
+export function computeWeekDays(weekOffset: number): { dayName: string; date: string }[] {
+	const days: { dayName: string; date: string }[] = [];
+	for (let i = 0; i < 7; i++) {
+		const d = getBaseDate(weekOffset, i);
+		days.push({
+			dayName: dayNames[d.getDay()],
+			date: formatDD_MM_YYYY(d),
+		});
+	}
+	return days;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function formatWeekRange(weekOffset: number): string {
+	const start = getBaseDate(weekOffset, 0);
+	const end = getBaseDate(weekOffset, 6);
+	const sm = MONTHS[start.getMonth()];
+	const em = MONTHS[end.getMonth()];
+	if (start.getMonth() === end.getMonth()) {
+		return `${sm} ${start.getDate()} – ${end.getDate()}, ${start.getFullYear()}`;
+	}
+	if (start.getFullYear() === end.getFullYear()) {
+		return `${sm} ${start.getDate()} – ${em} ${end.getDate()}, ${start.getFullYear()}`;
+	}
+	return `${sm} ${start.getDate()}, ${start.getFullYear()} – ${em} ${end.getDate()}, ${end.getFullYear()}`;
+}
+
+export function getWeekStartDate(weekOffset: number): string {
+	return formatDD_MM_YYYY(getBaseDate(weekOffset, 0));
+}
+
+/** Compute the week offset for today's date relative to the base week (Nov 2, 2025). */
+export function getTodayWeekOffset(): number {
+	const base = new Date(2025, 10, 2); // Nov 2, 2025 (Sunday)
+	const now = new Date();
+	// Get the Sunday of the current week
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	const dayOfWeek = today.getDay(); // 0 = Sunday
+	const currentSunday = new Date(today);
+	currentSunday.setDate(today.getDate() - dayOfWeek);
+	// Diff in days between current Sunday and base Sunday, then divide by 7
+	const diffMs = currentSunday.getTime() - base.getTime();
+	const diffDays = Math.round(diffMs / (24 * 60 * 60 * 1000));
+	return Math.round(diffDays / 7);
+}
 
 // Fun completion messages for kids
 export function getKidCompletionMessage(percent: number): string {

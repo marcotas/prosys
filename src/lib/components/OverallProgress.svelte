@@ -1,13 +1,12 @@
 <script lang="ts">
-	import type { FamilyMember } from '$lib/data/fake';
-	import { getTotalTasks, getTotalCompleted } from '$lib/data/fake';
+	import type { FamilyMember, DayData } from '$lib/data/fake';
 	import ProgressRing from './ProgressRing.svelte';
 	import WeeklyBarChart from './WeeklyBarChart.svelte';
 
-	let { member } = $props<{ member: FamilyMember }>();
+	let { member, days } = $props<{ member: FamilyMember; days: DayData[] }>();
 
-	let totalTasks = $derived(getTotalTasks(member));
-	let totalCompleted = $derived(getTotalCompleted(member));
+	let totalTasks = $derived(days.reduce((sum: number, d: DayData) => sum + d.tasks.length, 0));
+	let totalCompleted = $derived(days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t: { completed: boolean }) => t.completed).length, 0));
 	let overallPercent = $derived(
 		totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0
 	);
@@ -61,7 +60,7 @@
 		<!-- Chart + Ring -->
 		<div class="px-4 py-4 flex items-center gap-5">
 			<div class="flex-1 min-w-0">
-				<WeeklyBarChart days={member.days} theme={member.theme} />
+				<WeeklyBarChart days={days} theme={member.theme} />
 			</div>
 			<div class="flex-shrink-0">
 				<ProgressRing

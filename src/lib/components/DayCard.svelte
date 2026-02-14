@@ -298,7 +298,8 @@
                   if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur(); }
                   if (e.key === 'Escape') { editingTaskId = null; editValue = ''; e.currentTarget.value = task.title; e.currentTarget.blur(); }
                 }}
-                class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent border-none outline-none p-0 m-0
+                class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent border-none outline-hidden p-0 m-0
+                  focus:outline-hidden
                   {task.completed
                   ? 'line-through text-gray-400 decoration-gray-300'
                   : 'text-gray-700'}"
@@ -338,7 +339,7 @@
           bind:value={newTaskTitle}
           onkeydown={handleAddKeydown}
           placeholder={playful ? "Add task ✨" : "+ Add task"}
-          class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent outline-none
+          class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent outline-hidden focus:outline-hidden
             placeholder:text-gray-300 {playful ? 'placeholder:opacity-60' : ''} text-gray-700"
           aria-label="Add task to {day.dayName}"
         />
