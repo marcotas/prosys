@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { createId } from '$lib/utils/ids';
 import type { Member, ThemeConfig, ThemeVariant } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -129,7 +130,7 @@ export const GET: RequestHandler = async () => {
 
 // ── POST /api/members ───────────────────────────────────
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { name, theme, quote } = body as {
 		name: string;
@@ -171,6 +172,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		createdAt: now,
 		updatedAt: now
 	};
+
+	broadcast({ type: 'member:created', payload: member }, locals.wsClientId);
 
 	return json(member, { status: 201 });
 };

@@ -1,4 +1,5 @@
 import type { Member, ThemeConfig } from '$lib/types';
+import { wsHeaders } from './ws.svelte';
 
 type CreateMemberData = {
 	name: string;
@@ -65,7 +66,7 @@ function createMemberStore() {
 		async create(data: CreateMemberData): Promise<Member> {
 			const res = await fetch('/api/members', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify(data)
 			});
 			if (!res.ok) throw new Error(`Failed to create member: ${res.status}`);
@@ -87,11 +88,11 @@ function createMemberStore() {
 			members = members.map((m) => (m.id === id ? optimistic : m));
 
 			try {
-				const res = await fetch(`/api/members/${id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(data)
-				});
+			const res = await fetch(`/api/members/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify(data)
+			});
 				if (!res.ok) throw new Error(`Failed to update member: ${res.status}`);
 				const updated: Member = await res.json();
 				members = members.map((m) => (m.id === id ? updated : m));
@@ -113,7 +114,7 @@ function createMemberStore() {
 			}
 
 			try {
-				const res = await fetch(`/api/members/${id}`, { method: 'DELETE' });
+				const res = await fetch(`/api/members/${id}`, { method: 'DELETE', headers: wsHeaders() });
 				if (!res.ok) {
 					throw new Error(`Failed to delete member: ${res.status}`);
 				}
@@ -121,6 +122,26 @@ function createMemberStore() {
 				// Rollback on failure
 				members = previous;
 				throw err;
+			}
+		},
+
+		// ── Remote apply methods (called by WS message handlers) ──
+
+		applyRemoteCreate(member: Member) {
+			// Only add if not already present (prevent dupes)
+			if (members.some((m) => m.id === member.id)) return;
+			members = [...members, member];
+		},
+
+		applyRemoteUpdate(member: Member) {
+			members = members.map((m) => (m.id === member.id ? member : m));
+		},
+
+		applyRemoteDelete(payload: { id: string }) {
+			members = members.filter((m) => m.id !== payload.id);
+			// Re-select if the deleted member was selected
+			if (selectedMemberId === payload.id) {
+				selectedMemberId = members[0]?.id ?? '';
 			}
 		}
 	};

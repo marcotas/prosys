@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { familyMembers } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Member, ThemeConfig, ThemeVariant } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -29,7 +30,7 @@ function rowToMember(row: typeof familyMembers.$inferSelect): Member {
 
 // ── PATCH /api/members/[id] ─────────────────────────────
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
 	const { name, theme, quote } = body as {
@@ -77,12 +78,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Member not found after update' }, { status: 500 });
 	}
 
-	return json(rowToMember(updated));
+	const member = rowToMember(updated);
+	broadcast({ type: 'member:updated', payload: member }, locals.wsClientId);
+
+	return json(member);
 };
 
 // ── DELETE /api/members/[id] ────────────────────────────
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const { id } = params;
 
 	const existing = db.select().from(familyMembers).where(eq(familyMembers.id, id)).get();
@@ -92,6 +96,8 @@ export const DELETE: RequestHandler = async ({ params }) => {
 
 	// FK cascade in schema handles deleting related tasks and habits
 	db.delete(familyMembers).where(eq(familyMembers.id, id)).run();
+
+	broadcast({ type: 'member:deleted', payload: { id } }, locals.wsClientId);
 
 	return json({ success: true });
 };

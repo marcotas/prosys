@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { habits } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Habit } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -19,7 +20,7 @@ function rowToHabit(row: typeof habits.$inferSelect): Habit {
 
 // ── PATCH /api/habits/[id] ──────────────────────────────
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
 	const { name, emoji } = body as {
@@ -49,12 +50,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Habit not found after update' }, { status: 500 });
 	}
 
-	return json(rowToHabit(updated));
+	const habit = rowToHabit(updated);
+	broadcast({ type: 'habit:updated', payload: habit }, locals.wsClientId);
+
+	return json(habit);
 };
 
 // ── DELETE /api/habits/[id] ─────────────────────────────
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const { id } = params;
 
 	const existing = db.select().from(habits).where(eq(habits.id, id)).get();
@@ -64,6 +68,11 @@ export const DELETE: RequestHandler = async ({ params }) => {
 
 	// Cascades to habit_completions via FK
 	db.delete(habits).where(eq(habits.id, id)).run();
+
+	broadcast(
+		{ type: 'habit:deleted', payload: { id, memberId: existing.memberId } },
+		locals.wsClientId
+	);
 
 	return json({ success: true });
 };

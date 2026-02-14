@@ -23,6 +23,9 @@ importers:
       svelte-dnd-action:
         specifier: ^0.9.69
         version: 0.9.69(svelte@5.50.3)
+      ws:
+        specifier: ^8.19.0
+        version: 8.19.0
     devDependencies:
       '@sveltejs/adapter-node':
         specifier: ^5.5.3
@@ -39,6 +42,9 @@ importers:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       drizzle-kit:
         specifier: ^0.31.9
         version: 0.31.9
@@ -682,6 +688,9 @@ packages:
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
+
   acorn@8.15.0:
     resolution: {integrity: sha512-NZyJarBfL7nWwIq+FDL6Zp/yHEhePMNnnJ0y3qfieCrmNvYct8uvtiV41UvlSe6apAfk0fY1FbWx+NwfmpvtTg==}
     engines: {node: '>=0.4.0'}
@@ -1256,6 +1265,18 @@ packages:
   wrappy@1.0.2:
     resolution: {integrity: sha512-l4Sp/DRseor9wL6EvV2+TuQn63dMkPjZ/sp9XkghTEbV9KlPS1xUsZ3u7/IQO4wxtcFB4bgpQPRcR3QCvezPcQ==}
 
+  ws@8.19.0:
+    resolution: {integrity: sha512-blAT2mjOEIi0ZzruJfIhb3nps74PRWTCz1IjglWEEpQl5XS/UNama6u2/rjFkDDouqr4L67ry+1aGIALViWjDg==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   zimmerframe@1.1.4:
     resolution: {integrity: sha512-B58NGBEoc8Y9MWWCQGl/gq9xBCe4IiKM0a2x7GZdQKOW5Exr8S1W24J6OgM1njK8xCRGvAJIL/MxXHf6SkmQKQ==}
 
@@ -1687,6 +1708,10 @@ snapshots:
       undici-types: 7.16.0
 
   '@types/resolve@1.20.2': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 25.2.3
 
   acorn@8.15.0: {}
 
@@ -2168,5 +2193,7 @@ snapshots:
       vite: 6.4.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)
 
   wrappy@1.0.2: {}
+
+  ws@8.19.0: {}
 
   zimmerframe@1.1.4: {}

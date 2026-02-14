@@ -3,12 +3,13 @@ import type { RequestHandler } from './$types';
 import { db, sqlite } from '$lib/server/db';
 import { habits } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
+import { broadcast } from '$lib/server/ws';
 
 // ── PUT /api/habits/reorder ─────────────────────────────
 // Batch-reorder habits for a member.
 // Body: { memberId, habitIds: string[] }
 
-export const PUT: RequestHandler = async ({ request }) => {
+export const PUT: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, habitIds } = body as {
 		memberId: string;
@@ -48,6 +49,11 @@ export const PUT: RequestHandler = async ({ request }) => {
 		}
 	});
 	transaction();
+
+	broadcast(
+		{ type: 'habit:reordered', payload: { memberId, habitIds } },
+		locals.wsClientId
+	);
 
 	return json({ ok: true });
 };

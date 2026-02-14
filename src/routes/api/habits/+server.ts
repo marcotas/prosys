@@ -5,6 +5,7 @@ import { habits } from '$lib/server/db/schema';
 import { eq, max } from 'drizzle-orm';
 import { createId } from '$lib/utils/ids';
 import type { Habit } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -20,7 +21,7 @@ function rowToHabit(row: typeof habits.$inferSelect): Habit {
 
 // ── POST /api/habits ────────────────────────────────────
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, name, emoji } = body as {
 		memberId: string;
@@ -65,6 +66,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		emoji: emoji || undefined,
 		sortOrder: nextSort
 	};
+
+	broadcast({ type: 'habit:created', payload: habit }, locals.wsClientId);
 
 	return json(habit, { status: 201 });
 };

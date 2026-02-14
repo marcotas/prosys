@@ -4,6 +4,7 @@ import { db } from '$lib/server/db';
 import { tasks } from '$lib/server/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Task } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -22,7 +23,7 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 
 // ── PATCH /api/tasks/[id] ──────────────────────────────
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
+export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
 	const { title, emoji, completed, dayIndex, sortOrder } = body as {
@@ -58,12 +59,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'Task not found after update' }, { status: 500 });
 	}
 
-	return json(rowToTask(updated));
+	const task = rowToTask(updated);
+	broadcast({ type: 'task:updated', payload: task }, locals.wsClientId);
+
+	return json(task);
 };
 
 // ── DELETE /api/tasks/[id] ─────────────────────────────
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	const { id } = params;
 
 	const existing = db.select().from(tasks).where(eq(tasks.id, id)).get();
@@ -72,6 +76,19 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	}
 
 	db.delete(tasks).where(eq(tasks.id, id)).run();
+
+	broadcast(
+		{
+			type: 'task:deleted',
+			payload: {
+				id,
+				memberId: existing.memberId,
+				weekStart: existing.weekStart,
+				dayIndex: existing.dayIndex
+			}
+		},
+		locals.wsClientId
+	);
 
 	return json({ success: true });
 };

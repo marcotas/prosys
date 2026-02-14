@@ -1,4 +1,5 @@
 import type { Task } from '$lib/types';
+import { wsHeaders } from './ws.svelte';
 
 type CreateTaskData = {
 	memberId: string;
@@ -119,11 +120,11 @@ function createTaskStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch('/api/tasks', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(data)
-				});
+			const res = await fetch('/api/tasks', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify(data)
+			});
 				if (!res.ok) throw new Error(`Failed to create task: ${res.status}`);
 				const created: Task = await res.json();
 
@@ -179,11 +180,11 @@ function createTaskStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/tasks/${id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(data)
-				});
+			const res = await fetch(`/api/tasks/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify(data)
+			});
 				if (!res.ok) throw new Error(`Failed to update task: ${res.status}`);
 				const updated: Task = await res.json();
 
@@ -247,7 +248,7 @@ function createTaskStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
+				const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE', headers: wsHeaders() });
 				if (!res.ok) throw new Error(`Failed to delete task: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -280,11 +281,11 @@ function createTaskStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch('/api/tasks/reorder', {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ memberId, weekStart, dayIndex, taskIds })
-				});
+			const res = await fetch('/api/tasks/reorder', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify({ memberId, weekStart, dayIndex, taskIds })
+			});
 				if (!res.ok) throw new Error(`Failed to reorder tasks: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -330,11 +331,11 @@ function createTaskStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/tasks/${taskId}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ dayIndex: toDayIndex, sortOrder: maxSort + 1 })
-				});
+			const res = await fetch(`/api/tasks/${taskId}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify({ dayIndex: toDayIndex, sortOrder: maxSort + 1 })
+			});
 				if (!res.ok) throw new Error(`Failed to move task: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -342,6 +343,68 @@ function createTaskStore() {
 				rollback.set(foundKey, previousList);
 				weekCache = rollback;
 				throw err;
+			}
+		},
+
+		// ── Remote apply methods (called by WS message handlers) ──
+
+		applyRemoteCreate(task: Task) {
+			const key = cacheKey(task.memberId, task.weekStart);
+			const existing = weekCache.get(key);
+			if (!existing) return; // Not cached — will load from API when needed
+			const next = new Map(weekCache);
+			next.set(key, [...existing, task]);
+			weekCache = next;
+		},
+
+		applyRemoteUpdate(task: Task) {
+			for (const [key, tasks] of weekCache) {
+				const idx = tasks.findIndex((t) => t.id === task.id);
+				if (idx !== -1) {
+					const next = new Map(weekCache);
+					next.set(key, tasks.map((t) => (t.id === task.id ? task : t)));
+					weekCache = next;
+					return;
+				}
+			}
+		},
+
+		applyRemoteDelete(payload: { id: string; memberId: string; weekStart: string; dayIndex: number }) {
+			const key = cacheKey(payload.memberId, payload.weekStart);
+			const existing = weekCache.get(key);
+			if (!existing) return;
+			const next = new Map(weekCache);
+			next.set(key, existing.filter((t) => t.id !== payload.id));
+			weekCache = next;
+		},
+
+		applyRemoteReorder(payload: { memberId: string; weekStart: string; dayIndex: number; taskIds: string[] }) {
+			const key = cacheKey(payload.memberId, payload.weekStart);
+			const existing = weekCache.get(key);
+			if (!existing) return;
+			const next = new Map(weekCache);
+			next.set(
+				key,
+				existing.map((t) => {
+					if (t.dayIndex !== payload.dayIndex) return t;
+					const idx = payload.taskIds.indexOf(t.id);
+					if (idx === -1) return t;
+					return { ...t, sortOrder: idx };
+				})
+			);
+			weekCache = next;
+		},
+
+		applyRemoteMove(payload: { task: Task; fromDay: number }) {
+			// The moved task already has the new dayIndex + sortOrder in payload.task
+			for (const [key, tasks] of weekCache) {
+				const idx = tasks.findIndex((t) => t.id === payload.task.id);
+				if (idx !== -1) {
+					const next = new Map(weekCache);
+					next.set(key, tasks.map((t) => (t.id === payload.task.id ? payload.task : t)));
+					weekCache = next;
+					return;
+				}
 			}
 		},
 

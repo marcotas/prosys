@@ -3,12 +3,13 @@ import type { RequestHandler } from './$types';
 import { db, sqlite } from '$lib/server/db';
 import { tasks } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { broadcast } from '$lib/server/ws';
 
 // ── PUT /api/tasks/reorder ──────────────────────────────
 // Batch-reorder tasks within a specific day.
 // Body: { memberId, weekStart, dayIndex, taskIds: string[] }
 
-export const PUT: RequestHandler = async ({ request }) => {
+export const PUT: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, weekStart, dayIndex, taskIds } = body as {
 		memberId: string;
@@ -62,6 +63,11 @@ export const PUT: RequestHandler = async ({ request }) => {
 		}
 	});
 	transaction();
+
+	broadcast(
+		{ type: 'task:reordered', payload: { memberId, weekStart, dayIndex, taskIds } },
+		locals.wsClientId
+	);
 
 	return json({ ok: true });
 };

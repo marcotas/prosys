@@ -5,6 +5,7 @@ import { tasks } from '$lib/server/db/schema';
 import { eq, and, max } from 'drizzle-orm';
 import { createId } from '$lib/utils/ids';
 import type { Task } from '$lib/types';
+import { broadcast } from '$lib/server/ws';
 
 // ── Helpers ─────────────────────────────────────────────
 
@@ -23,7 +24,7 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 
 // ── POST /api/tasks ────────────────────────────────────
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, weekStart, dayIndex, title, emoji } = body as {
 		memberId: string;
@@ -84,6 +85,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		completed: false,
 		sortOrder: nextSort
 	};
+
+	broadcast({ type: 'task:created', payload: task }, locals.wsClientId);
 
 	return json(task, { status: 201 });
 };

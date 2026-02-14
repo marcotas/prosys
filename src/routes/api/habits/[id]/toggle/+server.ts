@@ -4,10 +4,11 @@ import { db } from '$lib/server/db';
 import { habits, habitCompletions } from '$lib/server/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { createId } from '$lib/utils/ids';
+import { broadcast } from '$lib/server/ws';
 
 // ── PUT /api/habits/[id]/toggle ─────────────────────────
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
 	const { weekStart, dayIndex } = body as {
@@ -41,10 +42,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 		)
 		.get();
 
+	let completed: boolean;
+
 	if (existing) {
 		// Delete — uncomplete
 		db.delete(habitCompletions).where(eq(habitCompletions.id, existing.id)).run();
-		return json({ completed: false });
+		completed = false;
 	} else {
 		// Insert — complete
 		db.insert(habitCompletions)
@@ -56,6 +59,13 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 				completed: true
 			})
 			.run();
-		return json({ completed: true });
+		completed = true;
 	}
+
+	broadcast(
+		{ type: 'habit:toggled', payload: { habitId: id, weekStart, dayIndex, completed } },
+		locals.wsClientId
+	);
+
+	return json({ completed });
 };

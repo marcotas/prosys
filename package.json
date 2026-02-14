@@ -15,7 +15,8 @@
     "drizzle-orm": "^0.45.1",
     "nanoid": "^5.1.6",
     "svelte": "^5.0.0",
-    "svelte-dnd-action": "^0.9.69"
+    "svelte-dnd-action": "^0.9.69",
+    "ws": "^8.19.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
@@ -29,6 +30,7 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/ws": "^8.18.1",
     "drizzle-kit": "^0.31.9",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",

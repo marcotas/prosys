@@ -1,4 +1,5 @@
 import type { Habit, HabitWithDays } from '$lib/types';
+import { wsHeaders } from './ws.svelte';
 
 function cacheKey(memberId: string, weekStart: string): string {
 	return `${memberId}:${weekStart}`;
@@ -98,11 +99,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch('/api/habits', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ memberId, name, emoji })
-				});
+			const res = await fetch('/api/habits', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify({ memberId, name, emoji })
+			});
 				if (!res.ok) throw new Error(`Failed to create habit: ${res.status}`);
 				const created: Habit = await res.json();
 
@@ -169,11 +170,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/habits/${id}`, {
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(data)
-				});
+			const res = await fetch(`/api/habits/${id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify(data)
+			});
 				if (!res.ok) throw new Error(`Failed to update habit: ${res.status}`);
 				const updated: Habit = await res.json();
 
@@ -230,7 +231,7 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/habits/${id}`, { method: 'DELETE' });
+				const res = await fetch(`/api/habits/${id}`, { method: 'DELETE', headers: wsHeaders() });
 				if (!res.ok) throw new Error(`Failed to delete habit: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -280,11 +281,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch(`/api/habits/${habitId}/toggle`, {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ weekStart, dayIndex })
-				});
+			const res = await fetch(`/api/habits/${habitId}/toggle`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify({ weekStart, dayIndex })
+			});
 				if (!res.ok) throw new Error(`Failed to toggle habit: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -325,11 +326,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-				const res = await fetch('/api/habits/reorder', {
-					method: 'PUT',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ memberId, habitIds })
-				});
+			const res = await fetch('/api/habits/reorder', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+				body: JSON.stringify({ memberId, habitIds })
+			});
 				if (!res.ok) throw new Error(`Failed to reorder habits: ${res.status}`);
 			} catch (err) {
 				// Rollback
@@ -340,6 +341,79 @@ function createHabitStore() {
 				weekCache = rollback;
 				throw err;
 			}
+		},
+
+		// ── Remote apply methods (called by WS message handlers) ──
+
+		applyRemoteCreate(habit: Habit) {
+			const next = new Map(weekCache);
+			for (const [key, habits] of next) {
+				if (key.startsWith(`${habit.memberId}:`)) {
+					next.set(key, [...habits, { ...habit, days: [false, false, false, false, false, false, false] }]);
+				}
+			}
+			weekCache = next;
+		},
+
+		applyRemoteUpdate(habit: Habit) {
+			const next = new Map(weekCache);
+			for (const [key, habits] of next) {
+				if (key.startsWith(`${habit.memberId}:`)) {
+					next.set(key, habits.map((h) => (h.id === habit.id ? { ...h, ...habit } : h)));
+				}
+			}
+			weekCache = next;
+		},
+
+		applyRemoteDelete(payload: { id: string; memberId: string }) {
+			const next = new Map(weekCache);
+			for (const [key, habits] of next) {
+				if (key.startsWith(`${payload.memberId}:`)) {
+					next.set(key, habits.filter((h) => h.id !== payload.id));
+				}
+			}
+			weekCache = next;
+		},
+
+		applyRemoteToggle(payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean }) {
+			// Find the cache key for the habit's member + the payload weekStart
+			for (const [key, habits] of weekCache) {
+				if (!key.endsWith(`:${payload.weekStart}`)) continue;
+				const habit = habits.find((h) => h.id === payload.habitId);
+				if (!habit) continue;
+
+				const next = new Map(weekCache);
+				next.set(
+					key,
+					habits.map((h) => {
+						if (h.id !== payload.habitId) return h;
+						const newDays = [...h.days];
+						newDays[payload.dayIndex] = payload.completed;
+						return { ...h, days: newDays };
+					})
+				);
+				weekCache = next;
+				return;
+			}
+		},
+
+		applyRemoteReorder(payload: { memberId: string; habitIds: string[] }) {
+			const next = new Map(weekCache);
+			for (const [key, habits] of next) {
+				if (key.startsWith(`${payload.memberId}:`)) {
+					next.set(
+						key,
+						habits
+							.map((h) => {
+								const idx = payload.habitIds.indexOf(h.id);
+								if (idx === -1) return h;
+								return { ...h, sortOrder: idx };
+							})
+							.sort((a, b) => a.sortOrder - b.sortOrder)
+					);
+				}
+			}
+			weekCache = next;
 		},
 
 		/**
