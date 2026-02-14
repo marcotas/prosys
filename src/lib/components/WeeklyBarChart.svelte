@@ -1,17 +1,17 @@
 <script lang="ts">
-	import type { DayData, ThemeConfig } from '$lib/data/fake';
-	import { dayAbbreviations } from '$lib/data/fake';
+	import type { DayData, ThemeConfig } from '$lib/types';
+	import { dayAbbreviations } from '$lib/utils/dates';
 
 	let { days, theme } = $props<{ days: DayData[]; theme: ThemeConfig }>();
 
-	let maxTasks = $derived(Math.max(...days.map((d) => d.tasks.length), 1));
+	let maxTasks = $derived(Math.max(...days.map((d: DayData) => d.tasks.length), 1));
 	let playful = $derived(theme.variant === 'playful');
 </script>
 
 <div class="flex items-end gap-1.5 h-24">
 	{#each days as day, i}
 		{@const total = day.tasks.length}
-		{@const completed = day.tasks.filter((t) => t.completed).length}
+		{@const completed = day.tasks.filter((t: {completed: boolean}) => t.completed).length}
 		{@const heightPercent = (total / maxTasks) * 100}
 		{@const completedHeight = total > 0 ? (completed / total) * heightPercent : 0}
 		<div class="flex-1 flex flex-col items-center gap-1">

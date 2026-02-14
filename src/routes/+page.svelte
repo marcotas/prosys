@@ -11,16 +11,27 @@
   import DayCard from "$lib/components/DayCard.svelte";
   import ProfileDialog from "$lib/components/ProfileDialog.svelte";
 
-  // Load members from database on mount
+  // SSR data from +page.server.ts
+  let { data } = $props();
+
+  // Hydrate stores on the client with server data (skips if already cached)
   $effect(() => {
-    memberStore.load();
+    if (data.members.length > 0) {
+      memberStore.hydrate(data.members, data.defaultMemberId);
+      taskStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
+      habitStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.habits);
+    }
   });
 
   let dialogOpen = $state(false);
   let editingMember = $state<Member | null>(null);
   let weekOffset = $state(getTodayWeekOffset());
 
-  let currentMember = $derived(memberStore.selectedMember);
+  // currentMember: use store value (CSR) with data fallback (SSR)
+  let currentMember = $derived(
+    memberStore.selectedMember ??
+      data.members.find((m: Member) => m.id === data.defaultMemberId),
+  );
   let playful = $derived(currentMember?.theme.variant === "playful");
 
   // Week navigation state
@@ -46,24 +57,42 @@
     }
   });
 
-  // ── Week data with tasks from store ──
+  // ── Week data with tasks from store (SSR fallback via data prop) ──
   let visibleDays = $derived.by(() => {
-    const memberId = memberStore.selectedMemberId;
+    const memberId = memberStore.selectedMemberId || data.defaultMemberId;
     const weekStart = currentWeekStart;
+    // Build day shells, attach tasks from store (or SSR data for initial render)
+    const storeTasks = memberId
+      ? computeWeekDays(weekOffset).map((d, i) => ({
+          dayName: d.dayName,
+          date: d.date,
+          isoDate: d.isoDate,
+          tasks: taskStore.getTasksForDay(memberId, weekStart, i),
+        }))
+      : null;
+    // If store has tasks loaded, use them; otherwise fall back to SSR data
+    const hasStoreTasks = storeTasks?.some((d) => d.tasks.length > 0) || false;
+    if (hasStoreTasks || memberStore.selectedMemberId) {
+      return storeTasks!;
+    }
+    // SSR fallback: build days from server-loaded tasks
     return computeWeekDays(weekOffset).map((d, i) => ({
       dayName: d.dayName,
       date: d.date,
       isoDate: d.isoDate,
-      tasks: memberId ? taskStore.getTasksForDay(memberId, weekStart, i) : [],
+      tasks: data.tasks.filter((t: { dayIndex: number }) => t.dayIndex === i),
     }));
   });
 
-  // ── Habit data from store ──
+  // ── Habit data from store (SSR fallback via data prop) ──
   let visibleHabits = $derived.by(() => {
     const memberId = memberStore.selectedMemberId;
     const weekStart = currentWeekStart;
-    if (!memberId) return [];
-    return habitStore.getHabitsWithDays(memberId, weekStart);
+    if (memberId) {
+      return habitStore.getHabitsWithDays(memberId, weekStart);
+    }
+    // SSR fallback
+    return data.habits;
   });
 
   // Task operations — wired to task store
@@ -189,8 +218,8 @@
         </div>
 
         <FamilySwitcher
-          members={memberStore.members}
-          selectedId={memberStore.selectedMemberId}
+          members={memberStore.members.length > 0 ? memberStore.members : data.members}
+          selectedId={memberStore.selectedMemberId || data.defaultMemberId}
           onSelect={(id) => memberStore.select(id)}
           onAdd={openCreateDialog}
           onEdit={openEditDialog}

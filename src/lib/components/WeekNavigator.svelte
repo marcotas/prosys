@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ThemeConfig } from '$lib/data/fake';
-	import { formatWeekRange } from '$lib/data/fake';
+	import type { ThemeConfig } from '$lib/types';
+	import { formatWeekRange } from '$lib/utils/dates';
 
 	let { weekOffset = 0, isTodayWeek = true, theme, onPrev, onNext, onToday } = $props<{
 		weekOffset: number;

@@ -35,6 +35,12 @@ function createMemberStore() {
 			return loading;
 		},
 
+		/** Seed the store with server-loaded data (SSR hydration). */
+		hydrate(memberList: Member[], selectedId: string) {
+			members = memberList;
+			selectedMemberId = selectedId;
+		},
+
 		select(id: string) {
 			selectedMemberId = id;
 		},

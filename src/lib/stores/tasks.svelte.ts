@@ -30,6 +30,15 @@ function createTaskStore() {
 			return loading;
 		},
 
+		/** Seed the cache with server-loaded data (SSR hydration). */
+		hydrateWeek(memberId: string, weekStart: string, tasks: Task[]) {
+			const key = cacheKey(memberId, weekStart);
+			if (weekCache.has(key)) return;
+			const next = new Map(weekCache);
+			next.set(key, tasks);
+			weekCache = next;
+		},
+
 		/**
 		 * Load tasks for a member+week from the API. Skips if already cached.
 		 */
