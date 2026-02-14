@@ -1,6 +1,11 @@
 <script lang="ts">
-  import type { Habit, ThemeConfig } from "$lib/data/fake";
-  import { dayAbbreviations, getHabitProgress } from "$lib/data/fake";
+  import type { HabitWithDays, ThemeConfig } from "$lib/types";
+  import { dayAbbreviations } from "$lib/utils/dates";
+
+  function getHabitProgress(habit: HabitWithDays): number {
+    const completed = habit.days.filter(Boolean).length;
+    return Math.round((completed / 7) * 100);
+  }
 
   let {
     habits,
@@ -10,7 +15,7 @@
     onUpdateHabit,
     onDeleteHabit,
   } = $props<{
-    habits: Habit[];
+    habits: HabitWithDays[];
     theme: ThemeConfig;
     onToggleHabit: (habitId: string, dayIndex: number) => void;
     onAddHabit: (name: string, emoji?: string) => void;

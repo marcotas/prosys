@@ -3,6 +3,7 @@
   import { computeWeekDays, getWeekStart, getTodayWeekOffset } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
+  import { habitStore } from "$lib/stores/habits.svelte";
   import FamilySwitcher from "$lib/components/FamilySwitcher.svelte";
   import WeekNavigator from "$lib/components/WeekNavigator.svelte";
   import OverallProgress from "$lib/components/OverallProgress.svelte";
@@ -36,6 +37,15 @@
     }
   });
 
+  // ── Load habits when member or week changes ──
+  $effect(() => {
+    const memberId = memberStore.selectedMemberId;
+    const weekStart = currentWeekStart;
+    if (memberId) {
+      habitStore.loadWeek(memberId, weekStart);
+    }
+  });
+
   // ── Week data with tasks from store ──
   let visibleDays = $derived.by(() => {
     const memberId = memberStore.selectedMemberId;
@@ -48,10 +58,13 @@
     }));
   });
 
-  // ── Habit data (placeholder until task 03-habits wires up the habit store) ──
-  let visibleHabits = $derived.by(
-    () => [] as { id: string; name: string; emoji?: string; days: boolean[] }[],
-  );
+  // ── Habit data from store ──
+  let visibleHabits = $derived.by(() => {
+    const memberId = memberStore.selectedMemberId;
+    const weekStart = currentWeekStart;
+    if (!memberId) return [];
+    return habitStore.getHabitsWithDays(memberId, weekStart);
+  });
 
   // Task operations — wired to task store
   function toggleTask(_dayIndex: number, taskId: string) {
@@ -73,14 +86,24 @@
     taskStore.update(taskId, updates);
   }
 
-  // Habit operations — stubs until task 03-habits implements proper store
-  function toggleHabit(_habitId: string, _dayIndex: number) {}
-  function addHabit(_name: string, _emoji?: string) {}
+  // Habit operations — wired to habit store
+  function toggleHabit(habitId: string, dayIndex: number) {
+    habitStore.toggle(habitId, currentWeekStart, dayIndex);
+  }
+  function addHabit(name: string, emoji?: string) {
+    const memberId = memberStore.selectedMemberId;
+    if (!memberId) return;
+    habitStore.create(memberId, name, emoji);
+  }
   function updateHabit(
-    _habitId: string,
-    _updates: { name?: string; emoji?: string },
-  ) {}
-  function deleteHabit(_habitId: string) {}
+    habitId: string,
+    updates: { name?: string; emoji?: string },
+  ) {
+    habitStore.update(habitId, updates);
+  }
+  function deleteHabit(habitId: string) {
+    habitStore.delete(habitId);
+  }
 
   // ── Profile dialog handlers ──
 
