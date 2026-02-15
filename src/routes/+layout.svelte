@@ -6,6 +6,7 @@
 	import { taskStore } from '$lib/stores/tasks.svelte';
 	import { habitStore } from '$lib/stores/habits.svelte';
 	import { memberStore } from '$lib/stores/members.svelte';
+	import { offlineQueue } from '$lib/stores/offline-queue.svelte';
 	import type { Task, Habit, Member } from '$lib/types';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 
@@ -37,6 +38,25 @@
 			wsStore.destroy();
 		};
 	});
+
+	// ── Connection status ────────────────────────────────
+	let statusLabel = $derived(
+		wsStore.syncing
+			? 'Syncing...'
+			: wsStore.connected
+				? offlineQueue.pendingCount > 0
+					? `${offlineQueue.pendingCount} pending`
+					: ''
+				: 'Offline'
+	);
+
+	let statusTitle = $derived(
+		wsStore.syncing
+			? 'Syncing offline changes...'
+			: wsStore.connected
+				? 'Real-time sync active'
+				: 'Server unreachable — changes saved locally'
+	);
 </script>
 
 <svelte:head>
@@ -59,16 +79,23 @@
 {#if browser}
 	<div
 		class="fixed top-3 right-3 z-50 flex items-center gap-1.5 px-2 py-1 rounded-full
-			bg-white/80 backdrop-blur-sm shadow-sm border border-gray-200/60 text-xs text-gray-500
+			bg-white/80 backdrop-blur-sm shadow-sm border border-gray-200/60 text-xs
 			transition-opacity duration-300"
-		title={wsStore.connected ? 'Real-time sync active' : 'Reconnecting...'}
+		class:text-gray-500={wsStore.connected && !wsStore.syncing}
+		class:text-amber-600={!wsStore.connected || wsStore.syncing}
+		title={statusTitle}
 	>
 		<span
 			class="w-2 h-2 rounded-full transition-colors duration-300"
-			class:bg-emerald-500={wsStore.connected}
-			class:bg-gray-300={!wsStore.connected}
-			class:animate-pulse={!wsStore.connected}
+			class:bg-emerald-500={wsStore.connected && !wsStore.syncing && offlineQueue.pendingCount === 0}
+			class:bg-amber-400={wsStore.connected && !wsStore.syncing && offlineQueue.pendingCount > 0}
+			class:bg-amber-500={wsStore.syncing}
+			class:bg-red-400={!wsStore.connected && !wsStore.syncing}
+			class:animate-pulse={!wsStore.connected || wsStore.syncing}
 		></span>
-		<span class="sr-only">{wsStore.connected ? 'Connected' : 'Disconnected'}</span>
+		{#if statusLabel}
+			<span>{statusLabel}</span>
+		{/if}
+		<span class="sr-only">{statusTitle}</span>
 	</div>
 {/if}

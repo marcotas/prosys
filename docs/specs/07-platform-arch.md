@@ -67,6 +67,8 @@ On app quit:
 | `vite.config.ts` | Dev server plugin (WebSocket + mDNS broadcast) |
 | `static/manifest.json` | PWA manifest for mobile "Add to Home Screen" |
 | `src/app.html` | HTML template with PWA meta tags |
+| `src/service-worker.ts` | Service Worker for offline app shell caching |
+| `src/lib/stores/offline-queue.svelte.ts` | IndexedDB mutation queue for offline support |
 
 ## mDNS Discovery
 
@@ -87,6 +89,38 @@ The PWA manifest (`static/manifest.json`) enables iOS Safari's "Add to Home Scre
 - `display: standalone` -- no Safari chrome, app-like experience
 - `theme_color: #4a7c59` -- matches the app's green theme
 - Apple-specific meta tags in `app.html`: `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-touch-icon`
+
+## Offline Support (PWA)
+
+The PWA works offline using a Service Worker and an IndexedDB mutation queue. See `docs/specs/09-offline-pwa.md` for the full specification.
+
+### Service Worker (`src/service-worker.ts`)
+
+Built on SvelteKit's `$service-worker` module. Caches the app shell (JS, CSS, HTML) so the PWA loads even when the Mac server is unreachable. API requests are never cached — mutations go through the offline queue instead.
+
+### Offline Mutation Queue (`src/lib/stores/offline-queue.svelte.ts`)
+
+When `fetch()` fails with a network error, mutations are queued in IndexedDB instead of being rolled back. The optimistic UI state is preserved so the user sees their changes immediately.
+
+### Sync on Reconnect
+
+When the WebSocket reconnects after a disconnection:
+
+1. Queued mutations are replayed against the server in FIFO order
+2. Failed replays (deleted resources, server errors) are dropped
+3. A full data refresh pulls the latest state from the server
+4. The connection indicator shows the sync progress
+
+### Connection Indicator
+
+The indicator in the top-right corner shows four states:
+
+| State | Visual | Condition |
+|---|---|---|
+| Online (synced) | Green dot | WS connected, queue empty |
+| Online (pending) | Amber dot + count | WS connected, queue non-empty |
+| Syncing | Amber pulsing dot + "Syncing..." | Draining offline queue |
+| Offline | Red pulsing dot + "Offline" | WS disconnected |
 
 ## Network
 

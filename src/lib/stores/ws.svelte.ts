@@ -1,4 +1,5 @@
 import type { WSMessage } from '$lib/types';
+import { offlineQueue } from './offline-queue.svelte';
 
 // ── Client ID ────────────────────────────────────────────
 
@@ -19,14 +20,22 @@ export function wsHeaders(): Record<string, string> {
 type MessageHandler = (payload: unknown) => void;
 const handlers = new Map<string, MessageHandler>();
 
+// ── Sync callback registry ───────────────────────────────
+// Registered by +layout.svelte to refresh data after queue drain
+
+type SyncCallback = () => Promise<void>;
+let onSyncCallback: SyncCallback | null = null;
+
 // ── Store ────────────────────────────────────────────────
 
 function createWsStore() {
 	let connected = $state(false);
+	let syncing = $state(false);
 	let ws: WebSocket | null = null;
 	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 	let reconnectDelay = 1000;
 	let destroyed = false;
+	let wasDisconnected = false;
 
 	const MAX_RECONNECT_DELAY = 30_000;
 
@@ -59,6 +68,12 @@ function createWsStore() {
 			reconnectDelay = 1000; // Reset backoff on success
 			// Identify ourselves to the server
 			ws?.send(JSON.stringify({ type: 'init', clientId }));
+
+			// If we were disconnected, drain the offline queue and refresh
+			if (wasDisconnected) {
+				wasDisconnected = false;
+				drainQueueAndRefresh();
+			}
 		};
 
 		ws.onmessage = (event) => {
@@ -75,6 +90,7 @@ function createWsStore() {
 
 		ws.onclose = () => {
 			connected = false;
+			wasDisconnected = true;
 			ws = null;
 			if (!destroyed) scheduleReconnect();
 		};
@@ -94,9 +110,58 @@ function createWsStore() {
 		}, reconnectDelay);
 	}
 
+	/**
+	 * Drain the offline queue by replaying each mutation sequentially,
+	 * then trigger a full data refresh via the registered callback.
+	 */
+	async function drainQueueAndRefresh() {
+		const queue = await offlineQueue.getAll();
+		if (queue.length === 0 && onSyncCallback) {
+			// No queued mutations, but still refresh to pick up remote changes
+			try {
+				await onSyncCallback();
+			} catch {
+				// Refresh failed — will try again next reconnect
+			}
+			return;
+		}
+		if (queue.length === 0) return;
+
+		syncing = true;
+
+		for (const mutation of queue) {
+			const res = await offlineQueue.replay(mutation);
+			if (res === null) {
+				// Network still down — stop draining, keep remaining in queue
+				syncing = false;
+				return;
+			}
+			// Remove from queue regardless of status code:
+			// - 2xx: success
+			// - 404: resource was deleted by another device — drop silently
+			// - 4xx/5xx: mutation is invalid or server error — drop to avoid infinite retry
+			await offlineQueue.remove(mutation.id);
+		}
+
+		// After draining, trigger full data refresh to reconcile state
+		if (onSyncCallback) {
+			try {
+				await onSyncCallback();
+			} catch {
+				// Refresh failed — data may be stale until next interaction
+			}
+		}
+
+		syncing = false;
+	}
+
 	return {
 		get connected() {
 			return connected;
+		},
+
+		get syncing() {
+			return syncing;
 		},
 
 		/**
@@ -106,6 +171,17 @@ function createWsStore() {
 		onMessage(type: WSMessage['type'], handler: (payload: any) => void): () => void {
 			handlers.set(type, handler);
 			return () => handlers.delete(type);
+		},
+
+		/**
+		 * Register a callback that refreshes all store data after queue drain.
+		 * Called with the current member/week context from +layout.svelte.
+		 */
+		onSync(callback: SyncCallback): () => void {
+			onSyncCallback = callback;
+			return () => {
+				onSyncCallback = null;
+			};
 		},
 
 		/** Start the WebSocket connection. Call once on mount. */

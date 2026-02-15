@@ -1,5 +1,6 @@
 import type { Member, ThemeConfig } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
+import { offlineQueue, isNetworkError } from './offline-queue.svelte';
 
 type CreateMemberData = {
 	name: string;
@@ -64,16 +65,42 @@ function createMemberStore() {
 		},
 
 		async create(data: CreateMemberData): Promise<Member> {
-			const res = await fetch('/api/members', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify(data)
-			});
-			if (!res.ok) throw new Error(`Failed to create member: ${res.status}`);
-			const created: Member = await res.json();
-			members = [...members, created];
-			selectedMemberId = created.id;
-			return created;
+			// Optimistic member with temp id
+			const tempId = `temp-${Date.now()}`;
+			const optimistic: Member = {
+				id: tempId,
+				name: data.name,
+				theme: data.theme,
+				quote: data.quote,
+				createdAt: new Date().toISOString(),
+				updatedAt: new Date().toISOString()
+			};
+
+			try {
+				const res = await fetch('/api/members', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify(data)
+				});
+				if (!res.ok) throw new Error(`Failed to create member: ${res.status}`);
+				const created: Member = await res.json();
+				members = [...members, created];
+				selectedMemberId = created.id;
+				return created;
+			} catch (err) {
+				if (isNetworkError(err)) {
+					members = [...members, optimistic];
+					selectedMemberId = optimistic.id;
+					await offlineQueue.enqueue({
+						method: 'POST',
+						url: '/api/members',
+						body: data,
+						headers: wsHeaders()
+					});
+					return optimistic;
+				}
+				throw err;
+			}
 		},
 
 		async update(id: string, data: UpdateMemberData): Promise<void> {
@@ -97,6 +124,15 @@ function createMemberStore() {
 				const updated: Member = await res.json();
 				members = members.map((m) => (m.id === id ? updated : m));
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PATCH',
+						url: `/api/members/${id}`,
+						body: data,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback on failure
 				members = members.map((m) => (m.id === id ? previous : m));
 				throw err;
@@ -119,6 +155,14 @@ function createMemberStore() {
 					throw new Error(`Failed to delete member: ${res.status}`);
 				}
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'DELETE',
+						url: `/api/members/${id}`,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback on failure
 				members = previous;
 				throw err;

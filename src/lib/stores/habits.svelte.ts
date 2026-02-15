@@ -1,5 +1,6 @@
 import type { Habit, HabitWithDays } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
+import { offlineQueue, isNetworkError } from './offline-queue.svelte';
 
 function cacheKey(memberId: string, weekStart: string): string {
 	return `${memberId}:${weekStart}`;
@@ -126,6 +127,15 @@ function createHabitStore() {
 				weekCache = updated;
 				return created;
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'POST',
+						url: '/api/habits',
+						body: { memberId, name, emoji },
+						headers: wsHeaders()
+					});
+					return { id: tempId, memberId, name, emoji, sortOrder: optimistic.sortOrder } as Habit;
+				}
 				// Rollback — remove optimistic habit from all cached weeks
 				const rollback = new Map(weekCache);
 				for (const [key, habits] of rollback) {
@@ -192,6 +202,15 @@ function createHabitStore() {
 				}
 				weekCache = committed;
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PATCH',
+						url: `/api/habits/${id}`,
+						body: data,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				for (const [key, prev] of previousByKey) {
@@ -236,6 +255,14 @@ function createHabitStore() {
 				const res = await fetch(`/api/habits/${id}`, { method: 'DELETE', headers: wsHeaders() });
 				if (!res.ok) throw new Error(`Failed to delete habit: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'DELETE',
+						url: `/api/habits/${id}`,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				for (const [key, prev] of previousByKey) {
@@ -290,6 +317,15 @@ function createHabitStore() {
 			});
 				if (!res.ok) throw new Error(`Failed to toggle habit: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PUT',
+						url: `/api/habits/${habitId}/toggle`,
+						body: { weekStart, dayIndex },
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				rollback.set(foundKey, previousList);
@@ -335,6 +371,15 @@ function createHabitStore() {
 			});
 				if (!res.ok) throw new Error(`Failed to reorder habits: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PUT',
+						url: '/api/habits/reorder',
+						body: { memberId, habitIds },
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				for (const [key, prev] of previousByKey) {

@@ -15,5 +15,8 @@
 ## Integration (sequential)
 - [x] integration — Wire drag handles into components, WS into stores, cross-day drag, platform verification, end-to-end smoke test
 
+## Offline Support (sequential)
+- [x] 09-offline-pwa — Service Worker app shell caching, IndexedDB offline mutation queue, sync-on-reconnect, connection indicator states
+
 ## QA (sequential)
-- [x] 08-qa — End-to-end verification: member CRUD, task CRUD, habit tracking, drag-drop, week nav, member switching, real-time sync, themes, zero console errors
+- [ ] 08-qa — End-to-end verification: member CRUD, task CRUD, habit tracking, drag-drop, week nav, member switching, real-time sync, offline PWA, themes, zero console errors

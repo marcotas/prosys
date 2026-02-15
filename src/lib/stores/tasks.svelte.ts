@@ -1,5 +1,6 @@
 import type { Task } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
+import { offlineQueue, isNetworkError } from './offline-queue.svelte';
 
 type CreateTaskData = {
 	memberId: string;
@@ -140,7 +141,17 @@ function createTaskStore() {
 				weekCache = updated;
 				return created;
 			} catch (err) {
-				// Rollback — remove optimistic task
+				if (isNetworkError(err)) {
+					// Offline — keep optimistic state, queue for later
+					await offlineQueue.enqueue({
+						method: 'POST',
+						url: '/api/tasks',
+						body: data,
+						headers: wsHeaders()
+					});
+					return optimistic;
+				}
+				// Actual server error — rollback
 				const rollback = new Map(weekCache);
 				const current = rollback.get(key) ?? [];
 				rollback.set(
@@ -199,6 +210,15 @@ function createTaskStore() {
 				);
 				weekCache = committed;
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PATCH',
+						url: `/api/tasks/${id}`,
+						body: data,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				const current = rollback.get(foundKey) ?? [];
@@ -253,6 +273,14 @@ function createTaskStore() {
 				const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE', headers: wsHeaders() });
 				if (!res.ok) throw new Error(`Failed to delete task: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'DELETE',
+						url: `/api/tasks/${id}`,
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				rollback.set(foundKey, previousList);
@@ -290,6 +318,15 @@ function createTaskStore() {
 			});
 				if (!res.ok) throw new Error(`Failed to reorder tasks: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PUT',
+						url: '/api/tasks/reorder',
+						body: { memberId, weekStart, dayIndex, taskIds },
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				rollback.set(key, previousList);
@@ -340,6 +377,15 @@ function createTaskStore() {
 			});
 				if (!res.ok) throw new Error(`Failed to move task: ${res.status}`);
 			} catch (err) {
+				if (isNetworkError(err)) {
+					await offlineQueue.enqueue({
+						method: 'PATCH',
+						url: `/api/tasks/${taskId}`,
+						body: { dayIndex: toDayIndex, sortOrder: maxSort + 1 },
+						headers: wsHeaders()
+					});
+					return;
+				}
 				// Rollback
 				const rollback = new Map(weekCache);
 				rollback.set(foundKey, previousList);

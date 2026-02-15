@@ -5,6 +5,7 @@
   import { memberStore } from "$lib/stores/members.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { habitStore } from "$lib/stores/habits.svelte";
+  import { wsStore } from "$lib/stores/ws.svelte";
   import FamilySwitcher from "$lib/components/FamilySwitcher.svelte";
   import WeekNavigator from "$lib/components/WeekNavigator.svelte";
   import OverallProgress from "$lib/components/OverallProgress.svelte";
@@ -58,6 +59,20 @@
     if (memberId) {
       habitStore.loadWeek(memberId, weekStart);
     }
+  });
+
+  // ── Register sync callback for offline queue drain ──
+  // Re-registers whenever member or week changes so we refresh the right data
+  $effect(() => {
+    const memberId = memberStore.selectedMemberId;
+    const weekStart = currentWeekStart;
+    if (!memberId) return;
+
+    return wsStore.onSync(async () => {
+      await memberStore.load();
+      await taskStore.reloadWeek(memberId, weekStart);
+      await habitStore.reloadWeek(memberId, weekStart);
+    });
   });
 
   // ── Week data with tasks from store (SSR fallback via data prop) ──
