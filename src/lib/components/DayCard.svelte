@@ -245,7 +245,7 @@
 <svelte:window onpointermove={onPointerMove} onpointerup={onPointerUp} />
 
 <article
-  class="bg-white shadow-sm flex flex-col overflow-hidden
+  class="h-full bg-white shadow-sm flex flex-col overflow-hidden
     {playful
     ? 'rounded-3xl border-2'
     : 'rounded-2xl border border-gray-200/60'}"

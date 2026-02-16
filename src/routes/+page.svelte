@@ -1,7 +1,11 @@
 <script lang="ts">
   import type { Member, ThemeConfig, DayData } from "$lib/types";
   import { untrack } from "svelte";
-  import { computeWeekDays, getWeekStart, getTodayWeekOffset } from "$lib/utils/dates";
+  import {
+    computeWeekDays,
+    getWeekStart,
+    getTodayWeekOffset,
+  } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { habitStore } from "$lib/stores/habits.svelte";
@@ -22,7 +26,11 @@
       untrack(() => {
         memberStore.hydrate(data.members, data.defaultMemberId);
         taskStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
-        habitStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.habits);
+        habitStore.hydrateWeek(
+          data.defaultMemberId,
+          data.weekStart,
+          data.habits,
+        );
       });
     }
   });
@@ -120,7 +128,13 @@
   function addTask(dayIndex: number, title: string, emoji?: string) {
     const memberId = memberStore.selectedMemberId;
     if (!memberId) return;
-    taskStore.create({ memberId, weekStart: currentWeekStart, dayIndex, title, emoji });
+    taskStore.create({
+      memberId,
+      weekStart: currentWeekStart,
+      dayIndex,
+      title,
+      emoji,
+    });
   }
   function deleteTask(_dayIndex: number, taskId: string) {
     taskStore.delete(taskId);
@@ -160,12 +174,21 @@
     taskStore.reorder(memberId, currentWeekStart, dayIndex, taskIds);
   }
 
-  async function moveTask(taskId: string, toDayIndex: number, orderedTaskIds: string[]) {
+  async function moveTask(
+    taskId: string,
+    toDayIndex: number,
+    orderedTaskIds: string[],
+  ) {
     const memberId = memberStore.selectedMemberId;
     await taskStore.moveToDay(taskId, toDayIndex);
     // If we have the drop-position order, reorder so the task lands where it was dropped
     if (memberId && orderedTaskIds.length > 0) {
-      await taskStore.reorder(memberId, currentWeekStart, toDayIndex, orderedTaskIds);
+      await taskStore.reorder(
+        memberId,
+        currentWeekStart,
+        toDayIndex,
+        orderedTaskIds,
+      );
     }
   }
 
@@ -211,7 +234,8 @@
       ? `background-color: ${currentMember.theme.accentLight}30`
       : ""}
   >
-    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <!-- Contained section: header, nav, stats -->
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
       <!-- Header -->
       <header
         class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4"
@@ -260,7 +284,9 @@
 
         <div class="flex items-center gap-3">
           <FamilySwitcher
-            members={memberStore.members.length > 0 ? memberStore.members : data.members}
+            members={memberStore.members.length > 0
+              ? memberStore.members
+              : data.members}
             selectedId={memberStore.selectedMemberId || data.defaultMemberId}
             onSelect={(id) => memberStore.select(id)}
             onAdd={openCreateDialog}
@@ -273,12 +299,22 @@
               hover:border-green-300 transition-colors shadow-sm"
             title="Connect a device"
           >
-            <svg class="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              class="w-4.5 h-4.5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <rect x="2" y="2" width="8" height="8" rx="1" />
               <rect x="14" y="2" width="8" height="8" rx="1" />
               <rect x="2" y="14" width="8" height="8" rx="1" />
               <rect x="14" y="14" width="4" height="4" rx="1" />
-              <path d="M22 14h-4v4" /><path d="M22 22h-4v-4" /><path d="M18 22h4" />
+              <path d="M22 14h-4v4" /><path d="M22 22h-4v-4" /><path
+                d="M18 22h4"
+              />
             </svg>
           </a>
         </div>
@@ -294,43 +330,46 @@
         onToday={() => (weekOffset = todayOffset)}
       />
 
-      <main>
-        <!-- Stats Row: Progress + Habits -->
-        <div class="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-4 mb-6 items-start">
-          <OverallProgress member={currentMember} days={visibleDays} />
-          <HabitTracker
-            habits={visibleHabits}
-            theme={currentMember.theme}
-            onToggleHabit={toggleHabit}
-            onAddHabit={addHabit}
-            onUpdateHabit={updateHabit}
-            onDeleteHabit={deleteHabit}
-            onReorderHabits={reorderHabits}
-          />
-        </div>
-
-        <!-- Day Cards Grid -->
-        <section aria-label="Daily tasks">
-          <div
-            class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4"
-          >
-            {#each visibleDays as day, dayIndex (day.dayName)}
-              <DayCard
-                {day}
-                {dayIndex}
-                theme={currentMember.theme}
-                onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
-                onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
-                onDeleteTask={(taskId) => deleteTask(dayIndex, taskId)}
-                onUpdateTask={(taskId, updates) => updateTask(dayIndex, taskId, updates)}
-                onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
-                onMoveTask={moveTask}
-              />
-            {/each}
-          </div>
-        </section>
-      </main>
+      <!-- Stats Row: Progress + Habits -->
+      <div
+        class="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-4 mb-6 items-start"
+      >
+        <OverallProgress member={currentMember} days={visibleDays} />
+        <HabitTracker
+          habits={visibleHabits}
+          theme={currentMember.theme}
+          onToggleHabit={toggleHabit}
+          onAddHabit={addHabit}
+          onUpdateHabit={updateHabit}
+          onDeleteHabit={deleteHabit}
+          onReorderHabits={reorderHabits}
+        />
+      </div>
     </div>
+
+    <!-- Full-width fluid section: Day Cards -->
+    <section aria-label="Daily tasks" class="px-4 sm:px-6 pb-4 sm:pb-6">
+      <div class="flex flex-wrap justify-center gap-4">
+        {#each visibleDays as day, dayIndex (day.dayName)}
+          <div
+            class="grow shrink basis-full min-[480px]:basis-64 min-w-0 min-[480px]:max-w-96"
+          >
+            <DayCard
+              {day}
+              {dayIndex}
+              theme={currentMember.theme}
+              onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
+              onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
+              onDeleteTask={(taskId) => deleteTask(dayIndex, taskId)}
+              onUpdateTask={(taskId, updates) =>
+                updateTask(dayIndex, taskId, updates)}
+              onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
+              onMoveTask={moveTask}
+            />
+          </div>
+        {/each}
+      </div>
+    </section>
   </div>
 {:else}
   <!-- Empty state: no profiles -->
