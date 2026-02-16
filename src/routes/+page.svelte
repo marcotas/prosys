@@ -5,6 +5,7 @@
     computeWeekDays,
     getWeekStart,
     getTodayWeekOffset,
+    getTodayISO,
   } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
@@ -50,6 +51,25 @@
   let todayOffset = $derived(getTodayWeekOffset());
   let isTodayWeek = $derived(weekOffset === todayOffset);
   let currentWeekStart = $derived(getWeekStart(weekOffset));
+  let todayISO = $derived(getTodayISO());
+
+  // Scroll container for mobile day cards
+  let scrollContainer = $state<HTMLDivElement>(undefined as unknown as HTMLDivElement);
+
+  // Auto-scroll to today's card on mobile
+  $effect(() => {
+    if (!scrollContainer || !isTodayWeek) return;
+    const isScrollMode = window.matchMedia("(max-width: 479px)").matches;
+    if (!isScrollMode) return;
+    const todayCard = scrollContainer.querySelector(
+      `[data-iso="${todayISO}"]`,
+    );
+    if (todayCard) {
+      requestAnimationFrame(() => {
+        todayCard.scrollIntoView({ inline: "center", behavior: "instant" });
+      });
+    }
+  });
 
   // ── Load tasks when member or week changes ──
   $effect(() => {
@@ -349,14 +369,26 @@
 
     <!-- Full-width fluid section: Day Cards -->
     <section aria-label="Daily tasks" class="px-4 sm:px-6 pb-4 sm:pb-6">
-      <div class="flex flex-wrap justify-center gap-4">
+      <div
+        bind:this={scrollContainer}
+        class="flex gap-4
+          max-[479px]:overflow-x-auto max-[479px]:snap-x max-[479px]:snap-mandatory
+          max-[479px]:scroll-smooth max-[479px]:-mx-4 max-[479px]:px-4
+          max-[479px]:hide-scrollbar
+          min-[480px]:flex-wrap min-[480px]:justify-center"
+      >
         {#each visibleDays as day, dayIndex (day.dayName)}
+          {@const isToday = isTodayWeek && day.isoDate === todayISO}
           <div
-            class="grow shrink basis-full min-[480px]:basis-64 min-w-0 min-[480px]:max-w-96"
+            class="min-w-0 shrink-0
+              max-[479px]:w-[85vw] max-[479px]:snap-center
+              min-[480px]:grow min-[480px]:shrink min-[480px]:basis-64 min-[480px]:max-w-96"
+            data-iso={day.isoDate}
           >
             <DayCard
               {day}
               {dayIndex}
+              {isToday}
               theme={currentMember.theme}
               onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
               onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}

@@ -26,6 +26,10 @@ select,
 	font-size: 1rem; /* 16px -- prevents iOS zoom on focus */
 }
 
+/* Hide scrollbar while keeping scroll functional */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,

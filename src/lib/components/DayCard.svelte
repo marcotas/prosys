@@ -12,6 +12,7 @@
     day,
     dayIndex,
     theme,
+    isToday = false,
     onToggleTask,
     onAddTask,
     onDeleteTask,
@@ -22,6 +23,7 @@
     day: DayData;
     dayIndex: number;
     theme: ThemeConfig;
+    isToday?: boolean;
     onToggleTask: (taskId: string) => void;
     onAddTask: (title: string, emoji?: string) => void;
     onDeleteTask: (taskId: string) => void;
@@ -248,9 +250,11 @@
   class="h-full bg-white shadow-sm flex flex-col overflow-hidden
     {playful
     ? 'rounded-3xl border-2'
-    : 'rounded-2xl border border-gray-200/60'}"
-  style={playful ? `border-color: ${theme.accent}25` : ""}
-  aria-label="{day.dayName} tasks"
+    : 'rounded-2xl border border-gray-200/60'}
+    {isToday && !playful ? 'ring-2 ring-offset-1 ring-green-400/50' : ''}
+    {isToday && playful ? 'ring-2 ring-offset-1' : ''}"
+  style="{playful ? `border-color: ${theme.accent}25` : ''}{isToday && playful ? `; --tw-ring-color: ${theme.accent}80` : ''}"
+  aria-label="{day.dayName} tasks{isToday ? ' (today)' : ''}"
 >
   <!-- Header -->
   <div
