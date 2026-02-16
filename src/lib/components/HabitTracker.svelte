@@ -349,7 +349,7 @@
                       const text = e.clipboardData?.getData("text/plain") ?? "";
                       document.execCommand("insertText", false, text);
                     }}
-                    class="text-[13px] w-full outline-none whitespace-nowrap cursor-text {playful
+                    class="text-base w-full outline-none whitespace-nowrap cursor-text {playful
                       ? 'font-medium'
                       : 'text-gray-700'}"
                   >{habit.name}</span>
@@ -450,7 +450,7 @@
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                class="text-[13px] w-full bg-transparent border-none outline-hidden focus-visible:outline-hidden p-0 m-0 placeholder:text-gray-300 focus:outline-hidden {playful
+                class="text-base w-full bg-transparent border-none outline-hidden focus-visible:outline-hidden p-0 m-0 placeholder:text-gray-300 focus:outline-hidden {playful
                   ? 'font-medium placeholder:opacity-60'
                   : 'text-gray-700'}"
                 style={playful ? `color: ${theme.accentDark}` : ""}

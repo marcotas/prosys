@@ -403,7 +403,7 @@
               aria-label="Mark {task.title} as {task.completed
                 ? 'incomplete'
                 : 'complete'}"
-              class="shrink-0 w-[18px] h-[18px] mt-[2px] rounded-[5px] flex items-center justify-center
+              class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center
                 transition-all duration-150 mr-2.5
                 {task.completed ? '' : 'border-2 hover:border-opacity-80'}"
               style={task.completed
@@ -464,7 +464,7 @@
                 const text = e.clipboardData?.getData("text/plain") ?? "";
                 document.execCommand("insertText", false, text);
               }}
-              class="flex-1 min-w-0 mt-px text-[13px] leading-normal outline-none cursor-text wrap-anywhere
+              class="flex-1 min-w-0 text-base leading-normal outline-none cursor-text wrap-anywhere
                 {task.completed
                 ? 'line-through text-gray-400 decoration-gray-300'
                 : 'text-gray-700'}">{task.title}</span
@@ -555,7 +555,7 @@
         bind:value={newTaskTitle}
         onkeydown={handleAddKeydown}
         placeholder={playful ? "Add task ✨" : "+ Add task"}
-        class="flex-1 min-w-0 text-[13px] leading-snug bg-transparent outline-hidden focus:outline-hidden
+        class="flex-1 min-w-0 text-base leading-normal bg-transparent outline-hidden focus:outline-hidden
           placeholder:text-gray-300 {playful
           ? 'placeholder:opacity-60'
           : ''} text-gray-700"

@@ -19,6 +19,13 @@ body {
 	@apply bg-gray-50 text-gray-900 font-sans antialiased;
 }
 
+input,
+textarea,
+select,
+[contenteditable] {
+	font-size: 1rem; /* 16px -- prevents iOS zoom on focus */
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,

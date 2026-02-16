@@ -119,7 +119,7 @@
 						type="text"
 						bind:value={name}
 						placeholder="Enter name..."
-						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none transition-colors"
+						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-base focus:outline-none transition-colors"
 						style="focus:border-color: {theme.accent}"
 						onfocus={(e) => { (e.target as HTMLInputElement).style.borderColor = theme.accent; }}
 						onblur={(e) => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
@@ -138,7 +138,7 @@
 						type="text"
 						bind:value={quoteText}
 						placeholder={theme.variant === 'playful' ? 'e.g. "To infinity and beyond!"' : 'e.g. "Tiny Changes, Remarkable Results"'}
-						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none transition-colors"
+						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-base focus:outline-none transition-colors"
 						onfocus={(e) => { (e.target as HTMLInputElement).style.borderColor = theme.accent; }}
 						onblur={(e) => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
 					/>
@@ -146,7 +146,7 @@
 						type="text"
 						bind:value={quoteAuthor}
 						placeholder={theme.variant === 'playful' ? 'e.g. Buzz Lightyear' : 'e.g. James Clear'}
-						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-sm focus:outline-none transition-colors"
+						class="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 text-base focus:outline-none transition-colors"
 						onfocus={(e) => { (e.target as HTMLInputElement).style.borderColor = theme.accent; }}
 						onblur={(e) => { (e.target as HTMLInputElement).style.borderColor = '#e5e7eb'; }}
 					/>
