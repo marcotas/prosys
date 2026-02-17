@@ -30,6 +30,9 @@ select,
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
+/* Disable snap during mouse drag for smooth dragging */
+.is-dragging { scroll-snap-type: none !important; scroll-behavior: auto !important; }
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,

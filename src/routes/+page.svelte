@@ -53,14 +53,12 @@
   let currentWeekStart = $derived(getWeekStart(weekOffset));
   let todayISO = $derived(getTodayISO());
 
-  // Scroll container for mobile day cards
+  // Scroll container for day cards
   let scrollContainer = $state<HTMLDivElement>(undefined as unknown as HTMLDivElement);
 
-  // Auto-scroll to today's card on mobile
+  // Auto-scroll to today's card
   $effect(() => {
     if (!scrollContainer || !isTodayWeek) return;
-    const isScrollMode = window.matchMedia("(max-width: 479px)").matches;
-    if (!isScrollMode) return;
     const todayCard = scrollContainer.querySelector(
       `[data-iso="${todayISO}"]`,
     );
@@ -70,6 +68,41 @@
       });
     }
   });
+
+  // Mouse drag-to-scroll (Linear-style)
+  let isDragging = $state(false);
+  let dragStartX = 0;
+  let dragScrollLeft = 0;
+
+  function onDragPointerDown(e: PointerEvent) {
+    // Only handle primary button on non-touch devices
+    if (e.pointerType === "touch" || e.button !== 0) return;
+    // Don't hijack clicks on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, a, [contenteditable], [draggable]"))
+      return;
+    isDragging = true;
+    dragStartX = e.clientX;
+    dragScrollLeft = scrollContainer.scrollLeft;
+    scrollContainer.classList.add("is-dragging");
+    scrollContainer.style.cursor = "grabbing";
+    scrollContainer.style.userSelect = "none";
+    scrollContainer.setPointerCapture(e.pointerId);
+  }
+
+  function onDragPointerMove(e: PointerEvent) {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStartX;
+    scrollContainer.scrollLeft = dragScrollLeft - dx;
+  }
+
+  function onDragPointerUp() {
+    if (!isDragging) return;
+    isDragging = false;
+    scrollContainer.classList.remove("is-dragging");
+    scrollContainer.style.cursor = "";
+    scrollContainer.style.userSelect = "";
+  }
 
   // ── Load tasks when member or week changes ──
   $effect(() => {
@@ -368,21 +401,23 @@
     </div>
 
     <!-- Full-width fluid section: Day Cards -->
-    <section aria-label="Daily tasks" class="px-4 sm:px-6 pb-4 sm:pb-6">
+    <section aria-label="Daily tasks" class="pb-4 sm:pb-6">
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         bind:this={scrollContainer}
-        class="flex gap-4
-          max-[479px]:overflow-x-auto max-[479px]:snap-x max-[479px]:snap-mandatory
-          max-[479px]:scroll-smooth max-[479px]:-mx-4 max-[479px]:px-4
-          max-[479px]:hide-scrollbar
-          min-[480px]:flex-wrap min-[480px]:justify-center"
+        class="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory
+          hide-scrollbar -mx-4 px-4 sm:-mx-6 sm:px-6 py-1 cursor-grab"
+        onpointerdown={onDragPointerDown}
+        onpointermove={onDragPointerMove}
+        onpointerup={onDragPointerUp}
+        onpointercancel={onDragPointerUp}
       >
         {#each visibleDays as day, dayIndex (day.dayName)}
           {@const isToday = isTodayWeek && day.isoDate === todayISO}
           <div
-            class="min-w-0 shrink-0
-              max-[479px]:w-[85vw] max-[479px]:snap-center
-              min-[480px]:grow min-[480px]:shrink min-[480px]:basis-64 min-[480px]:max-w-96"
+            class="min-w-0 shrink-0 snap-center
+              max-[479px]:w-[85vw]
+              min-[480px]:w-64 min-[480px]:max-w-96"
             data-iso={day.isoDate}
           >
             <DayCard
