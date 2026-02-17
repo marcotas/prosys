@@ -398,45 +398,45 @@
           onReorderHabits={reorderHabits}
         />
       </div>
-    </div>
 
-    <!-- Full-width fluid section: Day Cards -->
-    <section aria-label="Daily tasks" class="pb-4 sm:pb-6">
-      <!-- svelte-ignore a11y_no_static_element_interactions -->
-      <div
-        bind:this={scrollContainer}
-        class="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory
-          hide-scrollbar -mx-4 px-4 sm:-mx-6 sm:px-6 py-1 cursor-grab"
-        onpointerdown={onDragPointerDown}
-        onpointermove={onDragPointerMove}
-        onpointerup={onDragPointerUp}
-        onpointercancel={onDragPointerUp}
-      >
-        {#each visibleDays as day, dayIndex (day.dayName)}
-          {@const isToday = isTodayWeek && day.isoDate === todayISO}
-          <div
-            class="min-w-0 shrink-0 snap-center
-              max-[479px]:w-[85vw]
-              min-[480px]:w-64 min-[480px]:max-w-96"
-            data-iso={day.isoDate}
-          >
-            <DayCard
-              {day}
-              {dayIndex}
-              {isToday}
-              theme={currentMember.theme}
-              onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
-              onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
-              onDeleteTask={(taskId) => deleteTask(dayIndex, taskId)}
-              onUpdateTask={(taskId, updates) =>
-                updateTask(dayIndex, taskId, updates)}
-              onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
-              onMoveTask={moveTask}
-            />
-          </div>
-        {/each}
-      </div>
-    </section>
+      <!-- Day Cards (scrollable, aligned with content above) -->
+      <section aria-label="Daily tasks" class="pb-4 sm:pb-6">
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          bind:this={scrollContainer}
+          class="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory
+            hide-scrollbar py-1 cursor-grab"
+          onpointerdown={onDragPointerDown}
+          onpointermove={onDragPointerMove}
+          onpointerup={onDragPointerUp}
+          onpointercancel={onDragPointerUp}
+        >
+          {#each visibleDays as day, dayIndex (day.dayName)}
+            {@const isToday = isTodayWeek && day.isoDate === todayISO}
+            <div
+              class="min-w-0 shrink-0 snap-center
+                max-[479px]:w-[85vw]
+                min-[480px]:w-64 min-[480px]:max-w-96"
+              data-iso={day.isoDate}
+            >
+              <DayCard
+                {day}
+                {dayIndex}
+                {isToday}
+                theme={currentMember.theme}
+                onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
+                onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
+                onDeleteTask={(taskId) => deleteTask(dayIndex, taskId)}
+                onUpdateTask={(taskId, updates) =>
+                  updateTask(dayIndex, taskId, updates)}
+                onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
+                onMoveTask={moveTask}
+              />
+            </div>
+          {/each}
+        </div>
+      </section>
+    </div>
   </div>
 {:else}
   <!-- Empty state: no profiles -->
