@@ -251,9 +251,8 @@
     {playful
     ? 'rounded-3xl border-2'
     : 'rounded-2xl border border-gray-200/60'}
-    {isToday && !playful ? 'ring-2 ring-offset-1 ring-green-400/50' : ''}
-    {isToday && playful ? 'ring-2 ring-offset-1' : ''}"
-  style="{playful ? `border-color: ${theme.accent}25` : ''}{isToday && playful ? `; --tw-ring-color: ${theme.accent}80` : ''}"
+    {isToday ? 'ring-2 ring-offset-1' : ''}"
+  style="{playful ? `border-color: ${theme.accent}25` : ''}{isToday ? `; --tw-ring-color: ${theme.accent}` : ''}"
   aria-label="{day.dayName} tasks{isToday ? ' (today)' : ''}"
 >
   <!-- Header -->
