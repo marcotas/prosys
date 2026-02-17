@@ -405,7 +405,8 @@
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div
         bind:this={scrollContainer}
-        class="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-proximity
+        class="flex gap-4 overflow-x-auto scroll-smooth snap-x
+          max-[479px]:snap-mandatory min-[480px]:snap-proximity
           hide-scrollbar scroll-aligned py-1 cursor-grab"
         onpointerdown={onDragPointerDown}
         onpointermove={onDragPointerMove}
