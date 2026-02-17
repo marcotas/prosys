@@ -112,7 +112,7 @@
     return 0;
   }
 
-  function onPointerDown(e: PointerEvent, taskId: string) {
+  function onTouchStart(e: TouchEvent, taskId: string) {
     // Don't initiate swipe if touch started on drag handle
     if ((e.target as HTMLElement).closest(".drag-handle")) return;
 
@@ -120,26 +120,27 @@
       swipedOpenId = null;
       return;
     }
+    const touch = e.touches[0];
     const startOffset = swipedOpenId === taskId ? -SWIPE_ZONE : 0;
     swipeState = {
       taskId,
-      startX: e.clientX - startOffset,
-      startY: e.clientY,
-      currentX: e.clientX,
+      startX: touch.clientX - startOffset,
+      startY: touch.clientY,
+      currentX: touch.clientX,
       locked: false,
       scrolling: false,
     };
   }
 
-  function onPointerMove(e: PointerEvent) {
+  function onTouchMove(e: TouchEvent) {
     if (!swipeState) return;
-
-    const dy = e.clientY - swipeState.startY;
+    const touch = e.touches[0];
+    const dy = touch.clientY - swipeState.startY;
 
     if (!swipeState.locked && !swipeState.scrolling) {
       const absDy = Math.abs(dy);
       const rawDx = Math.abs(
-        e.clientX -
+        touch.clientX -
           swipeState.startX +
           (swipedOpenId === swipeState.taskId ? SWIPE_ZONE : 0),
       );
@@ -157,11 +158,11 @@
 
     if (swipeState?.locked) {
       e.preventDefault();
-      swipeState.currentX = e.clientX;
+      swipeState.currentX = touch.clientX;
     }
   }
 
-  function onPointerUp() {
+  function onTouchEnd() {
     if (!swipeState) return;
     if (swipeState.locked) {
       const delta = swipeState.currentX - swipeState.startX;
@@ -173,6 +174,18 @@
     }
     swipeState = null;
   }
+
+  // Register touchmove with { passive: false } so preventDefault() works
+  $effect(() => {
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
+      window.removeEventListener("touchcancel", onTouchEnd);
+    };
+  });
 
   function closeSwipe() {
     swipedOpenId = null;
@@ -243,8 +256,6 @@
     editValue = "";
   }
 </script>
-
-<svelte:window onpointermove={onPointerMove} onpointerup={onPointerUp} />
 
 <article
   class="h-full bg-white shadow-sm flex flex-col overflow-hidden
@@ -320,7 +331,7 @@
       }}
       onconsider={handleDndConsider}
       onfinalize={handleDndFinalize}
-      class="pb-1 flex-1"
+      class="pb-1 flex-1 touch-pan-y"
       role="list"
     >
       {#each dndItems as task (task.id)}
@@ -392,8 +403,8 @@
           <div
             class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none
               {isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
-            style="transform: translateX({offset}px); touch-action: pan-y;"
-            onpointerdown={(e) => onPointerDown(e, task.id)}
+            style="transform: translateX({offset}px)"
+            ontouchstart={(e) => onTouchStart(e, task.id)}
           >
             <!-- Drag handle -->
             <div class="mt-[4px]"><DragHandle {theme} /></div>

@@ -134,28 +134,29 @@
         return 0;
     }
 
-    function onPointerDown(e: PointerEvent, habitId: string) {
-        if (e.button !== 0) return;
+    function onTouchStart(e: TouchEvent, habitId: string) {
         // Don't initiate swipe on drag handle
         if ((e.target as HTMLElement).closest(".drag-handle")) return;
         if (editingHabitId === habitId) return;
         if (swipedOpenId && swipedOpenId !== habitId) {
             swipedOpenId = null;
         }
+        const touch = e.touches[0];
         const startOffset = swipedOpenId === habitId ? -DELETE_ZONE : 0;
         swipeState = {
             habitId,
-            startX: e.clientX - startOffset,
-            startY: e.clientY,
-            currentX: e.clientX,
+            startX: touch.clientX - startOffset,
+            startY: touch.clientY,
+            currentX: touch.clientX,
             locked: false,
         };
     }
 
-    function onPointerMove(e: PointerEvent) {
+    function onTouchMove(e: TouchEvent) {
         if (!swipeState) return;
-        const dx = e.clientX - swipeState.startX;
-        const dy = e.clientY - swipeState.startY;
+        const touch = e.touches[0];
+        const dx = touch.clientX - swipeState.startX;
+        const dy = touch.clientY - swipeState.startY;
         if (!swipeState.locked) {
             if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
                 swipeState = null;
@@ -168,10 +169,10 @@
             }
         }
         e.preventDefault();
-        swipeState.currentX = e.clientX;
+        swipeState.currentX = touch.clientX;
     }
 
-    function onPointerUp() {
+    function onTouchEnd() {
         if (!swipeState) return;
         if (swipeState.locked) {
             const dx = swipeState.currentX - swipeState.startX;
@@ -184,13 +185,23 @@
         swipeState = null;
     }
 
+    // Register touchmove with { passive: false } so preventDefault() works
+    $effect(() => {
+        window.addEventListener("touchmove", onTouchMove, { passive: false });
+        window.addEventListener("touchend", onTouchEnd);
+        window.addEventListener("touchcancel", onTouchEnd);
+        return () => {
+            window.removeEventListener("touchmove", onTouchMove);
+            window.removeEventListener("touchend", onTouchEnd);
+            window.removeEventListener("touchcancel", onTouchEnd);
+        };
+    });
+
     function handleDeleteSwiped(habitId: string) {
         swipedOpenId = null;
         onDeleteHabit(habitId);
     }
 </script>
-
-<svelte:window onpointermove={onPointerMove} onpointerup={onPointerUp} />
 
 <section
     class="bg-white shadow-sm overflow-hidden
@@ -338,9 +349,9 @@
                                         class="relative bg-white pl-1 pr-4 py-1 flex items-center {isSwiping
                                             ? ''
                                             : 'transition-transform duration-200 ease-out'}"
-                                        style="transform: translateX({offset}px); touch-action: pan-y; z-index: 1;"
-                                        onpointerdown={(e) =>
-                                            onPointerDown(e, habit.id)}
+                                        style="transform: translateX({offset}px); z-index: 1;"
+                                        ontouchstart={(e) =>
+                                            onTouchStart(e, habit.id)}
                                     >
                                         <DragHandle {theme} />
                                         {#if habit.emoji}<span
