@@ -79,7 +79,7 @@
     if (e.pointerType === "touch" || e.button !== 0) return;
     // Don't hijack clicks on interactive elements
     const target = e.target as HTMLElement;
-    if (target.closest("button, input, a, [contenteditable], [draggable]"))
+    if (target.closest("button, input, a, [contenteditable], [draggable], .drag-handle"))
       return;
     isDragging = true;
     dragStartX = e.clientX;
