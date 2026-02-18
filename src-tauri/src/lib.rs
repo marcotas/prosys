@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
@@ -75,10 +76,51 @@ pub fn run() {
                 eprintln!("Warning: Node.js server did not become ready in time");
             }
 
+            // ── Version-based cache clearing ─────────────────────────
+            // WKWebView persists its HTTP cache and service worker
+            // registrations across app reinstalls.  On version upgrades,
+            // clear CacheStorage and SW registrations (but NOT IndexedDB,
+            // which holds the offline mutation queue) so the new build's
+            // service worker and assets load fresh.
+
+            let current_version = app.package_info().version.to_string();
+            let version_file = data_dir.join("app-version.txt");
+            let last_version = fs::read_to_string(&version_file)
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+
+            let is_upgrade =
+                !last_version.is_empty() && last_version != current_version;
+
             // Navigate the main window to the running server
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.navigate("http://localhost:3000".parse().unwrap());
+                if is_upgrade {
+                    // Inject JS into the WebView's persisted page to clear
+                    // SW registrations + CacheStorage, then navigate fresh.
+                    let _ = window.eval(
+                        r#"(async function() {
+                            try {
+                                if ('serviceWorker' in navigator) {
+                                    var regs = await navigator.serviceWorker.getRegistrations();
+                                    await Promise.all(regs.map(function(r) { return r.unregister(); }));
+                                }
+                                var keys = await caches.keys();
+                                await Promise.all(keys.map(function(k) { return caches.delete(k); }));
+                            } catch(e) {}
+                            window.location.replace('http://localhost:3000');
+                        })();"#,
+                    );
+                } else {
+                    let _ =
+                        window.navigate("http://localhost:3000".parse().unwrap());
+                }
             }
+
+            // Persist current version (written after eval so a crash
+            // before completion will re-trigger the clear on next launch).
+            let _ = fs::create_dir_all(&data_dir);
+            let _ = fs::write(&version_file, &current_version);
 
             Ok(())
         })
