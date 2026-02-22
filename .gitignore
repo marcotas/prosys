@@ -8,3 +8,5 @@ drizzle/meta/
 build/
 src-tauri/target/
 src-tauri/server-bundle/
+package-lock.json
+yarn.lock
