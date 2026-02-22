@@ -14,7 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "changeset": "changeset",
     "version": "changeset version && node scripts/sync-version.js",
-    "release": "pnpm version && pnpm tauri:build"
+    "release": "pnpm run version && pnpm tauri:build"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
