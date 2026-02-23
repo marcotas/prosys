@@ -36,7 +36,8 @@ function prosysWs(): Plugin {
 					name: 'ProSys',
 					type: 'prosys',
 					protocol: 'tcp',
-					port
+					port,
+					probe: false
 				});
 
 				console.log(`mDNS: broadcasting _prosys._tcp on port ${port}`);

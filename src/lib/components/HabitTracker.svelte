@@ -286,6 +286,7 @@
                     <!-- Sortable habit rows -->
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <tbody
+                        class="touch-pan-y"
                         use:dragHandleZone={{
                             items: dndItems,
                             flipDurationMs: FLIP_DURATION,

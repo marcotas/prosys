@@ -59,12 +59,13 @@
   // Auto-scroll to today's card
   $effect(() => {
     if (!scrollContainer || !isTodayWeek) return;
+    if (scrollContainer.scrollWidth <= scrollContainer.clientWidth) return;
     const todayCard = scrollContainer.querySelector(
       `[data-iso="${todayISO}"]`,
     );
     if (todayCard) {
       requestAnimationFrame(() => {
-        todayCard.scrollIntoView({ inline: "center", behavior: "instant" });
+        todayCard.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
       });
     }
   });

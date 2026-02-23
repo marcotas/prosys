@@ -98,7 +98,12 @@ pub fn run() {
                 if is_upgrade {
                     // Inject JS into the WebView's persisted page to clear
                     // SW registrations + CacheStorage, then navigate fresh.
-                    let _ = window.eval(
+                    // Note: eval() fires async JS and returns immediately, so
+                    // the version file write below happens before the JS
+                    // completes. This is acceptable because location.replace()
+                    // reloads regardless of cache-clear success, and a failed
+                    // clear only means stale assets until the next hard refresh.
+                    if let Err(e) = window.eval(
                         r#"(async function() {
                             try {
                                 if ('serviceWorker' in navigator) {
@@ -107,18 +112,20 @@ pub fn run() {
                                 }
                                 var keys = await caches.keys();
                                 await Promise.all(keys.map(function(k) { return caches.delete(k); }));
-                            } catch(e) {}
+                            } catch(e) { console.error('[prosys] cache clear failed:', e); }
                             window.location.replace('http://localhost:3000');
                         })();"#,
-                    );
+                    ) {
+                        eprintln!("[prosys] cache-clear eval failed: {e}");
+                    }
                 } else {
                     let _ =
                         window.navigate("http://localhost:3000".parse().unwrap());
                 }
             }
 
-            // Persist current version (written after eval so a crash
-            // before completion will re-trigger the clear on next launch).
+            // Persist current version. If the app crashes before reaching
+            // this write, the clear will re-trigger on next launch.
             let _ = fs::create_dir_all(&data_dir);
             let _ = fs::write(&version_file, &current_version);
 
