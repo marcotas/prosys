@@ -1,6 +1,6 @@
 {
   "name": "prosys",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Family weekly task manager and habit tracker - local network only",
   "type": "module",
   "scripts": {
@@ -11,7 +11,10 @@
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "changeset": "changeset",
+    "version": "changeset version && node scripts/sync-version.js",
+    "release": "pnpm run version && pnpm tauri:build"
   },
   "dependencies": {
     "better-sqlite3": "^12.6.2",
@@ -30,6 +33,7 @@
     ]
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "@sveltejs/adapter-node": "^5.5.3",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",

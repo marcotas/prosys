@@ -26,6 +26,30 @@ select,
 	font-size: 1rem; /* 16px -- prevents iOS zoom on focus */
 }
 
+/* Hide scrollbar while keeping scroll functional */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Disable snap during mouse drag for smooth dragging */
+.is-dragging { scroll-snap-type: none !important; scroll-behavior: auto !important; }
+
+/*
+ * Scroll container padding that aligns first/last card with
+ * the max-w-[1440px] mx-auto px-4 sm:px-6 content area above,
+ * while keeping the scroll container full-width so cards remain
+ * visible beyond the content boundary until they leave the viewport.
+ */
+.scroll-aligned {
+	padding-left: max(1rem, calc((100vw - 1440px) / 2 + 1rem));
+	padding-right: max(1rem, calc((100vw - 1440px) / 2 + 1rem));
+}
+@media (min-width: 640px) {
+	.scroll-aligned {
+		padding-left: max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem));
+		padding-right: max(1.5rem, calc((100vw - 1440px) / 2 + 1.5rem));
+	}
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,

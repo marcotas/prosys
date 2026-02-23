@@ -7,11 +7,13 @@
   import { flip } from "svelte/animate";
   import ProgressRing from "./ProgressRing.svelte";
   import DragHandle from "./DragHandle.svelte";
+  import { createSwipeController } from "$lib/utils/swipe.svelte";
 
   let {
     day,
     dayIndex,
     theme,
+    isToday = false,
     onToggleTask,
     onAddTask,
     onDeleteTask,
@@ -22,6 +24,7 @@
     day: DayData;
     dayIndex: number;
     theme: ThemeConfig;
+    isToday?: boolean;
     onToggleTask: (taskId: string) => void;
     onAddTask: (title: string, emoji?: string) => void;
     onDeleteTask: (taskId: string) => void;
@@ -88,96 +91,13 @@
     onReorderTasks?.(taskIds);
   }
 
-  // ── Swipe state ───────────────────────────────────────
-  const SWIPE_ZONE = 120; // width for move + delete buttons
-  const SWIPE_THRESHOLD = 40;
-  let swipedOpenId = $state<string | null>(null);
-  let swipeState = $state<{
-    taskId: string;
-    startX: number;
-    startY: number;
-    currentX: number;
-    locked: boolean;
-    scrolling: boolean;
-  } | null>(null);
-
-  function getSwipeOffset(taskId: string): number {
-    if (swipeState?.taskId === taskId && swipeState.locked) {
-      const delta = swipeState.currentX - swipeState.startX;
-      return Math.max(-SWIPE_ZONE, Math.min(0, delta));
-    }
-    if (swipedOpenId === taskId) return -SWIPE_ZONE;
-    return 0;
-  }
-
-  function onPointerDown(e: PointerEvent, taskId: string) {
-    // Don't initiate swipe if touch started on drag handle
-    if ((e.target as HTMLElement).closest(".drag-handle")) return;
-
-    if (swipedOpenId && swipedOpenId !== taskId) {
-      swipedOpenId = null;
-      return;
-    }
-    const startOffset = swipedOpenId === taskId ? -SWIPE_ZONE : 0;
-    swipeState = {
-      taskId,
-      startX: e.clientX - startOffset,
-      startY: e.clientY,
-      currentX: e.clientX,
-      locked: false,
-      scrolling: false,
-    };
-  }
-
-  function onPointerMove(e: PointerEvent) {
-    if (!swipeState) return;
-
-    const dy = e.clientY - swipeState.startY;
-
-    if (!swipeState.locked && !swipeState.scrolling) {
-      const absDy = Math.abs(dy);
-      const rawDx = Math.abs(
-        e.clientX -
-          swipeState.startX +
-          (swipedOpenId === swipeState.taskId ? SWIPE_ZONE : 0),
-      );
-      if (rawDx > 8 || absDy > 8) {
-        if (absDy > rawDx) {
-          swipeState.scrolling = true;
-          swipeState = null;
-          return;
-        } else {
-          swipeState.locked = true;
-          e.preventDefault();
-        }
-      }
-    }
-
-    if (swipeState?.locked) {
-      e.preventDefault();
-      swipeState.currentX = e.clientX;
-    }
-  }
-
-  function onPointerUp() {
-    if (!swipeState) return;
-    if (swipeState.locked) {
-      const delta = swipeState.currentX - swipeState.startX;
-      if (delta < -SWIPE_THRESHOLD) {
-        swipedOpenId = swipeState.taskId;
-      } else {
-        swipedOpenId = null;
-      }
-    }
-    swipeState = null;
-  }
-
-  function closeSwipe() {
-    swipedOpenId = null;
-  }
+  // ── Swipe to reveal (move + delete) ──────────────────
+  const SWIPE_ZONE = 120;
+  const swipe = createSwipeController({ zoneWidth: SWIPE_ZONE, threshold: 40 });
+  $effect(() => () => swipe.destroy());
 
   function handleDeleteSwiped(taskId: string) {
-    swipedOpenId = null;
+    swipe.close();
     onDeleteTask(taskId);
   }
 
@@ -187,7 +107,7 @@
 
   function openMovePicker(taskId: string) {
     movePickerTaskId = taskId;
-    swipedOpenId = null;
+    swipe.close();
   }
 
   function handleMoveToDay(taskId: string, toDayIndex: number) {
@@ -216,8 +136,8 @@
 
   // ── Edit task ─────────────────────────────────────────
   function startEdit(taskId: string, currentTitle: string) {
-    if (swipedOpenId) {
-      closeSwipe();
+    if (swipe.swipedOpenId) {
+      swipe.close();
       return;
     }
     editingTaskId = taskId;
@@ -242,15 +162,14 @@
   }
 </script>
 
-<svelte:window onpointermove={onPointerMove} onpointerup={onPointerUp} />
-
 <article
   class="h-full bg-white shadow-sm flex flex-col overflow-hidden
     {playful
     ? 'rounded-3xl border-2'
-    : 'rounded-2xl border border-gray-200/60'}"
-  style={playful ? `border-color: ${theme.accent}25` : ""}
-  aria-label="{day.dayName} tasks"
+    : 'rounded-2xl border border-gray-200/60'}
+    {isToday ? 'ring-2 ring-offset-1' : ''}"
+  style="{playful ? `border-color: ${theme.accent}25` : ''}{isToday ? `; --tw-ring-color: ${theme.accent}` : ''}"
+  aria-label="{day.dayName} tasks{isToday ? ' (today)' : ''}"
 >
   <!-- Header -->
   <div
@@ -321,10 +240,10 @@
       role="list"
     >
       {#each dndItems as task (task.id)}
-        {@const offset = getSwipeOffset(task.id)}
+        {@const offset = swipe.getSwipeOffset(task.id)}
         {@const isSwiping =
-          swipeState?.taskId === task.id && swipeState?.locked}
-        {@const isRevealed = offset < 0 || swipedOpenId === task.id}
+          swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
+        {@const isRevealed = offset < 0 || swipe.swipedOpenId === task.id}
         {@const isShadow = (task as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
         <div
           animate:flip={{ duration: FLIP_DURATION }}
@@ -387,10 +306,10 @@
           <!-- Swipeable task content -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
-            class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none
+            class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none touch-pan-y
               {isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
-            style="transform: translateX({offset}px); touch-action: pan-y;"
-            onpointerdown={(e) => onPointerDown(e, task.id)}
+            style="transform: translateX({offset}px)"
+            ontouchstart={(e) => swipe.onTouchStart(e, task.id)}
           >
             <!-- Drag handle -->
             <div class="mt-[4px]"><DragHandle {theme} /></div>

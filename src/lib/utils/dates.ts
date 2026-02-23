@@ -104,6 +104,14 @@ export function getTodayWeekOffset(): number {
 }
 
 /**
+ * Returns today's date as an ISO string (YYYY-MM-DD).
+ */
+export function getTodayISO(): string {
+	const now = new Date();
+	return toISO(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+/**
  * Human-readable date range string for a week, e.g. "Feb 8 – 14, 2026".
  */
 export function formatWeekRange(weekOffset: number): string {

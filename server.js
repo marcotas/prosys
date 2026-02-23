@@ -26,7 +26,16 @@ globalThis.__wsClients = globalThis.__wsClients || new Map();
 
 // ── HTTP server ──────────────────────────────────────────
 
-const server = createServer(handler);
+const server = createServer((req, res) => {
+	// Service worker script must never be HTTP-cached — the browser's update
+	// check relies on byte-comparing a freshly-fetched SW file against the
+	// installed version.  Without this, WKWebView (Tauri) may serve the old
+	// SW from its disk cache indefinitely after an app update.
+	if (req.url === '/service-worker.js') {
+		res.setHeader('Cache-Control', 'no-store');
+	}
+	handler(req, res);
+});
 
 // ── WebSocket server ─────────────────────────────────────
 

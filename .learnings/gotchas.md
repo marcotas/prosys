@@ -104,3 +104,90 @@ better-sqlite3 (resolved from project root)
 ```
 
 **Rule**: When adding new native addon dependencies, add them to the copy chain in `prepare-server-bundle.js` following this pattern.
+
+## 8. `touch-action: pan-y` scope matters for nested scroll containers
+
+**Symptom**: `touch-pan-y` on a DnD zone inside a horizontal scroll container blocks carousel swipe. Or: `touch-pan-y` on a `<tbody>` blocks horizontal table scroll.
+
+**Cause**: `touch-action: pan-y` tells the browser "only handle vertical panning — I'll handle horizontal." This prevents ANY ancestor horizontal scroll from working through that element.
+
+**Rule**: Never apply `touch-pan-y` to large container zones (DnD zones, tbody). Instead, apply it narrowly to the specific swipeable elements (the div with `ontouchstart`) so only that element's horizontal touch is claimed by JS, while the surrounding area allows native scroll.
+
+**Affected files**: `src/lib/components/DayCard.svelte`, `src/lib/components/HabitTracker.svelte`
+
+## 9. Window-level touch listeners should be lazy
+
+**Symptom**: 24 permanent non-passive `touchmove` listeners on `window` causing scroll jank on mobile.
+
+**Cause**: Each DayCard (7) and HabitTracker (1) registered their own `touchmove`/`touchend`/`touchcancel` on `window` via `$effect` for the lifetime of the component, even when no swipe was active.
+
+**Fix**: Register listeners on `touchstart` (when swipe begins), remove them on `touchend`/`touchcancel` (when swipe ends). Keep a cleanup-only `$effect` for unmount safety. At rest: 0 window listeners. During swipe: 3 listeners from the one active component.
+
+```ts
+function onTouchStart(e, id) {
+  // ... set swipeState ...
+  addSwipeListeners();
+}
+function onTouchEnd() {
+  // ... finalize swipe ...
+  removeSwipeListeners();
+}
+$effect(() => () => removeSwipeListeners()); // unmount safety
+```
+
+**Affected files**: `src/lib/components/DayCard.svelte`, `src/lib/components/HabitTracker.svelte`
+
+## 10. `scrollIntoView` defaults `block` to `"start"`
+
+**Symptom**: Auto-scrolling to today's card on mobile jumps the whole page vertically.
+
+**Cause**: `scrollIntoView({ inline: "center" })` uses default `block: "start"`, which scrolls the element to the top of the viewport.
+
+**Fix**: Always specify `block: "nearest"` when you only want horizontal scroll — it only scrolls vertically if the element is outside the viewport.
+
+```ts
+// BAD — page jumps vertically
+todayCard.scrollIntoView({ inline: "center", behavior: "instant" });
+
+// GOOD — only scrolls horizontally
+todayCard.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+```
+
+**Affected file**: `src/routes/+page.svelte`
+
+## 11. mDNS `bonjour-service` probe fails after unclean shutdown
+
+**Symptom**: `Error: Service name is already in use on the network` on `pnpm dev`.
+
+**Cause**: `bonjour.publish()` probes the network for name conflicts. A killed dev server leaves a stale mDNS record that isn't unpublished. The `buildEnd` Vite hook doesn't fire on kill/crash.
+
+**Fix**: Use `probe: false` in dev mode to skip the name-conflict check. Acceptable because only one dev instance runs at a time.
+
+```ts
+bonjour.publish({
+  name: 'ProSys',
+  type: 'prosys',
+  protocol: 'tcp',
+  port,
+  probe: false  // skip network probe — avoids stale-record conflicts
+});
+```
+
+**Affected file**: `vite.config.ts`
+
+## 12. Tauri `window.eval()` is fire-and-forget
+
+**Symptom**: Version file written before async JS cache-clearing completes. If eval fails at Rust level, no navigation occurs — user sees blank page.
+
+**Cause**: `window.eval()` dispatches JS to the WebView and returns immediately. It cannot await async JS promises. If it returns `Err`, the JS never ran at all (including `window.location.replace()`).
+
+**Fix**: (1) Always add a fallback `window.navigate()` in the `Err` branch. (2) Don't silently discard eval errors with `let _ =`. (3) In the JS catch block, log errors instead of swallowing them.
+
+```rust
+if let Err(e) = window.eval(r#"(async function() { ... })();"#) {
+    eprintln!("[prosys] cache-clear eval failed: {e}");
+    let _ = window.navigate("http://localhost:3000".parse().unwrap());
+}
+```
+
+**Affected file**: `src-tauri/src/lib.rs`
