@@ -80,7 +80,15 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 4. **App bundle is ephemeral** — never write persistent data inside the Tauri bundle. Use `PROSYS_DATA_DIR`
 5. **API routes skip layout loaders** — migrations run in `+layout.server.ts`, so direct curl to API before page load hits uninitialized DB
 6. **Native addon bundling** — when adding native deps, update the copy chain in `prepare-server-bundle.js` using chained `createRequire()`
+7. **`touch-pan-y` scope** — never apply to container zones (DnD zones, tbody). Apply narrowly to swipeable elements only, or it blocks ancestor horizontal scroll (carousel, table)
+8. **Lazy touch listeners** — register `touchmove`/`touchend` on `window` only during active swipe (`touchstart`), remove on end. Permanent listeners cause scroll jank on mobile
+9. **`scrollIntoView` block default** — always pass `block: "nearest"` when you only want horizontal scroll; default `"start"` jumps the page vertically
+10. **mDNS probe in dev** — use `probe: false` in `bonjour.publish()` to avoid "name already in use" errors after unclean shutdown (`vite.config.ts`)
+11. **Tauri `window.eval()` is fire-and-forget** — always add fallback `window.navigate()` in the `Err` branch; don't discard result with `let _ =`
 
-## Detailed Learnings
+## Learnings
 
-See `.learnings/architecture.md` and `.learnings/gotchas.md` for in-depth documentation of production topology, server bundle pipeline, offline sync, and non-obvious pitfalls.
+**Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.
+
+- `.learnings/architecture.md` — production topology, server bundle pipeline, offline sync, data persistence
+- `.learnings/gotchas.md` — 12 documented pitfalls with symptoms, causes, and fixes
