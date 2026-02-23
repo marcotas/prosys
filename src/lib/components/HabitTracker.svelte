@@ -8,6 +8,7 @@
     import { slide } from "svelte/transition";
     import { dayAbbreviations } from "$lib/utils/dates";
     import DragHandle from "./DragHandle.svelte";
+    import { createSwipeController } from "$lib/utils/swipe.svelte";
 
     function getHabitProgress(habit: HabitWithDays): number {
         const completed = habit.days.filter(Boolean).length;
@@ -57,8 +58,8 @@
     let editValue = $state("");
 
     function startEdit(habitId: string, currentName: string) {
-        if (swipedOpenId) {
-            swipedOpenId = null;
+        if (swipe.swipedOpenId) {
+            swipe.close();
             return;
         }
         editingHabitId = habitId;
@@ -115,101 +116,11 @@
 
     // ── Swipe to delete ───────────────────────────────────
     const DELETE_ZONE = 64;
-    const SWIPE_THRESHOLD = 30;
-    let swipedOpenId = $state<string | null>(null);
-    let swipeState = $state<{
-        habitId: string;
-        startX: number;
-        startY: number;
-        currentX: number;
-        locked: boolean;
-    } | null>(null);
-
-    function getSwipeOffset(habitId: string): number {
-        if (swipeState && swipeState.habitId === habitId && swipeState.locked) {
-            const raw = swipeState.currentX - swipeState.startX;
-            return Math.max(-DELETE_ZONE, Math.min(0, raw));
-        }
-        if (swipedOpenId === habitId) return -DELETE_ZONE;
-        return 0;
-    }
-
-    function addSwipeListeners() {
-        window.addEventListener("touchmove", onTouchMove, { passive: false });
-        window.addEventListener("touchend", onTouchEnd);
-        window.addEventListener("touchcancel", onTouchEnd);
-    }
-
-    function removeSwipeListeners() {
-        window.removeEventListener("touchmove", onTouchMove);
-        window.removeEventListener("touchend", onTouchEnd);
-        window.removeEventListener("touchcancel", onTouchEnd);
-    }
-
-    function onTouchStart(e: TouchEvent, habitId: string) {
-        // Don't initiate swipe on drag handle
-        if ((e.target as HTMLElement).closest(".drag-handle")) return;
-        if (editingHabitId === habitId) return;
-        if (swipedOpenId && swipedOpenId !== habitId) {
-            swipedOpenId = null;
-        }
-        const touch = e.touches[0];
-        const startOffset = swipedOpenId === habitId ? -DELETE_ZONE : 0;
-        swipeState = {
-            habitId,
-            startX: touch.clientX - startOffset,
-            startY: touch.clientY,
-            currentX: touch.clientX,
-            locked: false,
-        };
-        addSwipeListeners();
-    }
-
-    function onTouchMove(e: TouchEvent) {
-        if (!swipeState) return;
-        const touch = e.touches[0];
-        const dx = touch.clientX - swipeState.startX;
-        const dy = touch.clientY - swipeState.startY;
-        if (!swipeState.locked) {
-            if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
-                swipeState = null;
-                removeSwipeListeners();
-                return;
-            }
-            if (Math.abs(dx) > 5) {
-                swipeState.locked = true;
-            } else {
-                return;
-            }
-        }
-        e.preventDefault();
-        swipeState.currentX = touch.clientX;
-    }
-
-    function onTouchEnd() {
-        if (!swipeState) {
-            removeSwipeListeners();
-            return;
-        }
-        if (swipeState.locked) {
-            const dx = swipeState.currentX - swipeState.startX;
-            if (dx < -SWIPE_THRESHOLD) {
-                swipedOpenId = swipeState.habitId;
-            } else {
-                swipedOpenId = null;
-            }
-        }
-        swipeState = null;
-        removeSwipeListeners();
-    }
-
-    // Clean up listeners if component unmounts during an active swipe
-    $effect(() => {
-        return () => removeSwipeListeners();
-    });
+    const swipe = createSwipeController({ zoneWidth: DELETE_ZONE, threshold: 30 });
+    $effect(() => () => swipe.destroy());
 
     function handleDeleteSwiped(habitId: string) {
-        swipedOpenId = null;
+        swipe.close();
         onDeleteHabit(habitId);
     }
 </script>
@@ -308,12 +219,12 @@
                     >
                         {#each dndItems as habit (habit.id)}
                             {@const progress = getHabitProgress(habit)}
-                            {@const offset = getSwipeOffset(habit.id)}
+                            {@const offset = swipe.getSwipeOffset(habit.id)}
                             {@const isSwiping =
-                                swipeState?.habitId === habit.id &&
-                                swipeState?.locked}
+                                swipe.swipeState?.itemId === habit.id &&
+                                swipe.swipeState?.locked}
                             {@const isRevealed =
-                                offset < 0 || swipedOpenId === habit.id}
+                                offset < 0 || swipe.swipedOpenId === habit.id}
                             {@const isShadow = (habit as any)[
                                 SHADOW_ITEM_MARKER_PROPERTY_NAME
                             ]}
@@ -362,7 +273,7 @@
                                             : 'transition-transform duration-200 ease-out'}"
                                         style="transform: translateX({offset}px); z-index: 1;"
                                         ontouchstart={(e) =>
-                                            onTouchStart(e, habit.id)}
+                                            swipe.onTouchStart(e, habit.id, () => editingHabitId !== habit.id)}
                                     >
                                         <DragHandle {theme} />
                                         {#if habit.emoji}<span
