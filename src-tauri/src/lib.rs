@@ -117,6 +117,8 @@ pub fn run() {
                         })();"#,
                     ) {
                         eprintln!("[prosys] cache-clear eval failed: {e}");
+                        // Fallback: navigate directly so the user doesn't see a blank page
+                        let _ = window.navigate("http://localhost:3000".parse().unwrap());
                     }
                 } else {
                     let _ =

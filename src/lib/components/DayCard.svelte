@@ -412,7 +412,7 @@
           <!-- Swipeable task content -->
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <div
-            class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none
+            class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none touch-pan-y
               {isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
             style="transform: translateX({offset}px)"
             ontouchstart={(e) => onTouchStart(e, task.id)}
