@@ -134,6 +134,18 @@
         return 0;
     }
 
+    function addSwipeListeners() {
+        window.addEventListener("touchmove", onTouchMove, { passive: false });
+        window.addEventListener("touchend", onTouchEnd);
+        window.addEventListener("touchcancel", onTouchEnd);
+    }
+
+    function removeSwipeListeners() {
+        window.removeEventListener("touchmove", onTouchMove);
+        window.removeEventListener("touchend", onTouchEnd);
+        window.removeEventListener("touchcancel", onTouchEnd);
+    }
+
     function onTouchStart(e: TouchEvent, habitId: string) {
         // Don't initiate swipe on drag handle
         if ((e.target as HTMLElement).closest(".drag-handle")) return;
@@ -150,6 +162,7 @@
             currentX: touch.clientX,
             locked: false,
         };
+        addSwipeListeners();
     }
 
     function onTouchMove(e: TouchEvent) {
@@ -160,6 +173,7 @@
         if (!swipeState.locked) {
             if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) {
                 swipeState = null;
+                removeSwipeListeners();
                 return;
             }
             if (Math.abs(dx) > 5) {
@@ -173,7 +187,10 @@
     }
 
     function onTouchEnd() {
-        if (!swipeState) return;
+        if (!swipeState) {
+            removeSwipeListeners();
+            return;
+        }
         if (swipeState.locked) {
             const dx = swipeState.currentX - swipeState.startX;
             if (dx < -SWIPE_THRESHOLD) {
@@ -183,18 +200,12 @@
             }
         }
         swipeState = null;
+        removeSwipeListeners();
     }
 
-    // Register touchmove with { passive: false } so preventDefault() works
+    // Clean up listeners if component unmounts during an active swipe
     $effect(() => {
-        window.addEventListener("touchmove", onTouchMove, { passive: false });
-        window.addEventListener("touchend", onTouchEnd);
-        window.addEventListener("touchcancel", onTouchEnd);
-        return () => {
-            window.removeEventListener("touchmove", onTouchMove);
-            window.removeEventListener("touchend", onTouchEnd);
-            window.removeEventListener("touchcancel", onTouchEnd);
-        };
+        return () => removeSwipeListeners();
     });
 
     function handleDeleteSwiped(habitId: string) {
@@ -256,7 +267,7 @@
                                 : '#f3f4f6'}"
                         >
                             <th
-                                class="text-left pl-[24px] pr-2 py-2.5 text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap"
+                                class="text-left pl-[24px] pr-2 py-2.5 text-[11px] font-semibold uppercase tracking-widest whitespace-nowrap sticky left-0 z-10 bg-white"
                                 style="color: {playful
                                     ? theme.accent
                                     : '#9ca3af'}"
@@ -286,7 +297,6 @@
                     <!-- Sortable habit rows -->
                     <!-- svelte-ignore a11y_no_static_element_interactions -->
                     <tbody
-                        class="touch-pan-y"
                         use:dragHandleZone={{
                             items: dndItems,
                             flipDurationMs: FLIP_DURATION,
@@ -317,7 +327,7 @@
                                     : '#f9fafb'}"
                             >
                                 <!-- Habit name cell — with drag handle + swipeable input -->
-                                <td class="relative overflow-hidden p-0">
+                                <td class="relative overflow-hidden p-0 sticky left-0 z-10 bg-white">
                                     <!-- Delete zone — only render when swiped -->
                                     {#if isRevealed}
                                         <button
@@ -347,7 +357,7 @@
                                     <!-- Swipeable name content -->
                                     <!-- svelte-ignore a11y_no_static_element_interactions -->
                                     <div
-                                        class="relative bg-white pl-1 pr-4 py-1 flex items-center {isSwiping
+                                        class="relative bg-white pl-1 pr-4 py-1 flex items-center touch-pan-y {isSwiping
                                             ? ''
                                             : 'transition-transform duration-200 ease-out'}"
                                         style="transform: translateX({offset}px); z-index: 1;"
@@ -507,39 +517,35 @@
                             </tr>
                         {/each}
                     </tbody>
-                    <!-- Add habit row (outside dnd zone) -->
-                    <tfoot>
-                        <tr>
-                            <td colspan="9" class="pl-[24px] pr-4 py-1.5">
-                                <input
-                                    type="text"
-                                    bind:value={newHabitName}
-                                    placeholder={playful
-                                        ? "Add habit ✨"
-                                        : "+ Add habit"}
-                                    onkeydown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            submitNewHabit();
-                                        } else if (e.key === "Escape") {
-                                            newHabitName = "";
-                                            (
-                                                e.target as HTMLInputElement
-                                            ).blur();
-                                        }
-                                    }}
-                                    class="text-base w-full bg-transparent border-none outline-hidden focus-visible:outline-hidden p-0 m-0 placeholder:text-gray-300 focus:outline-hidden {playful
-                                        ? 'font-medium placeholder:opacity-60'
-                                        : 'text-gray-700'}"
-                                    style={playful
-                                        ? `color: ${theme.accentDark}`
-                                        : ""}
-                                    aria-label="Add new habit"
-                                />
-                            </td>
-                        </tr>
-                    </tfoot>
                 </table>
+            </div>
+            <!-- Add habit input (outside scroll container so it stays fixed) -->
+            <div class="pl-[24px] pr-4 py-1.5">
+                <input
+                    type="text"
+                    bind:value={newHabitName}
+                    placeholder={playful
+                        ? "Add habit ✨"
+                        : "+ Add habit"}
+                    onkeydown={(e) => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            submitNewHabit();
+                        } else if (e.key === "Escape") {
+                            newHabitName = "";
+                            (
+                                e.target as HTMLInputElement
+                            ).blur();
+                        }
+                    }}
+                    class="text-base w-full bg-transparent border-none outline-hidden focus-visible:outline-hidden p-0 m-0 placeholder:text-gray-300 focus:outline-hidden {playful
+                        ? 'font-medium placeholder:opacity-60'
+                        : 'text-gray-700'}"
+                    style={playful
+                        ? `color: ${theme.accentDark}`
+                        : ""}
+                    aria-label="Add new habit"
+                />
             </div>
 
             {#if !hasHabits}

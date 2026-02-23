@@ -112,6 +112,18 @@
     return 0;
   }
 
+  function addSwipeListeners() {
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("touchend", onTouchEnd);
+    window.addEventListener("touchcancel", onTouchEnd);
+  }
+
+  function removeSwipeListeners() {
+    window.removeEventListener("touchmove", onTouchMove);
+    window.removeEventListener("touchend", onTouchEnd);
+    window.removeEventListener("touchcancel", onTouchEnd);
+  }
+
   function onTouchStart(e: TouchEvent, taskId: string) {
     // Don't initiate swipe if touch started on drag handle
     if ((e.target as HTMLElement).closest(".drag-handle")) return;
@@ -130,6 +142,7 @@
       locked: false,
       scrolling: false,
     };
+    addSwipeListeners();
   }
 
   function onTouchMove(e: TouchEvent) {
@@ -148,6 +161,7 @@
         if (absDy > rawDx) {
           swipeState.scrolling = true;
           swipeState = null;
+          removeSwipeListeners();
           return;
         } else {
           swipeState.locked = true;
@@ -163,7 +177,10 @@
   }
 
   function onTouchEnd() {
-    if (!swipeState) return;
+    if (!swipeState) {
+      removeSwipeListeners();
+      return;
+    }
     if (swipeState.locked) {
       const delta = swipeState.currentX - swipeState.startX;
       if (delta < -SWIPE_THRESHOLD) {
@@ -173,18 +190,12 @@
       }
     }
     swipeState = null;
+    removeSwipeListeners();
   }
 
-  // Register touchmove with { passive: false } so preventDefault() works
+  // Clean up listeners if component unmounts during an active swipe
   $effect(() => {
-    window.addEventListener("touchmove", onTouchMove, { passive: false });
-    window.addEventListener("touchend", onTouchEnd);
-    window.addEventListener("touchcancel", onTouchEnd);
-    return () => {
-      window.removeEventListener("touchmove", onTouchMove);
-      window.removeEventListener("touchend", onTouchEnd);
-      window.removeEventListener("touchcancel", onTouchEnd);
-    };
+    return () => removeSwipeListeners();
   });
 
   function closeSwipe() {
@@ -331,7 +342,7 @@
       }}
       onconsider={handleDndConsider}
       onfinalize={handleDndFinalize}
-      class="pb-1 flex-1 touch-pan-y"
+      class="pb-1 flex-1"
       role="list"
     >
       {#each dndItems as task (task.id)}
