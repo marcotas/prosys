@@ -1,5 +1,11 @@
 # prosys
 
+## 0.2.5
+
+### Patch Changes
+
+- b7dd4c4: Codesign native .node binaries in server bundle for Apple notarization
+
 ## 0.2.4
 
 ### Patch Changes
