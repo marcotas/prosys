@@ -1,6 +1,6 @@
 [package]
 name = "prosys"
-version = "0.1.0"
+version = "0.2.0"
 description = "Family weekly task manager and habit tracker"
 authors = ["you"]
 license = ""
