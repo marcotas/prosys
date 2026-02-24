@@ -1,5 +1,11 @@
 # prosys
 
+## 0.2.4
+
+### Patch Changes
+
+- 11a10f5: Add macOS code signing and notarization to release workflow
+
 ## 0.2.3
 
 ### Patch Changes
