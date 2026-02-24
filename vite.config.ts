@@ -2,6 +2,9 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
 import { Bonjour } from 'bonjour-service';
+import { readFileSync } from 'node:fs';
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 
 /**
  * Vite plugin that attaches a WebSocket server and mDNS broadcast
@@ -56,6 +59,9 @@ function prosysWs(): Plugin {
 }
 
 export default defineConfig(({ command }) => ({
+	define: {
+		__APP_VERSION__: JSON.stringify(pkg.version)
+	},
 	plugins: [prosysWs(), tailwindcss(), sveltekit()],
 
 	// Force Vite to bundle all pure-JS dependencies into the SSR output so
