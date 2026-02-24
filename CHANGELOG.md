@@ -1,5 +1,16 @@
 # prosys
 
+## 0.2.1
+
+### Patch Changes
+
+- 9919bd6: Fix release pipeline: use PAT for tag push and include changelog in draft release
+
+  - Tags pushed by GITHUB_TOKEN don't trigger other workflows — switched to RELEASE_TOKEN (PAT)
+  - Draft releases now include the CHANGELOG.md content for the version
+
+- 4fc041e: Add app name to version footer
+
 ## 0.2.0
 
 ### Minor Changes
