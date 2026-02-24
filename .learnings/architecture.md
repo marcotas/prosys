@@ -19,10 +19,14 @@ Tauri (Rust)
 |------|------|
 | `src-tauri/src/lib.rs` | Rust entry: finds Node.js, sets env vars, spawns server, navigates webview |
 | `server.js` | Production entry: HTTP server, WebSocket, mDNS |
-| `scripts/prepare-server-bundle.js` | Builds self-contained `src-tauri/server-bundle/` for Tauri resources |
-| `vite.config.ts` | Vite plugin for dev WebSocket + mDNS; SSR external config |
+| `scripts/prepare-server-bundle.js` | Builds self-contained `src-tauri/server-bundle/` + signs native binaries |
+| `scripts/sync-version.js` | Syncs `package.json` version → `tauri.conf.json` + `Cargo.toml` |
+| `vite.config.ts` | Vite plugin for dev WebSocket + mDNS; SSR external config; version injection |
 | `src/lib/server/db/index.ts` | Database connection; uses `PROSYS_DATA_DIR` env var |
 | `src/lib/server/ws.ts` | WebSocket setup + `broadcast()` via `globalThis.__wsClients` |
+| `src/lib/components/UpdateBanner.svelte` | Shared update notification banner (desktop + PWA) |
+| `.github/workflows/version.yml` | Changesets → version PR → tag → dispatch release |
+| `.github/workflows/release.yml` | Tauri build → sign → notarize → draft GitHub Release |
 
 ## Server Bundle Pipeline
 
@@ -31,7 +35,8 @@ Tauri (Rust)
 1. **SvelteKit build** (`vite build`) -- produces `build/` (adapter-node output)
 2. **esbuild** -- bundles `server.js` with all pure-JS deps inlined; native addons (`better-sqlite3`) kept external; CJS `require()` polyfill banner injected
 3. **Copy artifacts** -- `build/`, `drizzle/` migrations, native addon `node_modules/` (better-sqlite3 + transitive deps resolved via chained `createRequire()`)
-4. **Tauri compile** -- Rust binary + `src-tauri/server-bundle/` into `ProSys.app/Contents/Resources/server/`
+4. **Codesign native binaries** -- if `APPLE_SIGNING_IDENTITY` is set (CI), recursively signs all `.node`/`.dylib` files with Developer ID certificate (required for Apple notarization)
+5. **Tauri compile** -- Rust binary + `src-tauri/server-bundle/` into `ProSys.app/Contents/Resources/server/`
 
 ## Data Persistence
 
@@ -82,3 +87,45 @@ The PWA works offline via two mechanisms: a Service Worker for app shell caching
 - API requests are never cached by the Service Worker — stale data is worse than no data
 - iOS Safari may evict Service Worker caches after ~7 days of inactivity (acceptable for daily-use family app)
 - Queue stores only mutation metadata (tiny); IndexedDB quota is not a concern
+
+## CI/CD Release Pipeline
+
+Automated versioning, signing, and release:
+
+```
+Push changeset to main → version.yml opens "Version Packages" PR
+  → Merge PR → version.yml tags vX.Y.Z → dispatches release.yml
+    → release.yml builds Tauri app (signed + notarized) → draft GitHub Release
+```
+
+See `.learnings/ci-cd-release-pipeline.md` for details on the workflow, secrets, and pitfalls.
+
+## macOS Code Signing & Notarization
+
+The release build signs the app with a Developer ID Application certificate and submits to Apple for notarization. This is required for the `.dmg` to open without Gatekeeper blocking it.
+
+Key detail: Native addons (`.node` files) in the server bundle must be signed separately — Tauri only signs its own binaries, not resource files. `prepare-server-bundle.js` handles this.
+
+See `.learnings/macos-code-signing.md` for the full setup and CI workflow.
+
+## Update Notifications
+
+Two paths for notifying users of updates:
+
+- **Desktop (Tauri)**: `@tauri-apps/plugin-updater` checks `latest.json` from GitHub Releases → shows banner → downloads + relaunches
+- **Mobile (PWA)**: `controllerchange` event on `navigator.serviceWorker` → shows banner → page reload
+
+Both use the shared `UpdateBanner.svelte` component. Dynamic imports guard Tauri-only modules from loading on PWA clients.
+
+See `.learnings/update-notifications.md` for implementation details.
+
+## Build-Time Version Injection
+
+The app version is injected by Vite at build time from `package.json`:
+
+```ts
+// vite.config.ts
+define: { __APP_VERSION__: JSON.stringify(pkg.version) }
+```
+
+Declared in `src/app.d.ts` as `declare const __APP_VERSION__: string` and displayed in the footer of `+layout.svelte`.

@@ -191,3 +191,70 @@ if let Err(e) = window.eval(r#"(async function() { ... })();"#) {
 ```
 
 **Affected file**: `src-tauri/src/lib.rs`
+
+## 13. GITHUB_TOKEN tags don't trigger other workflows
+
+**Symptom**: `version.yml` pushes a tag, but `release.yml` (triggered by `on: push: tags`) never runs.
+
+**Cause**: GitHub prevents recursive workflow runs. Tags (and pushes) created using `GITHUB_TOKEN` intentionally don't trigger other workflows. Fine-grained PATs also don't reliably trigger push-based events.
+
+**Fix**: Use `workflow_dispatch` as the cross-workflow trigger. `version.yml` explicitly dispatches `release.yml` via `gh workflow run` using a classic PAT (`RELEASE_TOKEN` secret) with `contents:write` scope.
+
+```yaml
+# version.yml
+- name: Trigger release build
+  env:
+    GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+  run: gh workflow run release.yml --repo $REPO --ref "$TAG"
+```
+
+**Affected files**: `.github/workflows/version.yml`, `.github/workflows/release.yml`
+
+## 14. `pnpm exec` can't find transitive dependencies in CI
+
+**Symptom**: `ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL Command "esbuild" not found` on CI.
+
+**Cause**: `esbuild` was only a transitive dependency of Vite. pnpm's strict isolation means `pnpm exec esbuild` can't find binaries from transitive deps. Works locally because the binary happens to be hoisted.
+
+**Fix**: Add `esbuild` as an explicit `devDependency`: `pnpm add -D esbuild`.
+
+**Rule**: Any CLI tool used via `pnpm exec` in scripts must be a direct dependency, not transitive.
+
+**Affected files**: `package.json`, `scripts/prepare-server-bundle.js`
+
+## 15. Drizzle migration meta files must be in git
+
+**Symptom**: `Error: Can't find meta/_journal.json file` during CI build.
+
+**Cause**: `drizzle/meta/` was in `.gitignore`, but SvelteKit's build runs server-side code that imports Drizzle ORM, which requires `meta/_journal.json` and snapshot files at build time — even if no migration is being run.
+
+**Fix**: Remove `drizzle/meta/` from `.gitignore` and track these files in git. The actual SQLite database (`*.db`) should remain gitignored.
+
+**Affected files**: `.gitignore`, `drizzle/meta/_journal.json`, `drizzle/meta/0000_snapshot.json`
+
+## 16. Apple notarization requires all binaries signed
+
+**Symptom**: Notarization fails with "The binary is not signed with a valid Developer ID certificate" pointing to `better_sqlite3.node`.
+
+**Cause**: Tauri signs its own executables and frameworks, but NOT resource files. The `better_sqlite3.node` native addon is copied into `server-bundle/node_modules/` as a resource — Tauri doesn't know it's an executable binary.
+
+**Fix**: `prepare-server-bundle.js` recursively finds and codesigns all `.node` and `.dylib` files when `APPLE_SIGNING_IDENTITY` is set (CI only). Must use `--timestamp --options runtime` flags for notarization compliance.
+
+```js
+execSync(
+    `codesign --force --sign "${identity}" --timestamp --options runtime "${fullPath}"`,
+    { stdio: 'inherit' }
+);
+```
+
+**Rule**: If adding new native addon dependencies, ensure their binaries end with `.node` or `.dylib` — the recursive scan will pick them up automatically.
+
+**Affected file**: `scripts/prepare-server-bundle.js`
+
+## 17. Keychain import error -25294 on macOS
+
+**Symptom**: Double-clicking a `.cer` file shows "Unable to import — Error: -25294".
+
+**Cause**: The certificate can't find its matching private key. The CSR was generated in the **login** keychain, but the `.cer` import targeted a different keychain (e.g., System or Local Items).
+
+**Fix**: Open Keychain Access, select **login** in the sidebar, then drag the `.cer` onto the window. Both the private key (from CSR) and certificate must be in the same keychain.
