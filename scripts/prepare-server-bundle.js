@@ -13,7 +13,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { cpSync, mkdirSync, rmSync, existsSync, realpathSync } from 'node:fs';
+import { cpSync, mkdirSync, rmSync, existsSync, realpathSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -136,4 +136,36 @@ for (const [name, src] of pkgsToCopy) {
 	}
 }
 
+// ── 5. Codesign native binaries (CI only) ───────────────────────────────
+// Apple notarization requires every binary in the app bundle to be signed
+// with a Developer ID certificate. Tauri signs its own binaries but not
+// resource files like .node native addons.
+const signingIdentity = process.env.APPLE_SIGNING_IDENTITY;
+if (signingIdentity) {
+	console.log('Signing native binaries for notarization…');
+	signNativeBinaries(outDir, signingIdentity);
+} else {
+	console.log('Skipping native binary signing (no APPLE_SIGNING_IDENTITY)');
+}
+
 console.log('Server bundle ready at src-tauri/server-bundle/');
+
+/**
+ * Recursively find and codesign all .node and .dylib files in a directory.
+ * Required for Apple notarization — every binary must be signed.
+ */
+function signNativeBinaries(dir, identity) {
+	for (const entry of readdirSync(dir, { withFileTypes: true })) {
+		const fullPath = resolve(dir, entry.name);
+		if (entry.isDirectory()) {
+			signNativeBinaries(fullPath, identity);
+		} else if (entry.name.endsWith('.node') || entry.name.endsWith('.dylib')) {
+			console.log(`  signing ${entry.name}…`);
+			execSync(
+				`codesign --force --sign "${identity}" --timestamp --options runtime "${fullPath}"`,
+				{ stdio: 'inherit' }
+			);
+			console.log(`  ✓ ${entry.name}`);
+		}
+	}
+}
