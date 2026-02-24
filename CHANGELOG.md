@@ -1,5 +1,11 @@
 # prosys
 
+## 0.2.3
+
+### Patch Changes
+
+- 5c69469: Add esbuild as explicit devDependency for CI builds
+
 ## 0.2.2
 
 ### Patch Changes
