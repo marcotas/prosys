@@ -168,4 +168,6 @@
 {/if}
 
 <!-- App version -->
-<footer class="py-4 text-center text-xs text-gray-300">ProSys v{__APP_VERSION__}</footer>
+<footer class="py-4 text-center text-xs text-gray-300">
+	&copy; {new Date().getFullYear()} ProSys &middot; v{__APP_VERSION__}
+</footer>
