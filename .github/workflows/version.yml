@@ -36,8 +36,12 @@ jobs:
 
       # When the version PR was just merged (no changesets remain),
       # tag the release so release.yml can build the Tauri artifacts.
+      # Uses RELEASE_TOKEN (PAT) instead of GITHUB_TOKEN because tags
+      # pushed by GITHUB_TOKEN don't trigger other workflows.
       - name: Tag release
         if: steps.changesets.outputs.hasChangesets == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
@@ -45,6 +49,6 @@ jobs:
             echo "Tag $TAG already exists, skipping"
           else
             git tag "$TAG"
-            git push origin "$TAG"
+            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git "$TAG"
             echo "Created and pushed tag $TAG"
           fi
