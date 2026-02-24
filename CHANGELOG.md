@@ -1,5 +1,11 @@
 # prosys
 
+## 0.2.2
+
+### Patch Changes
+
+- be94110: Add copyright notice to app footer
+
 ## 0.2.1
 
 ### Patch Changes
