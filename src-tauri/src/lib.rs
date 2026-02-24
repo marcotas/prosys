@@ -10,6 +10,8 @@ struct ServerProcess(Mutex<Option<Child>>);
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             // In dev mode, Tauri's beforeDevCommand starts the Vite server
             // and the window loads devUrl automatically — nothing to do here.
@@ -160,7 +162,7 @@ fn find_node() -> Option<PathBuf> {
     // Well-known system-wide locations
     let system_candidates = [
         "/opt/homebrew/bin/node", // Homebrew – Apple Silicon
-        "/usr/local/bin/node",   // Homebrew – Intel / manual install
+        "/usr/local/bin/node",    // Homebrew – Intel / manual install
     ];
 
     for path in &system_candidates {

@@ -9,8 +9,15 @@
 	import { offlineQueue } from '$lib/stores/offline-queue.svelte';
 	import type { Task, Habit, Member } from '$lib/types';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
+	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 
 	let { children } = $props();
+
+	// ── Update notifications ────────────────────────────
+	let tauriUpdate = $state<{ version: string; download: () => Promise<void> } | null>(null);
+	let tauriUpdateDismissed = $state(false);
+	let swUpdateAvailable = $state(false);
+	let swUpdateDismissed = $state(false);
 
 	// ── WebSocket lifecycle ──────────────────────────────
 	onMount(() => {
@@ -33,11 +40,51 @@
 			wsStore.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p)),
 		];
 
+		// ── Tauri updater (desktop only) ────────────────────
+		if (typeof window !== 'undefined' && '__TAURI__' in window) {
+			checkTauriUpdate();
+		}
+
+		// ── PWA update detection (mobile only) ──────────────
+		if ('serviceWorker' in navigator) {
+			// Track whether we already have a controller — if not, the first
+			// controllerchange is the initial SW activation, not an update.
+			let hadController = !!navigator.serviceWorker.controller;
+			navigator.serviceWorker.addEventListener('controllerchange', () => {
+				if (hadController) {
+					swUpdateAvailable = true;
+				} else {
+					hadController = true;
+				}
+			});
+		}
+
 		return () => {
 			unsubs.forEach((fn) => fn());
 			wsStore.destroy();
 		};
 	});
+
+	async function checkTauriUpdate() {
+		try {
+			const { check } = await import('@tauri-apps/plugin-updater');
+			const { relaunch } = await import('@tauri-apps/plugin-process');
+
+			const update = await check();
+			if (update) {
+				tauriUpdate = {
+					version: update.version,
+					download: async () => {
+						await update.downloadAndInstall();
+						await relaunch();
+					}
+				};
+			}
+		} catch {
+			// Updater check failed (no internet, endpoint unreachable, etc.)
+			// Fail silently — the app works fine without updates
+		}
+	}
 
 	// ── Connection status ────────────────────────────────
 	let statusLabel = $derived(
@@ -74,6 +121,26 @@
 
 <!-- PWA install banner (mobile browsers only) -->
 <PwaInstallBanner />
+
+<!-- Update banners -->
+{#if browser && tauriUpdate && !tauriUpdateDismissed}
+	<UpdateBanner
+		message="Update available"
+		detail="Version {tauriUpdate.version} is ready"
+		actionLabel="Update & restart"
+		onAction={tauriUpdate.download}
+		onDismiss={() => tauriUpdateDismissed = true}
+	/>
+{/if}
+
+{#if browser && swUpdateAvailable && !swUpdateDismissed}
+	<UpdateBanner
+		message="New version available"
+		actionLabel="Refresh"
+		onAction={() => window.location.reload()}
+		onDismiss={() => swUpdateDismissed = true}
+	/>
+{/if}
 
 <!-- Connection indicator -->
 {#if browser}
