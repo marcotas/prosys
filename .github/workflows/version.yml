@@ -35,13 +35,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # When the version PR was just merged (no changesets remain),
-      # tag the release so release.yml can build the Tauri artifacts.
-      # Uses RELEASE_TOKEN (PAT) instead of GITHUB_TOKEN because tags
-      # pushed by GITHUB_TOKEN don't trigger other workflows.
+      # tag the release and dispatch the Release workflow to build artifacts.
       - name: Tag release
         if: steps.changesets.outputs.hasChangesets == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v$VERSION"
@@ -49,6 +45,19 @@ jobs:
             echo "Tag $TAG already exists, skipping"
           else
             git tag "$TAG"
-            git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git "$TAG"
+            git push origin "$TAG"
             echo "Created and pushed tag $TAG"
+          fi
+
+      - name: Trigger release build
+        if: steps.changesets.outputs.hasChangesets == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v$VERSION"
+          # Only dispatch if we actually created a new tag
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            gh workflow run release.yml --repo ${{ github.repository }} --ref "$TAG"
+            echo "Dispatched release build for $TAG"
           fi
