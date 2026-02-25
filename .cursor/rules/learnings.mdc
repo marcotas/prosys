@@ -1,6 +1,5 @@
 ---
 description: Load project learnings (architecture + gotchas) when editing core files
-globs: src/**/*.svelte.ts, src/**/*.svelte, vite.config.ts, src-tauri/**, scripts/prepare-server-bundle.js, src/lib/server/**, server.js
 alwaysApply: false
 ---
 

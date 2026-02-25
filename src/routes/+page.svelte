@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Member, ThemeConfig, DayData } from "$lib/types";
   import { untrack } from "svelte";
+  import { goto } from "$app/navigation";
   import {
     computeWeekDays,
     getWeekStart,
@@ -337,12 +338,18 @@
         </div>
 
         <div class="flex items-center gap-3">
-          <FamilySwitcher
+		<FamilySwitcher
             members={memberStore.members.length > 0
               ? memberStore.members
               : data.members}
             selectedId={memberStore.selectedMemberId || data.defaultMemberId}
-            onSelect={(id) => memberStore.select(id)}
+            onSelect={(id) => {
+              if (id === '__family__') {
+                goto('/planner');
+              } else {
+                memberStore.select(id);
+              }
+            }}
             onAdd={openCreateDialog}
             onEdit={openEditDialog}
           />

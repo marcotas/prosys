@@ -1,9 +1,15 @@
-import type { Habit, HabitWithDays } from '$lib/types';
+import type { Habit, HabitWithDays, FamilyHabitProgress } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
 import { offlineQueue, isNetworkError } from './offline-queue.svelte';
 
+const FAMILY_KEY = '__family_habits__';
+
 function cacheKey(memberId: string, weekStart: string): string {
 	return `${memberId}:${weekStart}`;
+}
+
+function familyCacheKey(weekStart: string): string {
+	return `${FAMILY_KEY}:${weekStart}`;
 }
 
 function createHabitStore() {
@@ -390,6 +396,53 @@ function createHabitStore() {
 			}
 		},
 
+		// ── Family / Planner methods ──────────────────────────
+
+		hydrateFamilyWeek(weekStart: string, data: FamilyHabitProgress[]) {
+			const key = familyCacheKey(weekStart);
+			if (weekCache.has(key)) return;
+			const next = new Map(weekCache);
+			next.set(key, data as any);
+			weekCache = next;
+		},
+
+		async loadFamilyWeek(weekStart: string): Promise<void> {
+			const key = familyCacheKey(weekStart);
+			if (weekCache.has(key)) return;
+
+			loading = true;
+			try {
+				const res = await fetch(`/api/family/habits?week=${weekStart}`);
+				if (!res.ok) throw new Error(`Failed to load family habits: ${res.status}`);
+				const data: FamilyHabitProgress[] = await res.json();
+				const next = new Map(weekCache);
+				next.set(key, data as any);
+				weekCache = next;
+			} finally {
+				loading = false;
+			}
+		},
+
+		async reloadFamilyWeek(weekStart: string): Promise<void> {
+			const key = familyCacheKey(weekStart);
+			loading = true;
+			try {
+				const res = await fetch(`/api/family/habits?week=${weekStart}`);
+				if (!res.ok) throw new Error(`Failed to load family habits: ${res.status}`);
+				const data: FamilyHabitProgress[] = await res.json();
+				const next = new Map(weekCache);
+				next.set(key, data as any);
+				weekCache = next;
+			} finally {
+				loading = false;
+			}
+		},
+
+		getFamilyHabitProgress(weekStart: string): FamilyHabitProgress[] {
+			const key = familyCacheKey(weekStart);
+			return (weekCache.get(key) as any as FamilyHabitProgress[]) ?? [];
+		},
+
 		// ── Remote apply methods (called by WS message handlers) ──
 
 		applyRemoteCreate(habit: Habit) {
@@ -398,6 +451,10 @@ function createHabitStore() {
 				if (key.startsWith(`${habit.memberId}:`)) {
 					next.set(key, [...habits, { ...habit, days: [false, false, false, false, false, false, false] }]);
 				}
+			}
+			// Invalidate family caches so they reload with fresh data
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) next.delete(key);
 			}
 			weekCache = next;
 		},
@@ -409,6 +466,9 @@ function createHabitStore() {
 					next.set(key, habits.map((h) => (h.id === habit.id ? { ...h, ...habit } : h)));
 				}
 			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) next.delete(key);
+			}
 			weekCache = next;
 		},
 
@@ -419,17 +479,21 @@ function createHabitStore() {
 					next.set(key, habits.filter((h) => h.id !== payload.id));
 				}
 			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) next.delete(key);
+			}
 			weekCache = next;
 		},
 
 		applyRemoteToggle(payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean }) {
-			// Find the cache key for the habit's member + the payload weekStart
-			for (const [key, habits] of weekCache) {
+			const next = new Map(weekCache);
+			// Update member-specific caches
+			for (const [key, habits] of next) {
+				if (key.startsWith(FAMILY_KEY)) continue;
 				if (!key.endsWith(`:${payload.weekStart}`)) continue;
 				const habit = habits.find((h) => h.id === payload.habitId);
 				if (!habit) continue;
 
-				const next = new Map(weekCache);
 				next.set(
 					key,
 					habits.map((h) => {
@@ -439,9 +503,23 @@ function createHabitStore() {
 						return { ...h, days: newDays };
 					})
 				);
-				weekCache = next;
-				return;
 			}
+			// Update family cache inline (toggle is the most common remote change)
+			const fk = familyCacheKey(payload.weekStart);
+			const familyData = next.get(fk) as any as FamilyHabitProgress[] | undefined;
+			if (familyData) {
+				const updated = familyData.map((mp) => ({
+					...mp,
+					habits: mp.habits.map((h) => {
+						if (h.id !== payload.habitId) return h;
+						const newDays = [...h.days];
+						newDays[payload.dayIndex] = payload.completed;
+						return { ...h, days: newDays };
+					})
+				}));
+				next.set(fk, updated as any);
+			}
+			weekCache = next;
 		},
 
 		applyRemoteReorder(payload: { memberId: string; habitIds: string[] }) {
@@ -459,6 +537,9 @@ function createHabitStore() {
 							.sort((a, b) => a.sortOrder - b.sortOrder)
 					);
 				}
+			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) next.delete(key);
 			}
 			weekCache = next;
 		},

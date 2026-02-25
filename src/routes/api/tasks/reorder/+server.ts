@@ -2,25 +2,18 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db, sqlite } from '$lib/server/db';
 import { tasks } from '$lib/server/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { broadcast } from '$lib/server/ws';
-
-// ── PUT /api/tasks/reorder ──────────────────────────────
-// Batch-reorder tasks within a specific day.
-// Body: { memberId, weekStart, dayIndex, taskIds: string[] }
 
 export const PUT: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, weekStart, dayIndex, taskIds } = body as {
-		memberId: string;
+		memberId?: string | null;
 		weekStart: string;
 		dayIndex: number;
 		taskIds: string[];
 	};
 
-	if (!memberId?.trim()) {
-		return json({ error: 'memberId is required' }, { status: 400 });
-	}
 	if (!weekStart?.trim()) {
 		return json({ error: 'weekStart is required' }, { status: 400 });
 	}
@@ -31,19 +24,14 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'taskIds must be a non-empty array' }, { status: 400 });
 	}
 
-	// Verify all tasks belong to this member/week/day
-	const existing = db
-		.select({ id: tasks.id })
-		.from(tasks)
-		.where(
-			and(
-				eq(tasks.memberId, memberId),
-				eq(tasks.weekStart, weekStart),
-				eq(tasks.dayIndex, dayIndex)
-			)
-		)
-		.all();
+	const resolvedMemberId = memberId?.trim() || null;
 
+	// Verify all tasks exist in this week/day (optionally scoped to member)
+	const conditions = resolvedMemberId
+		? and(eq(tasks.memberId, resolvedMemberId), eq(tasks.weekStart, weekStart), eq(tasks.dayIndex, dayIndex))
+		: and(eq(tasks.weekStart, weekStart), eq(tasks.dayIndex, dayIndex));
+
+	const existing = db.select({ id: tasks.id }).from(tasks).where(conditions).all();
 	const existingIds = new Set(existing.map((t) => t.id));
 	for (const id of taskIds) {
 		if (!existingIds.has(id)) {
@@ -51,7 +39,6 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 		}
 	}
 
-	// Update sort_order in a transaction
 	const now = new Date().toISOString();
 	const stmt = sqlite.prepare(
 		'UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ?'
@@ -65,7 +52,7 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 	transaction();
 
 	broadcast(
-		{ type: 'task:reordered', payload: { memberId, weekStart, dayIndex, taskIds } },
+		{ type: 'task:reordered', payload: { memberId: resolvedMemberId, weekStart, dayIndex, taskIds } },
 		locals.wsClientId
 	);
 

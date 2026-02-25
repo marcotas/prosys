@@ -8,6 +8,13 @@
       "when": 1771043913217,
       "tag": "0000_military_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1771988290694,
+      "tag": "0001_careless_ben_grimm",
+      "breakpoints": true
     }
   ]
 }

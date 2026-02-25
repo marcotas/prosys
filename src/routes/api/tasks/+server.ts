@@ -12,7 +12,7 @@ import { broadcast } from '$lib/server/ws';
 function rowToTask(row: typeof tasks.$inferSelect): Task {
 	return {
 		id: row.id,
-		memberId: row.memberId,
+		memberId: row.memberId ?? null,
 		weekStart: row.weekStart,
 		dayIndex: row.dayIndex,
 		title: row.title,
@@ -27,16 +27,13 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json();
 	const { memberId, weekStart, dayIndex, title, emoji } = body as {
-		memberId: string;
+		memberId?: string | null;
 		weekStart: string;
 		dayIndex: number;
 		title: string;
 		emoji?: string;
 	};
 
-	if (!memberId?.trim()) {
-		return json({ error: 'memberId is required' }, { status: 400 });
-	}
 	if (!weekStart?.trim()) {
 		return json({ error: 'weekStart is required' }, { status: 400 });
 	}
@@ -47,13 +44,16 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		return json({ error: 'title is required' }, { status: 400 });
 	}
 
+	const resolvedMemberId = memberId?.trim() || null;
+
 	// Compute next sortOrder for this day
+	const conditions = resolvedMemberId
+		? and(eq(tasks.memberId, resolvedMemberId), eq(tasks.weekStart, weekStart), eq(tasks.dayIndex, dayIndex))
+		: and(eq(tasks.weekStart, weekStart), eq(tasks.dayIndex, dayIndex));
 	const maxResult = db
 		.select({ maxSort: max(tasks.sortOrder) })
 		.from(tasks)
-		.where(
-			and(eq(tasks.memberId, memberId), eq(tasks.weekStart, weekStart), eq(tasks.dayIndex, dayIndex))
-		)
+		.where(conditions)
 		.get();
 	const nextSort = (maxResult?.maxSort ?? -1) + 1;
 
@@ -63,7 +63,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	db.insert(tasks)
 		.values({
 			id,
-			memberId,
+			memberId: resolvedMemberId,
 			weekStart,
 			dayIndex,
 			title: title.trim(),
@@ -77,7 +77,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const task: Task = {
 		id,
-		memberId,
+		memberId: resolvedMemberId,
 		weekStart,
 		dayIndex,
 		title: title.trim(),

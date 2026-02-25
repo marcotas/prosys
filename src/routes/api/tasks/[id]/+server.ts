@@ -11,7 +11,7 @@ import { broadcast } from '$lib/server/ws';
 function rowToTask(row: typeof tasks.$inferSelect): Task {
 	return {
 		id: row.id,
-		memberId: row.memberId,
+		memberId: row.memberId ?? null,
 		weekStart: row.weekStart,
 		dayIndex: row.dayIndex,
 		title: row.title,
@@ -26,12 +26,13 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
-	const { title, emoji, completed, dayIndex, sortOrder } = body as {
+	const { title, emoji, completed, dayIndex, sortOrder, memberId } = body as {
 		title?: string;
 		emoji?: string;
 		completed?: boolean;
 		dayIndex?: number;
 		sortOrder?: number;
+		memberId?: string | null;
 	};
 
 	// Check task exists
@@ -50,6 +51,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (completed !== undefined) updates.completed = completed;
 	if (dayIndex !== undefined) updates.dayIndex = dayIndex;
 	if (sortOrder !== undefined) updates.sortOrder = sortOrder;
+	if (memberId !== undefined) updates.memberId = memberId || null;
 
 	db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 
@@ -88,7 +90,7 @@ export const DELETE: RequestHandler = async ({ params, locals }) => {
 			type: 'task:deleted',
 			payload: {
 				id,
-				memberId: existing.memberId,
+				memberId: existing.memberId ?? null,
 				weekStart: existing.weekStart,
 				dayIndex: existing.dayIndex
 			}

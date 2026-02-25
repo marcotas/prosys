@@ -258,3 +258,57 @@ execSync(
 **Cause**: The certificate can't find its matching private key. The CSR was generated in the **login** keychain, but the `.cer` import targeted a different keychain (e.g., System or Local Items).
 
 **Fix**: Open Keychain Access, select **login** in the sidebar, then drag the `.cer` onto the window. Both the private key (from CSR) and certificate must be in the same keychain.
+
+## 18. Drizzle `.set()` uses JS property names, not SQL column names
+
+**Symptom**: PATCH request returns 200 but the column value is never updated in the database.
+
+**Cause**: Drizzle's `.update().set()` expects the JavaScript property name from the schema definition, not the raw SQL column name. Using the SQL name silently creates a new property in the update object that Drizzle ignores.
+
+```ts
+// Schema: memberId: text('member_id')
+
+// BAD — 'member_id' is the SQL column name, Drizzle ignores it
+updates.member_id = memberId;
+
+// GOOD — 'memberId' is the JS property name Drizzle recognizes
+updates.memberId = memberId;
+```
+
+**Affected file**: `src/routes/api/tasks/[id]/+server.ts`
+
+## 19. `window.location.href` loses in-memory Svelte store state
+
+**Symptom**: Navigating from the planner to a member's dashboard always shows the first member instead of the selected one.
+
+**Cause**: `window.location.href = '/'` triggers a full page reload, destroying all in-memory Svelte store state. The server `load` function then returns default data (first member), overriding any prior `memberStore.select()` call.
+
+**Fix**: Use SvelteKit's `goto()` for client-side navigation between routes. This preserves store state across route transitions. Also make `hydrate()` preserve existing valid selections instead of always overriding.
+
+```ts
+// BAD — full reload, store state lost
+memberStore.select(id);
+window.location.href = '/';
+
+// GOOD — client-side navigation, store state preserved
+import { goto } from '$app/navigation';
+memberStore.select(id);
+goto('/');
+```
+
+**Affected files**: `src/routes/planner/+page.svelte`, `src/routes/+page.svelte`, `src/lib/components/FamilySwitcher.svelte`, `src/lib/stores/members.svelte.ts`
+
+## 20. `overflow-hidden` clips absolutely-positioned dropdowns inside task items
+
+**Symptom**: Dropdown menu renders visually but clicks are intercepted by sibling elements underneath.
+
+**Cause**: Task items use `overflow-hidden` for swipe-reveal functionality. An absolutely-positioned dropdown (`AssignPicker`) rendered inside the task item extends below its bounds and gets clipped. Even with `z-index`, the overflow creates a stacking context boundary.
+
+**Fix**: Dynamically toggle `overflow-visible` and elevate `z-index` on the task item when its dropdown is open.
+
+```svelte
+<div class="relative group/task
+  {pickerOpen ? 'z-20 overflow-visible' : 'overflow-hidden'}">
+```
+
+**Affected file**: `src/lib/components/PlannerDayCard.svelte`

@@ -31,13 +31,18 @@ export interface Member {
 
 export interface Task {
 	id: string;
-	memberId: string;
+	memberId: string | null;
 	weekStart: string; // ISO date of week's Sunday, e.g. '2026-02-08'
 	dayIndex: number; // 0=Sun … 6=Sat
 	title: string;
 	emoji?: string;
 	completed: boolean;
 	sortOrder: number;
+}
+
+export interface PlannerTask extends Task {
+	memberName?: string;
+	memberTheme?: ThemeConfig;
 }
 
 // ── Day (derived for UI, not stored) ───────────────────
@@ -63,13 +68,20 @@ export interface HabitWithDays extends Habit {
 	days: boolean[]; // 7 booleans for Sun–Sat
 }
 
+export interface FamilyHabitProgress {
+	memberId: string;
+	memberName: string;
+	theme: ThemeConfig;
+	habits: HabitWithDays[];
+}
+
 // ── WebSocket Messages ─────────────────────────────────
 
 export type WSMessage =
 	| { type: 'task:created'; payload: Task }
 	| { type: 'task:updated'; payload: Task }
-	| { type: 'task:deleted'; payload: { id: string; memberId: string; weekStart: string; dayIndex: number } }
-	| { type: 'task:reordered'; payload: { memberId: string; weekStart: string; dayIndex: number; taskIds: string[] } }
+	| { type: 'task:deleted'; payload: { id: string; memberId: string | null; weekStart: string; dayIndex: number } }
+	| { type: 'task:reordered'; payload: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] } }
 	| { type: 'task:moved'; payload: { task: Task; fromDay: number } }
 	| { type: 'habit:created'; payload: Habit }
 	| { type: 'habit:updated'; payload: Habit }

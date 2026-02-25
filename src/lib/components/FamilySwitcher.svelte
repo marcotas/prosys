@@ -8,13 +8,53 @@
 		onAdd: () => void;
 		onEdit: (member: Member) => void;
 	}>();
+
+	let isFamilySelected = $derived(selectedId === '__family__');
 </script>
 
 <nav aria-label="Family members" class="flex items-center gap-1.5 overflow-x-auto pt-2 pb-1 -mt-2 -mb-1 pr-1 scrollbar-none">
+	<!-- Family / Planner button -->
+	<div class="shrink-0">
+		<a
+			href={isFamilySelected ? '/' : '/planner'}
+			onclick={(e) => {
+				if (isFamilySelected) return;
+				e.preventDefault();
+				onSelect('__family__');
+			}}
+			aria-current={isFamilySelected ? 'true' : undefined}
+			aria-label="Family planner"
+			class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl
+				focus-visible:ring-2 focus-visible:ring-offset-1
+				{isFamilySelected
+				? 'shadow-sm border-2'
+				: 'border-2 border-transparent hover:bg-white/60'}"
+			style={isFamilySelected
+				? 'background-color: #eef2ff; border-color: #6366f140; color: #312e81; --tw-ring-color: #6366f1'
+				: 'color: #6b7280; --tw-ring-color: #6366f1'}
+		>
+			<span
+				class="flex items-center justify-center text-white text-xs font-bold w-7 h-7 rounded-full
+					{isFamilySelected ? 'scale-110' : ''}"
+				style="background-color: #6366f1"
+				aria-hidden="true"
+			>
+				<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+					<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" />
+					<polyline points="9 22 9 12 15 12 15 22" stroke-linecap="round" stroke-linejoin="round" />
+				</svg>
+			</span>
+			<span class="hidden sm:inline">Family</span>
+		</a>
+	</div>
+
+	<!-- Separator -->
+	<div class="w-px h-6 bg-gray-200 shrink-0" aria-hidden="true"></div>
+
 	{#each members as member (member.id)}
 		{@const isSelected = selectedId === member.id}
 		{@const isPlayful = member.theme.variant === 'playful'}
-		<div class="relative group flex-shrink-0">
+		<div class="relative group shrink-0">
 			<button
 				onclick={() => onSelect(member.id)}
 				aria-current={isSelected ? 'true' : undefined}
@@ -64,7 +104,7 @@
 	<button
 		onclick={onAdd}
 		aria-label="Add family member"
-		class="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
+		class="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium
 			text-gray-400 hover:text-gray-600 hover:bg-white/60
 			border-2 border-dashed border-gray-200 hover:border-gray-300
 			focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400"

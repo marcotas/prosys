@@ -85,10 +85,13 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 9. **`scrollIntoView` block default** — always pass `block: "nearest"` when you only want horizontal scroll; default `"start"` jumps the page vertically
 10. **mDNS probe in dev** — use `probe: false` in `bonjour.publish()` to avoid "name already in use" errors after unclean shutdown (`vite.config.ts`)
 11. **Tauri `window.eval()` is fire-and-forget** — always add fallback `window.navigate()` in the `Err` branch; don't discard result with `let _ =`
+12. **Drizzle `.set()` uses JS names** — `updates.memberId` not `updates.member_id`; the SQL column name is silently ignored
+13. **`window.location.href` kills store state** — use SvelteKit `goto()` for cross-route navigation; full reload loses all in-memory stores
+14. **`overflow-hidden` clips dropdowns** — toggle to `overflow-visible z-{n}` on the parent when a child dropdown is open
 
 ## Learnings
 
 **Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.
 
 - `.learnings/architecture.md` — production topology, server bundle pipeline, offline sync, data persistence
-- `.learnings/gotchas.md` — 12 documented pitfalls with symptoms, causes, and fixes
+- `.learnings/gotchas.md` — 20 documented pitfalls with symptoms, causes, and fixes

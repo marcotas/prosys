@@ -27,8 +27,8 @@
 		const unsubs = [
 			wsStore.onMessage('task:created', (p: Task) => taskStore.applyRemoteCreate(p)),
 			wsStore.onMessage('task:updated', (p: Task) => taskStore.applyRemoteUpdate(p)),
-			wsStore.onMessage('task:deleted', (p: { id: string; memberId: string; weekStart: string; dayIndex: number }) => taskStore.applyRemoteDelete(p)),
-			wsStore.onMessage('task:reordered', (p: { memberId: string; weekStart: string; dayIndex: number; taskIds: string[] }) => taskStore.applyRemoteReorder(p)),
+			wsStore.onMessage('task:deleted', (p: { id: string; memberId: string | null; weekStart: string; dayIndex: number }) => taskStore.applyRemoteDelete(p)),
+			wsStore.onMessage('task:reordered', (p: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] }) => taskStore.applyRemoteReorder(p)),
 			wsStore.onMessage('task:moved', (p: { task: Task; fromDay: number }) => taskStore.applyRemoteMove(p)),
 			wsStore.onMessage('habit:created', (p: Habit) => habitStore.applyRemoteCreate(p)),
 			wsStore.onMessage('habit:updated', (p: Habit) => habitStore.applyRemoteUpdate(p)),

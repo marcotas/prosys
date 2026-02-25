@@ -26,7 +26,6 @@ export const tasks = sqliteTable(
 	{
 		id: text('id').primaryKey(),
 		memberId: text('member_id')
-			.notNull()
 			.references(() => familyMembers.id, { onDelete: 'cascade' }),
 		weekStart: text('week_start').notNull(),
 		dayIndex: integer('day_index').notNull(),
@@ -38,7 +37,8 @@ export const tasks = sqliteTable(
 		updatedAt: text('updated_at').notNull()
 	},
 	(table) => [
-		index('idx_tasks_member_week_day').on(table.memberId, table.weekStart, table.dayIndex)
+		index('idx_tasks_member_week_day').on(table.memberId, table.weekStart, table.dayIndex),
+		index('idx_tasks_week_day').on(table.weekStart, table.dayIndex)
 	]
 );
 

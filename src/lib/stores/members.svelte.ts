@@ -40,7 +40,9 @@ function createMemberStore() {
 		/** Seed the store with server-loaded data (SSR hydration). */
 		hydrate(memberList: Member[], selectedId: string) {
 			members = memberList;
-			selectedMemberId = selectedId;
+			if (!selectedMemberId || !memberList.some((m) => m.id === selectedMemberId)) {
+				selectedMemberId = selectedId;
+			}
 		},
 
 		select(id: string) {

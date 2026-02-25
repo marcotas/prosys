@@ -28,7 +28,7 @@ function rowToMember(row: typeof familyMembers.$inferSelect): Member {
 function rowToTask(row: typeof tasks.$inferSelect): Task {
 	return {
 		id: row.id,
-		memberId: row.memberId,
+		memberId: row.memberId ?? null,
 		weekStart: row.weekStart,
 		dayIndex: row.dayIndex,
 		title: row.title,
