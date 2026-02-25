@@ -1,5 +1,15 @@
 # prosys
 
+## 0.3.0
+
+### Minor Changes
+
+- 404013f: Add Family Planner page with holistic family overview, unassigned tasks, and task assignment
+
+### Patch Changes
+
+- 42d216d: Responsive task assignment: popover on desktop, bottom sheet on mobile. Fix stale family habit cache after member mutations.
+
 ## 0.2.5
 
 ### Patch Changes
