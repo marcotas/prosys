@@ -98,11 +98,18 @@ function createHabitStore() {
 
 			// Compute sortOrder from existing habits and insert optimistically
 			const next = new Map(weekCache);
+			const previousFamilyByKey = new Map<string, any>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
 					const maxSort = habits.reduce((max, h) => Math.max(max, h.sortOrder), -1);
 					optimistic.sortOrder = maxSort + 1;
 					next.set(key, [...habits, { ...optimistic, sortOrder: maxSort + 1 }]);
+				}
+			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) {
+					previousFamilyByKey.set(key, next.get(key));
+					next.delete(key);
 				}
 			}
 			weekCache = next;
@@ -152,6 +159,9 @@ function createHabitStore() {
 						);
 					}
 				}
+				for (const [key, val] of previousFamilyByKey) {
+					rollback.set(key, val);
+				}
 				weekCache = rollback;
 				throw err;
 			}
@@ -176,6 +186,7 @@ function createHabitStore() {
 
 			// Snapshot and apply optimistic update to all cached weeks for this member
 			const next = new Map(weekCache);
+			const previousFamilyByKey = new Map<string, any>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
 					previousByKey.set(key, [...habits]);
@@ -183,6 +194,12 @@ function createHabitStore() {
 						key,
 						habits.map((h) => (h.id === id ? { ...h, ...data } : h))
 					);
+				}
+			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) {
+					previousFamilyByKey.set(key, next.get(key));
+					next.delete(key);
 				}
 			}
 			weekCache = next;
@@ -222,6 +239,9 @@ function createHabitStore() {
 				for (const [key, prev] of previousByKey) {
 					rollback.set(key, prev);
 				}
+				for (const [key, val] of previousFamilyByKey) {
+					rollback.set(key, val);
+				}
 				weekCache = rollback;
 				throw err;
 			}
@@ -246,6 +266,7 @@ function createHabitStore() {
 
 			// Snapshot and remove optimistically from all cached weeks
 			const next = new Map(weekCache);
+			const previousFamilyByKey = new Map<string, any>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
 					previousByKey.set(key, [...habits]);
@@ -253,6 +274,12 @@ function createHabitStore() {
 						key,
 						habits.filter((h) => h.id !== id)
 					);
+				}
+			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) {
+					previousFamilyByKey.set(key, next.get(key));
+					next.delete(key);
 				}
 			}
 			weekCache = next;
@@ -273,6 +300,9 @@ function createHabitStore() {
 				const rollback = new Map(weekCache);
 				for (const [key, prev] of previousByKey) {
 					rollback.set(key, prev);
+				}
+				for (const [key, val] of previousFamilyByKey) {
+					rollback.set(key, val);
 				}
 				weekCache = rollback;
 				throw err;
@@ -298,6 +328,10 @@ function createHabitStore() {
 			if (!foundKey) return;
 
 			const previousList = [...(weekCache.get(foundKey) ?? [])];
+			const fk = familyCacheKey(weekStart);
+			const previousFamily = weekCache.has(fk)
+				? (weekCache.get(fk) as any as FamilyHabitProgress[])
+				: undefined;
 
 			// Optimistic toggle
 			const next = new Map(weekCache);
@@ -313,6 +347,19 @@ function createHabitStore() {
 					return h;
 				})
 			);
+			const familyData = next.get(fk) as any as FamilyHabitProgress[] | undefined;
+			if (familyData) {
+				const updated = familyData.map((mp) => ({
+					...mp,
+					habits: mp.habits.map((h) => {
+						if (h.id !== habitId) return h;
+						const newDays = [...h.days];
+						newDays[dayIndex] = !newDays[dayIndex];
+						return { ...h, days: newDays };
+					})
+				}));
+				next.set(fk, updated as any);
+			}
 			weekCache = next;
 
 			try {
@@ -335,6 +382,8 @@ function createHabitStore() {
 				// Rollback
 				const rollback = new Map(weekCache);
 				rollback.set(foundKey, previousList);
+				if (previousFamily) rollback.set(fk, previousFamily as any);
+				else rollback.delete(fk);
 				weekCache = rollback;
 				throw err;
 			}
@@ -347,6 +396,7 @@ function createHabitStore() {
 		async reorder(memberId: string, habitIds: string[]): Promise<void> {
 			// Snapshot all cached weeks for this member
 			const previousByKey = new Map<string, HabitWithDays[]>();
+			const previousFamilyByKey = new Map<string, any>();
 			for (const [key, habits] of weekCache) {
 				if (key.startsWith(`${memberId}:`)) {
 					previousByKey.set(key, [...habits]);
@@ -365,6 +415,12 @@ function createHabitStore() {
 							return { ...h, sortOrder: idx };
 						}).sort((a, b) => a.sortOrder - b.sortOrder)
 					);
+				}
+			}
+			for (const key of next.keys()) {
+				if (key.startsWith(FAMILY_KEY)) {
+					previousFamilyByKey.set(key, next.get(key));
+					next.delete(key);
 				}
 			}
 			weekCache = next;
@@ -390,6 +446,9 @@ function createHabitStore() {
 				const rollback = new Map(weekCache);
 				for (const [key, prev] of previousByKey) {
 					rollback.set(key, prev);
+				}
+				for (const [key, val] of previousFamilyByKey) {
+					rollback.set(key, val);
 				}
 				weekCache = rollback;
 				throw err;
