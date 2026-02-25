@@ -298,17 +298,77 @@ goto('/');
 
 **Affected files**: `src/routes/planner/+page.svelte`, `src/routes/+page.svelte`, `src/lib/components/FamilySwitcher.svelte`, `src/lib/stores/members.svelte.ts`
 
-## 20. `overflow-hidden` clips absolutely-positioned dropdowns inside task items
+## 20. `overflow-hidden` clips absolutely-positioned dropdowns inside scroll containers
 
-**Symptom**: Dropdown menu renders visually but clicks are intercepted by sibling elements underneath.
+**Symptom**: Dropdown rendered inside a task card is clipped — only partial options visible.
 
-**Cause**: Task items use `overflow-hidden` for swipe-reveal functionality. An absolutely-positioned dropdown (`AssignPicker`) rendered inside the task item extends below its bounds and gets clipped. Even with `z-index`, the overflow creates a stacking context boundary.
+**Cause**: Two layers of overflow clipping. (1) Task items use `overflow-hidden` for swipe-reveal. (2) The day cards horizontal scroll container uses `overflow-x-auto`, which per CSS spec forces `overflow-y` to also be non-visible. Toggling `overflow-visible` on the task row or card article doesn't help because the scroll container ancestor still clips.
 
-**Fix**: Dynamically toggle `overflow-visible` and elevate `z-index` on the task item when its dropdown is open.
+**Failed approaches**:
+- Toggling `overflow-visible` on the task row — helped with the immediate parent but not the scroll container
+- Toggling `overflow-visible` on the card `<article>` — same issue, scroll container still clips
+- Using `position: fixed` with calculated coordinates — fragile, breaks when scroll container scrolls, requires manual position tracking
+
+**Fix**: Use bits-ui `Popover` with `Popover.Portal`. The portal renders content into `<body>`, completely bypassing all overflow and stacking context constraints. Floating UI handles positioning automatically via `sideOffset` and `align` props.
 
 ```svelte
-<div class="relative group/task
-  {pickerOpen ? 'z-20 overflow-visible' : 'overflow-hidden'}">
+<Popover.Root>
+  <Popover.Trigger>
+    <MemberBadge ... />
+  </Popover.Trigger>
+  <Popover.Portal>
+    <Popover.Content sideOffset={4} align="end">
+      <!-- dropdown content here -->
+    </Popover.Content>
+  </Popover.Portal>
+</Popover.Root>
 ```
 
-**Affected file**: `src/lib/components/PlannerDayCard.svelte`
+**Rule**: For any dropdown/popover inside a scroll container or `overflow-hidden` parent, always use bits-ui's portal pattern. Don't try to fix it with overflow toggles — CSS overflow inheritance makes it a losing battle.
+
+**Affected files**: `src/lib/components/AssignPicker.svelte`, `src/lib/components/PlannerDayCard.svelte`
+
+## 21. Responsive component pattern: bits-ui Popover (desktop) + Dialog (mobile)
+
+**Context**: Some UI interactions need different presentations per device — e.g., a popover anchored to a trigger on desktop, but a bottom sheet on mobile.
+
+**Pattern**: Use `matchMedia` to detect viewport, render `Popover` on desktop and `Dialog` (styled as bottom sheet) on mobile. Both use `Portal` to escape overflow constraints.
+
+```svelte
+let isMobile = $state(false);
+$effect(() => {
+  const mql = window.matchMedia('(max-width: 767px)');
+  isMobile = mql.matches;
+  const handler = (e: MediaQueryListEvent) => (isMobile = e.matches);
+  mql.addEventListener('change', handler);
+  return () => mql.removeEventListener('change', handler);
+});
+```
+
+For custom Svelte transitions with bits-ui, use `forceMount` + `child` snippet pattern:
+
+```svelte
+<Dialog.Content forceMount>
+  {#snippet child({ props, open: isOpen })}
+    {#if isOpen}
+      <div {...props} transition:fly={{ y: 300, duration: 250 }}>
+        <!-- content -->
+      </div>
+    {/if}
+  {/snippet}
+</Dialog.Content>
+```
+
+**Affected file**: `src/lib/components/AssignPicker.svelte`
+
+## 22. Nested buttons inside bits-ui Trigger components
+
+**Symptom**: Accessibility warnings or unexpected click behavior with buttons inside `Popover.Trigger` or `Dialog.Trigger`.
+
+**Cause**: bits-ui `Trigger` components render a `<button>` element. If a child component (e.g., `MemberBadge`) also renders a `<button>`, you get invalid nested buttons (`<button><button>`). Browsers "un-nest" them, which breaks click handling.
+
+**Fix**: Ensure components rendered inside bits-ui triggers use `<span>` instead of `<button>`. In `MemberBadge.svelte`, the `unassigned` branch was split: renders `<button>` when `onclick` is provided (standalone use), renders `<span>` when no `onclick` (inside a trigger wrapper).
+
+**Rule**: When wrapping an existing component in a bits-ui `Trigger`, check whether the component renders a `<button>`. If so, either (a) pass no `onclick` so it renders as `<span>`, or (b) add a non-interactive rendering path.
+
+**Affected file**: `src/lib/components/MemberBadge.svelte`

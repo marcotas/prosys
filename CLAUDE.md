@@ -24,6 +24,7 @@ No test runner is configured.
 - **Svelte 5** with runes (`$state`, `$derived`, `$props`, `$effect`) — NOT Svelte 4 syntax
 - **SvelteKit 2** with adapter-node
 - **Tailwind CSS 4** (Vite plugin, no config file)
+- **bits-ui** — headless accessible UI primitives (Popover, Dialog, etc.). Use for dropdowns/popovers inside scroll containers or overflow-hidden parents — they portal to `<body>` via Floating UI
 - **SQLite** via better-sqlite3 + Drizzle ORM
 - **WebSocket** (ws library) for real-time sync
 - **Tauri v2** for macOS desktop app
@@ -44,7 +45,7 @@ Tauri (Rust) → spawns Node.js server (server.js)
 ### Source Layout
 
 - `src/lib/stores/*.svelte.ts` — Svelte 5 rune-based stores (tasks, habits, members, ws, offline-queue). Use `$state.raw<Map>()` for collection state.
-- `src/lib/components/` — UI components (DayCard, HabitTracker, ProgressRing, etc.). Built with Tailwind, no component library.
+- `src/lib/components/` — UI components (DayCard, HabitTracker, ProgressRing, etc.). Built with Tailwind + bits-ui headless primitives for complex interactions (popovers, dialogs).
 - `src/lib/server/db/` — Drizzle schema (`schema.ts`), connection (`index.ts`), migrations (`migrate.ts`)
 - `src/lib/server/ws.ts` — WebSocket setup, `broadcast()` via `globalThis.__wsClients`
 - `src/lib/utils/` — Date math (`dates.ts`), nanoid wrapper (`ids.ts`)
@@ -87,11 +88,12 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 11. **Tauri `window.eval()` is fire-and-forget** — always add fallback `window.navigate()` in the `Err` branch; don't discard result with `let _ =`
 12. **Drizzle `.set()` uses JS names** — `updates.memberId` not `updates.member_id`; the SQL column name is silently ignored
 13. **`window.location.href` kills store state** — use SvelteKit `goto()` for cross-route navigation; full reload loses all in-memory stores
-14. **`overflow-hidden` clips dropdowns** — toggle to `overflow-visible z-{n}` on the parent when a child dropdown is open
+14. **`overflow-hidden` clips dropdowns** — use bits-ui `Popover.Portal` to portal content to `<body>`, bypassing all overflow/scroll clipping. Don't manually toggle `overflow-visible` on parents — it breaks when nested inside `overflow-x-auto` scroll containers (CSS spec forces `overflow-y` to also be non-visible)
+15. **Nested buttons in bits-ui triggers** — `Popover.Trigger`/`Dialog.Trigger` renders a `<button>`. Child components inside must render as `<span>`, not `<button>`. Check MemberBadge, which has separate button/span branches based on whether `onclick` is provided
 
 ## Learnings
 
 **Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.
 
 - `.learnings/architecture.md` — production topology, server bundle pipeline, offline sync, data persistence
-- `.learnings/gotchas.md` — 20 documented pitfalls with symptoms, causes, and fixes
+- `.learnings/gotchas.md` — 22 documented pitfalls with symptoms, causes, and fixes
