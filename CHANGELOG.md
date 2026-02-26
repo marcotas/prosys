@@ -1,5 +1,11 @@
 # prosys
 
+## 0.4.0
+
+### Minor Changes
+
+- b7a38f3: Persist window size and position across app launches using tauri-plugin-window-state
+
 ## 0.3.3
 
 ### Patch Changes
