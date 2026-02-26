@@ -1,5 +1,11 @@
 # prosys
 
+## 0.3.3
+
+### Patch Changes
+
+- 33cfb99: fix: kill Node.js server before relaunch to prevent stale assets after update
+
 ## 0.3.2
 
 ### Patch Changes
