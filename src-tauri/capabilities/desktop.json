@@ -13,6 +13,7 @@
   },
   "permissions": [
     "updater:default",
-    "process:default"
+    "process:default",
+    "window-state:default"
   ]
 }
