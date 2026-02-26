@@ -79,11 +79,17 @@ pub fn run() {
             }
 
             // ── Version-based cache clearing ─────────────────────────
-            // WKWebView persists its HTTP cache and service worker
-            // registrations across app reinstalls.  On version upgrades,
-            // clear CacheStorage and SW registrations (but NOT IndexedDB,
-            // which holds the offline mutation queue) so the new build's
-            // service worker and assets load fresh.
+            // WKWebView persists its HTTP disk cache and service worker
+            // registrations across app reinstalls.  On version upgrades
+            // we must clear them so the new build's assets load fresh.
+            //
+            // Strategy (belt-and-suspenders):
+            //  1. Filesystem: delete ~/Library/Caches/{id}/ which holds the
+            //     WKWebView HTTP disk cache.  This is safe — IndexedDB
+            //     (offline mutation queue) lives in ~/Library/WebKit/ and
+            //     the SQLite database lives in PROSYS_DATA_DIR.
+            //  2. JS eval: clear SW registrations + CacheStorage API from
+            //     inside the WebView (covers in-memory / non-disk caches).
 
             let current_version = app.package_info().version.to_string();
             let version_file = data_dir.join("app-version.txt");
@@ -95,16 +101,31 @@ pub fn run() {
             let is_upgrade =
                 !last_version.is_empty() && last_version != current_version;
 
+            if is_upgrade {
+                // ── Step 1: nuke the WKWebView HTTP disk cache ──────────
+                if let Ok(home) = std::env::var("HOME") {
+                    let identifier = app.config().identifier.as_str();
+                    let cache_dir =
+                        PathBuf::from(&home).join("Library/Caches").join(identifier);
+                    if cache_dir.exists() {
+                        match fs::remove_dir_all(&cache_dir) {
+                            Ok(_) => eprintln!(
+                                "[prosys] cleared WKWebView HTTP cache at {}",
+                                cache_dir.display()
+                            ),
+                            Err(e) => eprintln!(
+                                "[prosys] failed to clear cache at {}: {e}",
+                                cache_dir.display()
+                            ),
+                        }
+                    }
+                }
+            }
+
             // Navigate the main window to the running server
             if let Some(window) = app.get_webview_window("main") {
                 if is_upgrade {
-                    // Inject JS into the WebView's persisted page to clear
-                    // SW registrations + CacheStorage, then navigate fresh.
-                    // Note: eval() fires async JS and returns immediately, so
-                    // the version file write below happens before the JS
-                    // completes. This is acceptable because location.replace()
-                    // reloads regardless of cache-clear success, and a failed
-                    // clear only means stale assets until the next hard refresh.
+                    // ── Step 2: clear SW + CacheStorage via JS ──────────
                     if let Err(e) = window.eval(
                         r#"(async function() {
                             try {
@@ -119,7 +140,6 @@ pub fn run() {
                         })();"#,
                     ) {
                         eprintln!("[prosys] cache-clear eval failed: {e}");
-                        // Fallback: navigate directly so the user doesn't see a blank page
                         let _ = window.navigate("http://localhost:3000".parse().unwrap());
                     }
                 } else {
