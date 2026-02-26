@@ -77,6 +77,9 @@
 					version: update.version,
 					download: async () => {
 						await update.downloadAndInstall();
+						// Kill the Node.js server before relaunch — relaunch() calls
+						// process::exit() which orphans child processes.
+						await (window as any).__TAURI_INTERNALS__.invoke('kill_server');
 						await relaunch();
 					}
 				};

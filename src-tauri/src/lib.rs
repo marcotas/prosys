@@ -7,11 +7,26 @@ use tauri::Manager;
 /// Holds the Node.js server child process so we can kill it on app exit.
 struct ServerProcess(Mutex<Option<Child>>);
 
+/// Tauri command: kill the Node.js server child process.
+/// Called from JS before `relaunch()` so the old server doesn't orphan.
+#[tauri::command]
+fn kill_server(state: tauri::State<'_, ServerProcess>) {
+    if let Ok(mut guard) = state.0.lock() {
+        if let Some(ref mut child) = *guard {
+            let _ = child.kill();
+            let _ = child.wait();
+            eprintln!("[prosys] killed Node.js server before relaunch");
+        }
+        *guard = None;
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .invoke_handler(tauri::generate_handler![kill_server])
         .setup(|app| {
             // In dev mode, Tauri's beforeDevCommand starts the Vite server
             // and the window loads devUrl automatically — nothing to do here.
@@ -55,6 +70,17 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .map_err(|e| format!("Failed to resolve app data directory: {e}"))?;
+
+            // If an old Node.js server is still running on port 3000
+            // (e.g., orphaned after update-and-relaunch), wait for it to die.
+            // JS calls kill_server before relaunch, but this handles the first
+            // upgrade to this version (where kill_server didn't exist yet).
+            let port_was_free = wait_for_port_free("localhost:3000", 25, 200);
+            if !port_was_free {
+                eprintln!(
+                    "[prosys] Warning: port 3000 still occupied after 5s — spawning anyway"
+                );
+            }
 
             let child = Command::new(&node_path)
                 .arg(&server_js)
@@ -148,10 +174,13 @@ pub fn run() {
                 }
             }
 
-            // Persist current version. If the app crashes before reaching
-            // this write, the clear will re-trigger on next launch.
+            // Persist current version so cache-clear doesn't retrigger.
+            // If the old server was still alive during an upgrade (port_was_free
+            // was false), skip the write so cache-clear retriggers next launch.
             let _ = fs::create_dir_all(&data_dir);
-            let _ = fs::write(&version_file, &current_version);
+            if !(is_upgrade && !port_was_free) {
+                let _ = fs::write(&version_file, &current_version);
+            }
 
             Ok(())
         })
@@ -250,6 +279,25 @@ fn wait_for_server(url: &str, max_attempts: u32, interval_ms: u64) -> bool {
 
     for _ in 0..max_attempts {
         if TcpStream::connect(addr).is_ok() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(interval_ms));
+    }
+    false
+}
+
+/// Poll until nothing is listening on `addr`, or timeout.
+/// Used after update-and-relaunch to wait for the old server to die.
+/// Returns `true` if the port is free, `false` on timeout.
+fn wait_for_port_free(addr: &str, max_attempts: u32, interval_ms: u64) -> bool {
+    use std::net::TcpStream;
+    use std::time::Duration;
+
+    for i in 0..max_attempts {
+        if TcpStream::connect(addr).is_err() {
+            if i > 0 {
+                eprintln!("[prosys] port {addr} became free after {i} attempts");
+            }
             return true;
         }
         std::thread::sleep(Duration::from_millis(interval_ms));
