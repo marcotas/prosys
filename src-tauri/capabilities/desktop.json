@@ -8,6 +8,9 @@
   "windows": [
     "main"
   ],
+  "remote": {
+    "urls": ["http://localhost:*"]
+  },
   "permissions": [
     "updater:default",
     "process:default"

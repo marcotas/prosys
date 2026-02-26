@@ -41,7 +41,8 @@
 		];
 
 		// ── Tauri updater (desktop only) ────────────────────
-		if (typeof window !== 'undefined' && '__TAURI__' in window) {
+		// Tauri v2 injects __TAURI_INTERNALS__ (not __TAURI__) into the WebView
+		if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
 			checkTauriUpdate();
 		}
 
@@ -80,9 +81,8 @@
 					}
 				};
 			}
-		} catch {
-			// Updater check failed (no internet, endpoint unreachable, etc.)
-			// Fail silently — the app works fine without updates
+		} catch (e) {
+			console.warn('[prosys] Update check failed:', e);
 		}
 	}
 
