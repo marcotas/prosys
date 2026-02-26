@@ -397,3 +397,70 @@ let port_was_free = wait_for_port_free("localhost:3000", 25, 200);
 **Rule**: Never rely on `WindowEvent::Destroyed` or `RunEvent::Exit` for cleanup of child processes spawned via `std::process::Command`. Always kill them explicitly before calling `relaunch()`.
 
 **Affected files**: `src-tauri/src/lib.rs`, `src/routes/+layout.svelte`
+
+## 24. Tauri v2 IPC detection: `__TAURI_INTERNALS__` not `__TAURI__`
+
+**Symptom**: Tauri updater `check()` never runs — no update banner appears even when a newer release is published on GitHub.
+
+**Cause**: Tauri v2 does NOT set `window.__TAURI__` by default. It injects `window.__TAURI_INTERNALS__` for IPC. The `__TAURI__` global only exists when `withGlobalTauri: true` is configured in `tauri.conf.json` (which is not the default). Checking `'__TAURI__' in window` always returns false.
+
+The official detection function in `@tauri-apps/api/core` is `isTauri()`, which checks `(globalThis || window).isTauri`.
+
+**Fix**: Use `'__TAURI_INTERNALS__' in window` for runtime detection of Tauri v2 context.
+
+```ts
+// BAD — __TAURI__ is not set in Tauri v2 by default
+if ('__TAURI__' in window) { ... }
+
+// GOOD — __TAURI_INTERNALS__ is always injected by Tauri v2
+if ('__TAURI_INTERNALS__' in window) { ... }
+```
+
+**Affected file**: `src/routes/+layout.svelte`
+
+## 25. Tauri v2 remote IPC: capabilities need `remote.urls` for localhost
+
+**Symptom**: Tauri plugin commands (updater, process) throw errors when called from the production app, even though capabilities are configured.
+
+**Cause**: In production, `lib.rs` navigates the WebView from `tauri://localhost` to `http://localhost:3000` (the Node.js server). Tauri v2 blocks IPC calls from non-Tauri origins by default. Without a `remote` config in the capability, `invoke('plugin:updater|check')` is rejected by Tauri's origin check.
+
+**Fix**: Add `remote.urls` to the capability file to allow IPC from the production server URL.
+
+```json
+// src-tauri/capabilities/desktop.json
+{
+  "identifier": "desktop-capability",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://localhost:*"]
+  },
+  "permissions": ["updater:default", "process:default"]
+}
+```
+
+**Rule**: Any Tauri v2 app that navigates the WebView to a non-Tauri URL (e.g., a local server) must add `remote.urls` to its capability for plugins to work.
+
+**Affected file**: `src-tauri/capabilities/desktop.json`
+
+## 26. WKWebView HTTP disk cache survives app updates
+
+**Symptom**: After installing a new app version, the old version's UI still appears. Quitting and reopening doesn't help.
+
+**Cause**: WKWebView caches HTTP responses at `~/Library/Caches/{bundleIdentifier}/`. This disk cache persists across app reinstalls. The JS-based cache clearing (`caches.keys()` / `caches.delete()`) only clears the Service Worker CacheStorage API — it does NOT touch the HTTP disk cache.
+
+**Fix**: On version upgrade, delete the WKWebView HTTP disk cache directory from Rust (synchronously, before WebView navigation), then keep the JS-based SW/CacheStorage clearing as a belt-and-suspenders step.
+
+```rust
+// lib.rs — inside setup(), when is_upgrade is true
+if let Ok(home) = std::env::var("HOME") {
+    let identifier = app.config().identifier.as_str();
+    let cache_dir = PathBuf::from(&home).join("Library/Caches").join(identifier);
+    if cache_dir.exists() {
+        let _ = fs::remove_dir_all(&cache_dir);
+    }
+}
+```
+
+**Safe to delete**: `~/Library/Caches/com.prosys.app/` only holds HTTP cache. IndexedDB lives in `~/Library/WebKit/`, and the SQLite database lives in `~/Library/Application Support/com.prosys.app/`.
+
+**Affected file**: `src-tauri/src/lib.rs`

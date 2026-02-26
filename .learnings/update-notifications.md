@@ -15,11 +15,11 @@ How ProSys notifies users about available updates on both desktop (Tauri) and mo
 
 ### How it works
 
-1. On mount, `+layout.svelte` checks for `__TAURI__` on `window`
+1. On mount, `+layout.svelte` checks for `__TAURI_INTERNALS__` on `window` (Tauri v2's IPC bridge — NOT `__TAURI__`, which requires `withGlobalTauri: true`)
 2. Dynamically imports `@tauri-apps/plugin-updater` and `@tauri-apps/plugin-process`
 3. Calls `check()` → fetches `latest.json` from GitHub Releases endpoint
 4. If update available: stores version + download function in state
-5. User clicks banner → `downloadAndInstall()` + `relaunch()`
+5. User clicks banner → kills Node.js server via `kill_server` command → `downloadAndInstall()` + `relaunch()`
 
 ```ts
 async function checkTauriUpdate() {
@@ -36,13 +36,15 @@ async function checkTauriUpdate() {
                 }
             };
         }
-    } catch { /* Fail silently */ }
+    } catch (e) {
+        console.warn('[prosys] Update check failed:', e);
+    }
 }
 ```
 
 ### Why dynamic imports?
 
-`@tauri-apps/plugin-updater` and `@tauri-apps/plugin-process` only work inside Tauri's webview. On PWA clients, these modules don't exist. Dynamic imports behind an `if ('__TAURI__' in window)` guard prevent import errors on non-Tauri clients.
+`@tauri-apps/plugin-updater` and `@tauri-apps/plugin-process` only work inside Tauri's webview. On PWA clients, these modules don't exist. Dynamic imports behind an `if ('__TAURI_INTERNALS__' in window)` guard prevent import errors on non-Tauri clients.
 
 ### Tauri config
 
@@ -64,7 +66,8 @@ The endpoint points to the **latest published** GitHub Release. Draft releases a
 - `@tauri-apps/plugin-process` — provides `relaunch()` capability
 - Both added via `pnpm tauri add updater` and `pnpm tauri add process`
 - Rust side: registered as `.plugin(tauri_plugin_updater::Builder::new().build())` and `.plugin(tauri_plugin_process::init())` in `lib.rs`
-- Capabilities: `updater:default` permission in `src-tauri/capabilities/desktop.json`
+- Capabilities: `updater:default` and `process:default` permissions in `src-tauri/capabilities/desktop.json`
+- Remote IPC: `"remote": { "urls": ["http://localhost:*"] }` in the capability — required because the production WebView navigates to `http://localhost:3000` (a non-Tauri origin). Without this, plugin IPC calls are blocked by Tauri v2's origin check.
 
 ## PWA Update (Mobile)
 

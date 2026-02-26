@@ -91,6 +91,9 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 14. **`overflow-hidden` clips dropdowns** — use bits-ui `Popover.Portal` to portal content to `<body>`, bypassing all overflow/scroll clipping. Don't manually toggle `overflow-visible` on parents — it breaks when nested inside `overflow-x-auto` scroll containers (CSS spec forces `overflow-y` to also be non-visible)
 15. **Nested buttons in bits-ui triggers** — `Popover.Trigger`/`Dialog.Trigger` renders a `<button>`. Child components inside must render as `<span>`, not `<button>`. Check MemberBadge, which has separate button/span branches based on whether `onclick` is provided
 16. **`relaunch()` orphans child processes** — `relaunch()` calls `process::exit()`, which does NOT trigger `WindowEvent::Destroyed`. Always kill child processes explicitly (via Tauri command) before calling `relaunch()`. See `kill_server` command in `lib.rs`
+17. **Tauri v2 IPC detection uses `__TAURI_INTERNALS__`** — `window.__TAURI__` is NOT set by default in Tauri v2 (requires `withGlobalTauri: true`). Use `'__TAURI_INTERNALS__' in window` to detect Tauri v2 context
+18. **Tauri v2 remote IPC needs `remote.urls`** — when navigating the WebView to `http://localhost:*` (e.g., Node.js server), add `"remote": { "urls": ["http://localhost:*"] }` to the capability file or plugin IPC calls will be silently rejected
+19. **WKWebView HTTP disk cache survives app updates** — JS `caches.delete()` only clears CacheStorage, NOT the HTTP disk cache at `~/Library/Caches/{identifier}/`. Delete it from Rust via `fs::remove_dir_all` on version upgrade. IndexedDB (`~/Library/WebKit/`) and SQLite (`~/Library/Application Support/`) are safe
 
 ## Learnings
 
