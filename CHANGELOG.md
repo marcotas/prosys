@@ -1,5 +1,11 @@
 # prosys
 
+## 0.3.2
+
+### Patch Changes
+
+- 76e7cb6: Clear WKWebView HTTP disk cache on version upgrade via filesystem deletion in Rust, fixing stale assets persisting after app updates.
+
 ## 0.3.1
 
 ### Patch Changes
