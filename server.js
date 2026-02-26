@@ -27,11 +27,18 @@ globalThis.__wsClients = globalThis.__wsClients || new Map();
 // ── HTTP server ──────────────────────────────────────────
 
 const server = createServer((req, res) => {
-	// Service worker script must never be HTTP-cached — the browser's update
-	// check relies on byte-comparing a freshly-fetched SW file against the
-	// installed version.  Without this, WKWebView (Tauri) may serve the old
-	// SW from its disk cache indefinitely after an app update.
-	if (req.url === '/service-worker.js') {
+	// Prevent WKWebView from HTTP-caching HTML pages and the service worker.
+	// Without this, after an app update the WebView may serve stale assets
+	// from its disk cache (~/Library/Caches/prosys/) even when the Node.js
+	// server is returning the new version's files.
+	// Hashed static assets (_app/immutable/) are safe to cache — SvelteKit
+	// gives them unique filenames per build.
+	const url = req.url?.split('?')[0] ?? '';
+	if (
+		url === '/service-worker.js' ||
+		(!url.startsWith('/_app/immutable/') &&
+			(url.endsWith('.html') || url === '/' || !url.includes('.')))
+	) {
 		res.setHeader('Cache-Control', 'no-store');
 	}
 	handler(req, res);

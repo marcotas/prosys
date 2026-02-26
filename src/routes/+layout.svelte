@@ -23,6 +23,14 @@
 	onMount(() => {
 		wsStore.init();
 
+		// Show the Tauri window now that the UI has hydrated.
+		// The window starts hidden ("visible": false in tauri.conf.json) to
+		// avoid flashing a blank page or "file not found" error while the
+		// Node.js server starts up.
+		if ('__TAURI_INTERNALS__' in window) {
+			(window as any).__TAURI_INTERNALS__.invoke('show_main_window');
+		}
+
 		// Register WS message handlers → store apply methods
 		const unsubs = [
 			wsStore.onMessage('task:created', (p: Task) => taskStore.applyRemoteCreate(p)),

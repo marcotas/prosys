@@ -7,6 +7,16 @@ use tauri::Manager;
 /// Holds the Node.js server child process so we can kill it on app exit.
 struct ServerProcess(Mutex<Option<Child>>);
 
+/// Tauri command: show the main window.
+/// Called from the SvelteKit frontend after hydration so the user never
+/// sees a blank page or "file not found" flash during startup.
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+    }
+}
+
 /// Tauri command: kill the Node.js server child process.
 /// Called from JS before `relaunch()` so the old server doesn't orphan.
 #[tauri::command]
@@ -27,7 +37,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_window_state::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![kill_server])
+        .invoke_handler(tauri::generate_handler![show_main_window, kill_server])
         .setup(|app| {
             // In dev mode, Tauri's beforeDevCommand starts the Vite server
             // and the window loads devUrl automatically — nothing to do here.
@@ -72,20 +82,17 @@ pub fn run() {
                 .app_data_dir()
                 .map_err(|e| format!("Failed to resolve app data directory: {e}"))?;
 
-            // If an old Node.js server is still running on port 3000
-            // (e.g., orphaned after update-and-relaunch), wait for it to die.
-            // JS calls kill_server before relaunch, but this handles the first
-            // upgrade to this version (where kill_server didn't exist yet).
-            let port_was_free = wait_for_port_free("localhost:3000", 25, 200);
-            if !port_was_free {
-                eprintln!(
-                    "[prosys] Warning: port 3000 still occupied after 5s — spawning anyway"
-                );
-            }
+            // Pick a free port so we never conflict with other apps on
+            // the user's machine (port 3000 is extremely common for dev).
+            let port = find_or_reuse_port(&data_dir);
+            let port_str = port.to_string();
+            let server_url = format!("http://localhost:{port}");
+
+            eprintln!("[prosys] starting Node.js server on port {port}");
 
             let child = Command::new(&node_path)
                 .arg(&server_js)
-                .env("PORT", "3000")
+                .env("PORT", &port_str)
                 .env("HOST", "0.0.0.0")
                 .env("PROSYS_DATA_DIR", &data_dir)
                 .current_dir(&server_dir)
@@ -100,7 +107,7 @@ pub fn run() {
             app.manage(ServerProcess(Mutex::new(Some(child))));
 
             // Poll until the server is ready (max ~10 seconds)
-            let ready = wait_for_server("http://localhost:3000", 50, 200);
+            let ready = wait_for_server(&server_url, 50, 200);
             if !ready {
                 eprintln!("Warning: Node.js server did not become ready in time");
             }
@@ -130,58 +137,67 @@ pub fn run() {
 
             if is_upgrade {
                 // ── Step 1: nuke the WKWebView HTTP disk cache ──────────
+                // WKWebView may use either the bundle identifier or the
+                // productName (lowercased) for its cache directory — clear both.
                 if let Ok(home) = std::env::var("HOME") {
-                    let identifier = app.config().identifier.as_str();
-                    let cache_dir =
-                        PathBuf::from(&home).join("Library/Caches").join(identifier);
-                    if cache_dir.exists() {
-                        match fs::remove_dir_all(&cache_dir) {
-                            Ok(_) => eprintln!(
-                                "[prosys] cleared WKWebView HTTP cache at {}",
-                                cache_dir.display()
-                            ),
-                            Err(e) => eprintln!(
-                                "[prosys] failed to clear cache at {}: {e}",
-                                cache_dir.display()
-                            ),
+                    let identifier = app.config().identifier.clone();
+                    let product_name = app
+                        .config()
+                        .product_name
+                        .as_deref()
+                        .unwrap_or("prosys")
+                        .to_lowercase();
+
+                    let caches_base = PathBuf::from(&home).join("Library/Caches");
+
+                    for dir_name in [identifier.as_str(), product_name.as_str()] {
+                        let cache_dir = caches_base.join(dir_name);
+                        if cache_dir.exists() {
+                            match fs::remove_dir_all(&cache_dir) {
+                                Ok(_) => eprintln!(
+                                    "[prosys] cleared WKWebView HTTP cache at {}",
+                                    cache_dir.display()
+                                ),
+                                Err(e) => eprintln!(
+                                    "[prosys] failed to clear cache at {}: {e}",
+                                    cache_dir.display()
+                                ),
+                            }
                         }
                     }
                 }
             }
 
             // Navigate the main window to the running server
+            let nav_url: tauri::Url = server_url.parse().unwrap();
             if let Some(window) = app.get_webview_window("main") {
                 if is_upgrade {
                     // ── Step 2: clear SW + CacheStorage via JS ──────────
-                    if let Err(e) = window.eval(
-                        r#"(async function() {
-                            try {
-                                if ('serviceWorker' in navigator) {
+                    let js = format!(
+                        r#"(async function() {{
+                            try {{
+                                if ('serviceWorker' in navigator) {{
                                     var regs = await navigator.serviceWorker.getRegistrations();
-                                    await Promise.all(regs.map(function(r) { return r.unregister(); }));
-                                }
+                                    await Promise.all(regs.map(function(r) {{ return r.unregister(); }}));
+                                }}
                                 var keys = await caches.keys();
-                                await Promise.all(keys.map(function(k) { return caches.delete(k); }));
-                            } catch(e) { console.error('[prosys] cache clear failed:', e); }
-                            window.location.replace('http://localhost:3000');
-                        })();"#,
-                    ) {
+                                await Promise.all(keys.map(function(k) {{ return caches.delete(k); }}));
+                            }} catch(e) {{ console.error('[prosys] cache clear failed:', e); }}
+                            window.location.replace('{server_url}');
+                        }})();"#
+                    );
+                    if let Err(e) = window.eval(&js) {
                         eprintln!("[prosys] cache-clear eval failed: {e}");
-                        let _ = window.navigate("http://localhost:3000".parse().unwrap());
+                        let _ = window.navigate(nav_url.clone());
                     }
                 } else {
-                    let _ =
-                        window.navigate("http://localhost:3000".parse().unwrap());
+                    let _ = window.navigate(nav_url);
                 }
             }
 
             // Persist current version so cache-clear doesn't retrigger.
-            // If the old server was still alive during an upgrade (port_was_free
-            // was false), skip the write so cache-clear retriggers next launch.
             let _ = fs::create_dir_all(&data_dir);
-            if !(is_upgrade && !port_was_free) {
-                let _ = fs::write(&version_file, &current_version);
-            }
+            let _ = fs::write(&version_file, &current_version);
 
             Ok(())
         })
@@ -287,21 +303,37 @@ fn wait_for_server(url: &str, max_attempts: u32, interval_ms: u64) -> bool {
     false
 }
 
-/// Poll until nothing is listening on `addr`, or timeout.
-/// Used after update-and-relaunch to wait for the old server to die.
-/// Returns `true` if the port is free, `false` on timeout.
-fn wait_for_port_free(addr: &str, max_attempts: u32, interval_ms: u64) -> bool {
-    use std::net::TcpStream;
-    use std::time::Duration;
+/// Pick a stable port for the Node.js server.
+///
+/// Reuses the port from a previous launch (saved in `server-port.txt`)
+/// if it's still available. Otherwise picks a new free port from the OS
+/// and persists it for next time. This keeps PWA client URLs stable
+/// across app restarts while avoiding conflicts with other software.
+fn find_or_reuse_port(data_dir: &std::path::Path) -> u16 {
+    use std::net::TcpListener;
 
-    for i in 0..max_attempts {
-        if TcpStream::connect(addr).is_err() {
-            if i > 0 {
-                eprintln!("[prosys] port {addr} became free after {i} attempts");
+    let port_file = data_dir.join("server-port.txt");
+
+    // Try to reuse the previously saved port
+    if let Ok(contents) = fs::read_to_string(&port_file) {
+        if let Ok(saved_port) = contents.trim().parse::<u16>() {
+            if let Ok(listener) = TcpListener::bind(("127.0.0.1", saved_port)) {
+                drop(listener);
+                return saved_port;
             }
-            return true;
+            eprintln!("[prosys] saved port {saved_port} is occupied, picking a new one");
         }
-        std::thread::sleep(Duration::from_millis(interval_ms));
     }
-    false
+
+    // Pick a new free port
+    let port = TcpListener::bind("127.0.0.1:0")
+        .and_then(|listener| listener.local_addr())
+        .map(|addr| addr.port())
+        .unwrap_or(3000);
+
+    // Persist for next launch
+    let _ = fs::create_dir_all(data_dir);
+    let _ = fs::write(&port_file, port.to_string());
+
+    port
 }

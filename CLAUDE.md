@@ -93,11 +93,13 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 16. **`relaunch()` orphans child processes** — `relaunch()` calls `process::exit()`, which does NOT trigger `WindowEvent::Destroyed`. Always kill child processes explicitly (via Tauri command) before calling `relaunch()`. See `kill_server` command in `lib.rs`
 17. **Tauri v2 IPC detection uses `__TAURI_INTERNALS__`** — `window.__TAURI__` is NOT set by default in Tauri v2 (requires `withGlobalTauri: true`). Use `'__TAURI_INTERNALS__' in window` to detect Tauri v2 context
 18. **Tauri v2 remote IPC needs `remote.urls`** — when navigating the WebView to `http://localhost:*` (e.g., Node.js server), add `"remote": { "urls": ["http://localhost:*"] }` to the capability file or plugin IPC calls will be silently rejected
-19. **WKWebView HTTP disk cache survives app updates** — JS `caches.delete()` only clears CacheStorage, NOT the HTTP disk cache at `~/Library/Caches/{identifier}/`. Delete it from Rust via `fs::remove_dir_all` on version upgrade. IndexedDB (`~/Library/WebKit/`) and SQLite (`~/Library/Application Support/`) are safe
+19. **WKWebView HTTP disk cache survives app updates** — JS `caches.delete()` only clears CacheStorage, NOT the HTTP disk cache. The cache dir is `~/Library/Caches/{productName_lowercased}/` (e.g., `prosys/`), NOT `{identifier}/` (`com.prosys.app/`). Clear both paths from Rust on upgrade. Also set `Cache-Control: no-store` on HTML responses in `server.js` as defense-in-depth
+20. **Tauri window flashes before SvelteKit loads** — Tauri loads `frontendDist`'s `index.html` before `setup()` runs, but adapter-node doesn't produce one. Fix: `"visible": false` in window config + frontend invokes `show_main_window` after hydration (Tauri splashscreen pattern)
+21. **Hardcoded port 3000 conflicts with other apps** — never hardcode a port for a desktop app's internal server. Use `find_or_reuse_port()` which persists the port in `server-port.txt` (stable for PWA clients) but picks a new one if occupied
 
 ## Learnings
 
 **Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.
 
 - `.learnings/architecture.md` — production topology, server bundle pipeline, offline sync, data persistence
-- `.learnings/gotchas.md` — 23 documented pitfalls with symptoms, causes, and fixes
+- `.learnings/gotchas.md` — 28 documented pitfalls with symptoms, causes, and fixes

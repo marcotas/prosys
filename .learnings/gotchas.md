@@ -446,21 +446,108 @@ if ('__TAURI_INTERNALS__' in window) { ... }
 
 **Symptom**: After installing a new app version, the old version's UI still appears. Quitting and reopening doesn't help.
 
-**Cause**: WKWebView caches HTTP responses at `~/Library/Caches/{bundleIdentifier}/`. This disk cache persists across app reinstalls. The JS-based cache clearing (`caches.keys()` / `caches.delete()`) only clears the Service Worker CacheStorage API — it does NOT touch the HTTP disk cache.
+**Cause**: WKWebView caches HTTP responses in `~/Library/Caches/`. This disk cache persists across app reinstalls. The JS-based cache clearing (`caches.keys()` / `caches.delete()`) only clears the Service Worker CacheStorage API — it does NOT touch the HTTP disk cache.
 
-**Fix**: On version upgrade, delete the WKWebView HTTP disk cache directory from Rust (synchronously, before WebView navigation), then keep the JS-based SW/CacheStorage clearing as a belt-and-suspenders step.
+**Critical detail**: The cache directory name is the Tauri `productName` **lowercased** (e.g., `~/Library/Caches/prosys/`), NOT the `identifier` (`com.prosys.app`). Using the wrong path means the cache-clear code silently deletes nothing.
+
+**Fix**: On version upgrade, delete the WKWebView HTTP disk cache directory from Rust. Clear **both** possible directory names (identifier and productName lowercased) since the behavior may vary by macOS/WKWebView version.
 
 ```rust
 // lib.rs — inside setup(), when is_upgrade is true
 if let Ok(home) = std::env::var("HOME") {
-    let identifier = app.config().identifier.as_str();
-    let cache_dir = PathBuf::from(&home).join("Library/Caches").join(identifier);
-    if cache_dir.exists() {
-        let _ = fs::remove_dir_all(&cache_dir);
+    let identifier = app.config().identifier.clone();
+    let product_name = app.config().product_name.as_deref()
+        .unwrap_or("prosys").to_lowercase();
+    let caches_base = PathBuf::from(&home).join("Library/Caches");
+
+    for dir_name in [identifier.as_str(), product_name.as_str()] {
+        let cache_dir = caches_base.join(dir_name);
+        if cache_dir.exists() {
+            let _ = fs::remove_dir_all(&cache_dir);
+        }
     }
 }
 ```
 
-**Safe to delete**: `~/Library/Caches/com.prosys.app/` only holds HTTP cache. IndexedDB lives in `~/Library/WebKit/`, and the SQLite database lives in `~/Library/Application Support/com.prosys.app/`.
+**Defense-in-depth**: Also set `Cache-Control: no-store` on HTML responses in `server.js` so WKWebView doesn't aggressively cache pages. Hashed static assets (`_app/immutable/`) are safe to cache since SvelteKit gives them unique filenames per build.
 
-**Affected file**: `src-tauri/src/lib.rs`
+**Safe to delete**: `~/Library/Caches/prosys/` only holds HTTP cache. IndexedDB lives in `~/Library/WebKit/`, and the SQLite database lives in `~/Library/Application Support/com.prosys.app/`.
+
+**Affected files**: `src-tauri/src/lib.rs`, `server.js`
+
+## 27. Tauri window flashes "file not found" before SvelteKit loads
+
+**Symptom**: On every app launch, a brief "file not found index.html" error flashes before the app UI appears.
+
+**Cause**: Tauri creates the window and loads `frontendDist` (`build/client/index.html`) *before* `setup()` runs. SvelteKit adapter-node doesn't produce a standalone `index.html` in `build/client/` — only hashed assets under `_app/`. The WebView tries to load the default `index.html`, fails, shows an error, then `setup()` spawns the Node.js server, waits for it, and navigates to `http://localhost:3000`.
+
+**Fix**: Use the Tauri v2 splashscreen pattern ([docs](https://v2.tauri.app/learn/splashscreen/)):
+
+1. Set `"visible": false` in the window config (`tauri.conf.json`)
+2. Add a `show_main_window` Tauri command that calls `window.show()`
+3. Invoke it from the SvelteKit frontend after hydration (`onMount` in `+layout.svelte`)
+
+```json
+// tauri.conf.json
+"windows": [{ "visible": false, ... }]
+```
+
+```rust
+// lib.rs
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) {
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+    }
+}
+```
+
+```ts
+// +layout.svelte — inside onMount
+if ('__TAURI_INTERNALS__' in window) {
+    (window as any).__TAURI_INTERNALS__.invoke('show_main_window');
+}
+```
+
+**Rule**: For Tauri apps with async setup (spawning servers, waiting for readiness), never let the window be visible during startup. Let the frontend signal when it's ready.
+
+**Affected files**: `src-tauri/tauri.conf.json`, `src-tauri/src/lib.rs`, `src/routes/+layout.svelte`
+
+## 28. Hardcoded port 3000 conflicts with other apps
+
+**Symptom**: Production app shows old/wrong version, or fails to load entirely, when another process (dev server, other app) is already using port 3000.
+
+**Cause**: The Node.js server was hardcoded to port 3000. If a zombie dev server, another Tauri instance, or any other app occupies port 3000, the production app either connects to the wrong server (serving stale assets) or fails to start its own server.
+
+**Fix**: Use `find_or_reuse_port(data_dir)` — persists the chosen port in `server-port.txt` so PWA client URLs remain stable across restarts, but picks a new port if the saved one is occupied.
+
+```rust
+fn find_or_reuse_port(data_dir: &Path) -> u16 {
+    use std::net::TcpListener;
+    let port_file = data_dir.join("server-port.txt");
+
+    // Reuse saved port if available
+    if let Ok(contents) = fs::read_to_string(&port_file) {
+        if let Ok(saved_port) = contents.trim().parse::<u16>() {
+            if let Ok(listener) = TcpListener::bind(("127.0.0.1", saved_port)) {
+                drop(listener);
+                return saved_port;
+            }
+        }
+    }
+
+    // Pick a new free port and persist it
+    let port = TcpListener::bind("127.0.0.1:0")
+        .and_then(|l| l.local_addr())
+        .map(|a| a.port())
+        .unwrap_or(3000);
+    let _ = fs::write(&port_file, port.to_string());
+    port
+}
+```
+
+The `server.js` already reads `PORT` from env (`process.env.PORT`), and the Tauri capability uses `http://localhost:*` for remote IPC, so no other changes are needed.
+
+**Rule**: Never hardcode a port for a desktop app's internal server. Use OS-assigned ports persisted to disk so they're stable across restarts (for PWA clients) but conflict-free.
+
+**Affected files**: `src-tauri/src/lib.rs`
