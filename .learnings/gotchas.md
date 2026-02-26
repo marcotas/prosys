@@ -372,3 +372,28 @@ For custom Svelte transitions with bits-ui, use `forceMount` + `child` snippet p
 **Rule**: When wrapping an existing component in a bits-ui `Trigger`, check whether the component renders a `<button>`. If so, either (a) pass no `onclick` so it renders as `<span>`, or (b) add a non-interactive rendering path.
 
 **Affected file**: `src/lib/components/MemberBadge.svelte`
+
+## 23. Tauri `relaunch()` orphans child processes
+
+**Symptom**: After "Update & restart", app still shows the old version. The update banner never appears again, and the user is permanently stuck on old assets.
+
+**Cause**: `relaunch()` internally calls `process::exit()`, which does NOT trigger `WindowEvent::Destroyed` or reliably emit `RunEvent::Exit` ([Tauri bug #12310](https://github.com/tauri-apps/tauri/issues/12310)). The `on_window_event` handler that kills the Node.js child process never fires. The old Node.js server is orphaned on port 3000.
+
+The new Tauri process starts, `wait_for_server` immediately succeeds against the old server, the WebView loads stale assets, and `app-version.txt` is written with the new version — permanently consuming the one-time cache-clear opportunity. On subsequent launches, versions match → no cache clear → update check returns null (already on latest) → no banner.
+
+**Fix**: Expose a `#[tauri::command] kill_server` that kills the Node.js child via managed `ServerProcess` state. Call it from JS before `relaunch()`. Additionally, add `wait_for_port_free()` in `lib.rs` as a belt-and-suspenders fallback (handles first upgrade to the fixed version).
+
+```ts
+// +layout.svelte — before relaunch
+await (window as any).__TAURI_INTERNALS__.invoke('kill_server');
+await relaunch();
+```
+
+```rust
+// lib.rs — before spawning new server
+let port_was_free = wait_for_port_free("localhost:3000", 25, 200);
+```
+
+**Rule**: Never rely on `WindowEvent::Destroyed` or `RunEvent::Exit` for cleanup of child processes spawned via `std::process::Command`. Always kill them explicitly before calling `relaunch()`.
+
+**Affected files**: `src-tauri/src/lib.rs`, `src/routes/+layout.svelte`

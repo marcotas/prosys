@@ -112,7 +112,7 @@ See `.learnings/macos-code-signing.md` for the full setup and CI workflow.
 
 Two paths for notifying users of updates:
 
-- **Desktop (Tauri)**: `@tauri-apps/plugin-updater` checks `latest.json` from GitHub Releases → shows banner → downloads + relaunches
+- **Desktop (Tauri)**: `@tauri-apps/plugin-updater` checks `latest.json` from GitHub Releases → shows banner → kills Node.js server via `kill_server` command → downloads + relaunches
 - **Mobile (PWA)**: `controllerchange` event on `navigator.serviceWorker` → shows banner → page reload
 
 Both use the shared `UpdateBanner.svelte` component. Dynamic imports guard Tauri-only modules from loading on PWA clients.

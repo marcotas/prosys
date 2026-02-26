@@ -90,10 +90,11 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 13. **`window.location.href` kills store state** — use SvelteKit `goto()` for cross-route navigation; full reload loses all in-memory stores
 14. **`overflow-hidden` clips dropdowns** — use bits-ui `Popover.Portal` to portal content to `<body>`, bypassing all overflow/scroll clipping. Don't manually toggle `overflow-visible` on parents — it breaks when nested inside `overflow-x-auto` scroll containers (CSS spec forces `overflow-y` to also be non-visible)
 15. **Nested buttons in bits-ui triggers** — `Popover.Trigger`/`Dialog.Trigger` renders a `<button>`. Child components inside must render as `<span>`, not `<button>`. Check MemberBadge, which has separate button/span branches based on whether `onclick` is provided
+16. **`relaunch()` orphans child processes** — `relaunch()` calls `process::exit()`, which does NOT trigger `WindowEvent::Destroyed`. Always kill child processes explicitly (via Tauri command) before calling `relaunch()`. See `kill_server` command in `lib.rs`
 
 ## Learnings
 
 **Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.
 
 - `.learnings/architecture.md` — production topology, server bundle pipeline, offline sync, data persistence
-- `.learnings/gotchas.md` — 22 documented pitfalls with symptoms, causes, and fixes
+- `.learnings/gotchas.md` — 23 documented pitfalls with symptoms, causes, and fixes
