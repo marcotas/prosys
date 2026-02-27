@@ -200,10 +200,26 @@ function createTaskStore() {
 
 			// Optimistic update across all affected caches
 			const optimistic = { ...foundTask, ...data };
+			const memberChanged = data.memberId !== undefined && data.memberId !== foundTask.memberId;
+
 			const next = new Map(weekCache);
 			for (const key of affectedKeys) {
 				const list = next.get(key) ?? [];
-				next.set(key, list.map((t) => (t.id === id ? optimistic : t)));
+				if (memberChanged && !key.startsWith(FAMILY_KEY_PREFIX)) {
+					// Old member cache: remove the task
+					next.set(key, list.filter((t) => t.id !== id));
+				} else {
+					// Family cache or same-member update: update in place
+					next.set(key, list.map((t) => (t.id === id ? optimistic : t)));
+				}
+			}
+			// Add to new member's cache if member changed and cache is loaded
+			if (memberChanged && optimistic.memberId) {
+				const newKey = cacheKey(optimistic.memberId, foundTask.weekStart);
+				const existing = next.get(newKey);
+				if (existing && !existing.some((t) => t.id === id)) {
+					next.set(newKey, [...existing, optimistic]);
+				}
 			}
 			weekCache = next;
 
@@ -216,11 +232,12 @@ function createTaskStore() {
 				if (!res.ok) throw new Error(`Failed to update task: ${res.status}`);
 				const updated: Task = await res.json();
 
-				// Replace with server response across all affected caches
+				// Replace with server response in all caches that now contain the task
 				const committed = new Map(weekCache);
-				for (const key of affectedKeys) {
-					const current = committed.get(key) ?? [];
-					committed.set(key, current.map((t) => (t.id === id ? updated : t)));
+				for (const [key, tasks] of committed) {
+					if (tasks.some((t) => t.id === id)) {
+						committed.set(key, tasks.map((t) => (t.id === id ? updated : t)));
+					}
 				}
 				weekCache = committed;
 			} catch (err) {
@@ -233,11 +250,16 @@ function createTaskStore() {
 					});
 					return;
 				}
-				// Rollback
+				// Rollback: remove task from everywhere and add back to original locations
 				const rollback = new Map(weekCache);
+				for (const [key, tasks] of rollback) {
+					if (tasks.some((t) => t.id === id)) {
+						rollback.set(key, tasks.filter((t) => t.id !== id));
+					}
+				}
 				for (const key of affectedKeys) {
-					const current = rollback.get(key) ?? [];
-					rollback.set(key, current.map((t) => (t.id === id ? previous : t)));
+					const list = rollback.get(key) ?? [];
+					rollback.set(key, [...list, previous]);
 				}
 				weekCache = rollback;
 				throw err;
@@ -501,13 +523,39 @@ function createTaskStore() {
 		applyRemoteUpdate(task: Task) {
 			const next = new Map(weekCache);
 			let updated = false;
+			const rightMemberKey = task.memberId ? cacheKey(task.memberId, task.weekStart) : null;
+			const familyKey = `${FAMILY_KEY_PREFIX}:${task.weekStart}`;
+
 			for (const [key, tasks] of next) {
 				const idx = tasks.findIndex((t) => t.id === task.id);
 				if (idx !== -1) {
-					next.set(key, tasks.map((t) => (t.id === task.id ? task : t)));
+					if (key === familyKey || key === rightMemberKey) {
+						// Correct cache: update in place
+						next.set(key, tasks.map((t) => (t.id === task.id ? task : t)));
+					} else {
+						// Wrong member cache (task was reassigned): remove it
+						next.set(key, tasks.filter((t) => t.id !== task.id));
+					}
 					updated = true;
 				}
 			}
+
+			// Add to correct member cache if not already there
+			if (rightMemberKey) {
+				const existing = next.get(rightMemberKey);
+				if (existing && !existing.some((t) => t.id === task.id)) {
+					next.set(rightMemberKey, [...existing, task]);
+					updated = true;
+				}
+			}
+
+			// Ensure task is in family cache if loaded
+			const familyTasks = next.get(familyKey);
+			if (familyTasks && !familyTasks.some((t) => t.id === task.id)) {
+				next.set(familyKey, [...familyTasks, task]);
+				updated = true;
+			}
+
 			if (updated) weekCache = next;
 		},
 
