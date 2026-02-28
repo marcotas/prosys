@@ -1,5 +1,11 @@
 # prosys
 
+## 0.7.0
+
+### Minor Changes
+
+- 87bf5dd: Add task reschedule modal with month calendar for cross-week task moves. Replace inline 7-day picker with a full calendar view, add desktop right-click context menu for reschedule/delete, and fix week highlight to use today's date.
+
 ## 0.6.1
 
 ### Patch Changes
