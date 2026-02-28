@@ -382,9 +382,9 @@ function createTaskStore() {
 		},
 
 		/**
-		 * Move a task to a different day (optimistic).
+		 * Move a task to a specific date (supports cross-week moves).
 		 */
-		async moveToDay(taskId: string, toDayIndex: number): Promise<void> {
+		async moveToDate(taskId: string, toWeekStart: string, toDayIndex: number): Promise<void> {
 			// Find the task in all cache entries
 			let foundTask: Task | undefined;
 			const previousByKey = new Map<string, Task[]>();
@@ -396,27 +396,68 @@ function createTaskStore() {
 				}
 			}
 			if (!foundTask || previousByKey.size === 0) return;
-			if (foundTask.dayIndex === toDayIndex) return;
+			if (foundTask.dayIndex === toDayIndex && foundTask.weekStart === toWeekStart) return;
 
-			// Compute sortOrder for the new day (use first cache that has data)
-			const firstPrev = previousByKey.values().next().value!;
-			const targetDayTasks = firstPrev.filter((t) => t.dayIndex === toDayIndex);
-			const maxSort = targetDayTasks.reduce((max, t) => Math.max(max, t.sortOrder), -1);
+			const isCrossWeek = foundTask.weekStart !== toWeekStart;
 
-			// Optimistic: change dayIndex and sortOrder across all caches
-			const moved = { ...foundTask, dayIndex: toDayIndex, sortOrder: maxSort + 1 };
+			// Compute sortOrder for the target day
+			// Look in target week caches if cross-week, or current caches if same-week
+			let maxSort = -1;
+			if (isCrossWeek) {
+				// Check target week caches
+				const targetMemberKey = foundTask.memberId ? cacheKey(foundTask.memberId, toWeekStart) : null;
+				const targetFamilyKey = `${FAMILY_KEY_PREFIX}:${toWeekStart}`;
+				const targetList = (targetMemberKey && weekCache.get(targetMemberKey)) || weekCache.get(targetFamilyKey);
+				if (targetList) {
+					const targetDayTasks = targetList.filter((t) => t.dayIndex === toDayIndex);
+					maxSort = targetDayTasks.reduce((max, t) => Math.max(max, t.sortOrder), -1);
+				}
+			} else {
+				const firstPrev = previousByKey.values().next().value!;
+				const targetDayTasks = firstPrev.filter((t) => t.dayIndex === toDayIndex);
+				maxSort = targetDayTasks.reduce((max, t) => Math.max(max, t.sortOrder), -1);
+			}
+
+			const moved = { ...foundTask, weekStart: toWeekStart, dayIndex: toDayIndex, sortOrder: maxSort + 1 };
+
+			// Optimistic update
 			const next = new Map(weekCache);
-			for (const key of previousByKey.keys()) {
-				const all = next.get(key) ?? [];
-				next.set(key, all.map((t) => (t.id === taskId ? moved : t)));
+			if (isCrossWeek) {
+				// Remove from old caches
+				for (const key of previousByKey.keys()) {
+					const all = next.get(key) ?? [];
+					next.set(key, all.filter((t) => t.id !== taskId));
+				}
+				// Add to target caches (only if loaded)
+				if (foundTask.memberId) {
+					const targetKey = cacheKey(foundTask.memberId, toWeekStart);
+					const existing = next.get(targetKey);
+					if (existing) {
+						next.set(targetKey, [...existing, moved]);
+					}
+				}
+				const targetFamilyKey = `${FAMILY_KEY_PREFIX}:${toWeekStart}`;
+				const familyExisting = next.get(targetFamilyKey);
+				if (familyExisting) {
+					next.set(targetFamilyKey, [...familyExisting, moved]);
+				}
+			} else {
+				// Same-week: update in place
+				for (const key of previousByKey.keys()) {
+					const all = next.get(key) ?? [];
+					next.set(key, all.map((t) => (t.id === taskId ? moved : t)));
+				}
 			}
 			weekCache = next;
+
+			const patchBody: Record<string, unknown> = { dayIndex: toDayIndex, sortOrder: maxSort + 1 };
+			if (isCrossWeek) patchBody.weekStart = toWeekStart;
 
 			try {
 				const res = await fetch(`/api/tasks/${taskId}`, {
 					method: 'PATCH',
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-					body: JSON.stringify({ dayIndex: toDayIndex, sortOrder: maxSort + 1 })
+					body: JSON.stringify(patchBody)
 				});
 				if (!res.ok) throw new Error(`Failed to move task: ${res.status}`);
 			} catch (err) {
@@ -424,18 +465,44 @@ function createTaskStore() {
 					await offlineQueue.enqueue({
 						method: 'PATCH',
 						url: `/api/tasks/${taskId}`,
-						body: { dayIndex: toDayIndex, sortOrder: maxSort + 1 },
+						body: patchBody,
 						headers: wsHeaders()
 					});
 					return;
 				}
 				// Rollback
 				const rollback = new Map(weekCache);
+				// Remove from any caches we added to
+				if (isCrossWeek) {
+					if (foundTask.memberId) {
+						const targetKey = cacheKey(foundTask.memberId, toWeekStart);
+						const existing = rollback.get(targetKey);
+						if (existing) rollback.set(targetKey, existing.filter((t) => t.id !== taskId));
+					}
+					const targetFamilyKey = `${FAMILY_KEY_PREFIX}:${toWeekStart}`;
+					const familyExisting = rollback.get(targetFamilyKey);
+					if (familyExisting) rollback.set(targetFamilyKey, familyExisting.filter((t) => t.id !== taskId));
+				}
+				// Restore original caches
 				for (const [key, prev] of previousByKey) {
 					rollback.set(key, prev);
 				}
 				weekCache = rollback;
 				throw err;
+			}
+		},
+
+		/**
+		 * Move a task to a different day within the same week (optimistic).
+		 * Delegates to moveToDate using the task's current weekStart.
+		 */
+		async moveToDay(taskId: string, toDayIndex: number): Promise<void> {
+			// Find the task to get its weekStart
+			for (const [, tasks] of weekCache) {
+				const t = tasks.find((t) => t.id === taskId);
+				if (t) {
+					return this.moveToDate(taskId, t.weekStart, toDayIndex);
+				}
 			}
 		},
 
@@ -603,12 +670,41 @@ function createTaskStore() {
 			weekCache = next;
 		},
 
-		applyRemoteMove(payload: { task: Task; fromDay: number }) {
+		applyRemoteMove(payload: { task: Task; fromDay: number; fromWeek?: string }) {
 			const next = new Map(weekCache);
-			for (const [key, tasks] of next) {
-				const idx = tasks.findIndex((t) => t.id === payload.task.id);
-				if (idx !== -1) {
-					next.set(key, tasks.map((t) => (t.id === payload.task.id ? payload.task : t)));
+			const isCrossWeek = payload.fromWeek && payload.fromWeek !== payload.task.weekStart;
+
+			if (isCrossWeek) {
+				// Remove from old week caches
+				if (payload.task.memberId) {
+					const oldKey = cacheKey(payload.task.memberId, payload.fromWeek!);
+					const oldList = next.get(oldKey);
+					if (oldList) next.set(oldKey, oldList.filter((t) => t.id !== payload.task.id));
+				}
+				const oldFamilyKey = `${FAMILY_KEY_PREFIX}:${payload.fromWeek}`;
+				const oldFamily = next.get(oldFamilyKey);
+				if (oldFamily) next.set(oldFamilyKey, oldFamily.filter((t) => t.id !== payload.task.id));
+
+				// Add to new week caches (if loaded)
+				if (payload.task.memberId) {
+					const newKey = cacheKey(payload.task.memberId, payload.task.weekStart);
+					const newList = next.get(newKey);
+					if (newList && !newList.some((t) => t.id === payload.task.id)) {
+						next.set(newKey, [...newList, payload.task]);
+					}
+				}
+				const newFamilyKey = `${FAMILY_KEY_PREFIX}:${payload.task.weekStart}`;
+				const newFamily = next.get(newFamilyKey);
+				if (newFamily && !newFamily.some((t) => t.id === payload.task.id)) {
+					next.set(newFamilyKey, [...newFamily, payload.task]);
+				}
+			} else {
+				// Same-week move: update in place
+				for (const [key, tasks] of next) {
+					const idx = tasks.findIndex((t) => t.id === payload.task.id);
+					if (idx !== -1) {
+						next.set(key, tasks.map((t) => (t.id === payload.task.id ? payload.task : t)));
+					}
 				}
 			}
 			weekCache = next;
