@@ -150,6 +150,11 @@
 		return data.habitProgress;
 	});
 
+	// ── Reschedule (cross-week move) ──
+	function rescheduleTask(taskId: string, toWeekStart: string, toDayIndex: number) {
+		taskStore.moveToDate(taskId, toWeekStart, toDayIndex);
+	}
+
 	// ── Task operations ──
 	function toggleTask(taskId: string) {
 		taskStore.toggle(taskId);
@@ -312,6 +317,7 @@
 						onAssignTask={(taskId, mid) => assignTask(taskId, mid)}
 						onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
 						onMoveTask={moveTask}
+						onRescheduleTask={rescheduleTask}
 					/>
 				</div>
 			{/each}

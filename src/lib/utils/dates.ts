@@ -39,12 +39,15 @@ function getSundayForOffset(weekOffset: number): Date {
 /**
  * Format a Date as ISO date string YYYY-MM-DD.
  */
-function toISO(d: Date): string {
+export function dateToISO(d: Date): string {
 	const yyyy = d.getFullYear();
 	const mm = String(d.getMonth() + 1).padStart(2, '0');
 	const dd = String(d.getDate()).padStart(2, '0');
 	return `${yyyy}-${mm}-${dd}`;
 }
+
+// Keep internal alias for backward compat within this file
+const toISO = dateToISO;
 
 /**
  * Format a Date as DD.MM.YYYY for display.
@@ -60,7 +63,7 @@ function toDMY(d: Date): string {
  * weekOffset=0 → this week's Sunday.
  */
 export function getWeekStart(weekOffset: number): string {
-	return toISO(getSundayForOffset(weekOffset));
+	return dateToISO(getSundayForOffset(weekOffset));
 }
 
 /**
@@ -109,6 +112,61 @@ export function getTodayWeekOffset(): number {
 export function getTodayISO(): string {
 	const now = new Date();
 	return toISO(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+/**
+ * Parse an ISO date string (YYYY-MM-DD) to a local Date without timezone issues.
+ */
+export function isoToDate(iso: string): Date {
+	const [y, m, d] = iso.split('-').map(Number);
+	return new Date(y, m - 1, d);
+}
+
+/**
+ * Get the ISO Sunday (week start) for any given date.
+ */
+export function getWeekStartForDate(d: Date): string {
+	const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+	copy.setDate(copy.getDate() - copy.getDay());
+	return dateToISO(copy);
+}
+
+/**
+ * Human-readable month label, e.g. "February 2026".
+ */
+export function monthLabel(year: number, month: number): string {
+	const FULL_MONTHS = [
+		'January', 'February', 'March', 'April', 'May', 'June',
+		'July', 'August', 'September', 'October', 'November', 'December'
+	];
+	return `${FULL_MONTHS[month]} ${year}`;
+}
+
+/**
+ * Generate a 6×7 grid for a month calendar (weeks start Sunday).
+ * Returns array of 6 rows, each with 7 cells (Date or null for empty cells).
+ */
+export function getMonthGrid(year: number, month: number): (Date | null)[][] {
+	const firstDay = new Date(year, month, 1);
+	const startDow = firstDay.getDay(); // 0=Sun
+	const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+	const grid: (Date | null)[][] = [];
+	let day = 1 - startDow; // may be negative (empty cells before month starts)
+
+	for (let row = 0; row < 6; row++) {
+		const week: (Date | null)[] = [];
+		for (let col = 0; col < 7; col++) {
+			if (day >= 1 && day <= daysInMonth) {
+				week.push(new Date(year, month, day));
+			} else {
+				week.push(null);
+			}
+			day++;
+		}
+		grid.push(week);
+	}
+	return grid;
 }
 
 /**

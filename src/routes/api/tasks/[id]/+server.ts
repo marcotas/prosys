@@ -26,13 +26,14 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	const { id } = params;
 	const body = await request.json();
-	const { title, emoji, completed, dayIndex, sortOrder, memberId } = body as {
+	const { title, emoji, completed, dayIndex, sortOrder, memberId, weekStart } = body as {
 		title?: string;
 		emoji?: string;
 		completed?: boolean;
 		dayIndex?: number;
 		sortOrder?: number;
 		memberId?: string | null;
+		weekStart?: string;
 	};
 
 	// Check task exists
@@ -52,6 +53,7 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 	if (dayIndex !== undefined) updates.dayIndex = dayIndex;
 	if (sortOrder !== undefined) updates.sortOrder = sortOrder;
 	if (memberId !== undefined) updates.memberId = memberId || null;
+	if (weekStart !== undefined) updates.weekStart = weekStart;
 
 	db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 
@@ -63,9 +65,11 @@ export const PATCH: RequestHandler = async ({ params, request, locals }) => {
 
 	const task = rowToTask(updated);
 
-	// If dayIndex changed, this is a move — broadcast the more specific message
-	if (dayIndex !== undefined && dayIndex !== existing.dayIndex) {
-		broadcast({ type: 'task:moved', payload: { task, fromDay: existing.dayIndex } }, locals.wsClientId);
+	// If dayIndex or weekStart changed, this is a move — broadcast the more specific message
+	const isMove = (dayIndex !== undefined && dayIndex !== existing.dayIndex)
+		|| (weekStart !== undefined && weekStart !== existing.weekStart);
+	if (isMove) {
+		broadcast({ type: 'task:moved', payload: { task, fromDay: existing.dayIndex, fromWeek: existing.weekStart } }, locals.wsClientId);
 	} else {
 		broadcast({ type: 'task:updated', payload: task }, locals.wsClientId);
 	}

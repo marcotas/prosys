@@ -221,6 +221,11 @@
     habitStore.delete(habitId);
   }
 
+  // ── Reschedule (cross-week move) ──
+  function rescheduleTask(taskId: string, toWeekStart: string, toDayIndex: number) {
+    taskStore.moveToDate(taskId, toWeekStart, toDayIndex);
+  }
+
   // ── Reorder operations (drag & drop) ──
 
   function reorderTasks(dayIndex: number, taskIds: string[]) {
@@ -441,6 +446,7 @@
                 updateTask(dayIndex, taskId, updates)}
               onReorderTasks={(taskIds) => reorderTasks(dayIndex, taskIds)}
               onMoveTask={moveTask}
+              onRescheduleTask={rescheduleTask}
             />
           </div>
         {/each}

@@ -7,6 +7,8 @@
   import { flip } from "svelte/animate";
   import ProgressRing from "./ProgressRing.svelte";
   import DragHandle from "./DragHandle.svelte";
+  import TaskContextMenu from "./TaskContextMenu.svelte";
+  import ReschedulePicker from "./ReschedulePicker.svelte";
   import { createSwipeController } from "$lib/utils/swipe.svelte";
 
   let {
@@ -20,6 +22,7 @@
     onUpdateTask,
     onReorderTasks,
     onMoveTask,
+    onRescheduleTask,
   }: {
     day: DayData;
     dayIndex: number;
@@ -37,6 +40,11 @@
       taskId: string,
       toDayIndex: number,
       orderedTaskIds: string[],
+    ) => void;
+    onRescheduleTask?: (
+      taskId: string,
+      toWeekStart: string,
+      toDayIndex: number,
     ) => void;
   } = $props();
 
@@ -101,18 +109,20 @@
     onDeleteTask(taskId);
   }
 
-  // ── Move to day picker ────────────────────────────────
-  const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-  let movePickerTaskId = $state<string | null>(null);
+  // ── Reschedule modal ─────────────────────────────────
+  let rescheduleTask = $state<Task | null>(null);
+  let rescheduleOpen = $state(false);
 
-  function openMovePicker(taskId: string) {
-    movePickerTaskId = taskId;
+  function openReschedule(task: Task) {
+    rescheduleTask = task;
+    rescheduleOpen = true;
     swipe.close();
   }
 
-  function handleMoveToDay(taskId: string, toDayIndex: number) {
-    movePickerTaskId = null;
-    onMoveTask?.(taskId, toDayIndex, []);
+  function handleReschedule(toWeekStart: string, toDayIndex: number) {
+    if (rescheduleTask) {
+      onRescheduleTask?.(rescheduleTask.id, toWeekStart, toDayIndex);
+    }
   }
 
   // ── Add task ──────────────────────────────────────────
@@ -247,11 +257,15 @@
         {@const isShadow = (task as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
         <div
           animate:flip={{ duration: FLIP_DURATION }}
-          class="relative overflow-hidden group/task {isShadow
+          class="relative overflow-hidden {isShadow
             ? 'dnd-shadow-item'
             : ''}"
           role="listitem"
         >
+          <TaskContextMenu
+            onReschedule={() => openReschedule(task)}
+            onDelete={() => onDeleteTask(task.id)}
+          >
           <!-- Swipe-reveal zone: Move + Delete -->
           {#if isRevealed}
             <div
@@ -259,7 +273,7 @@
               style="width: {SWIPE_ZONE}px"
             >
               <button
-                onclick={() => openMovePicker(task.id)}
+                onclick={() => openReschedule(task)}
                 aria-label="Move task: {task.title}"
                 class="flex-1 flex items-center justify-center text-white cursor-pointer"
                 style="background-color: {theme.accent}"
@@ -388,75 +402,8 @@
                 ? 'line-through text-gray-400 decoration-gray-300'
                 : 'text-gray-700'}">{task.title}</span
             >
-
-            <!-- Delete icon — visible on hover (desktop) -->
-            <button
-              onclick={(e) => {
-                e.stopPropagation();
-                onDeleteTask(task.id);
-              }}
-              aria-label="Delete task: {task.title}"
-              class="shrink-0 ml-1 w-5 h-5 rounded-md flex items-center justify-center
-                opacity-0 group-hover/task:opacity-100 focus-visible:opacity-100
-                transition-opacity text-gray-300 hover:text-red-500 hover:bg-red-50"
-            >
-              <svg
-                class="w-3 h-3"
-                viewBox="0 0 12 12"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M3 3l6 6M9 3l-6 6"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                />
-              </svg>
-            </button>
           </div>
-
-          <!-- Move-to-day picker popup -->
-          {#if movePickerTaskId === task.id}
-            <!-- svelte-ignore a11y_no_static_element_interactions -->
-            <div
-              class="absolute inset-0 z-20 bg-white/95 backdrop-blur-sm flex items-center justify-center gap-1.5 px-2"
-              onclick={() => (movePickerTaskId = null)}
-              onkeydown={(e) => e.key === "Escape" && (movePickerTaskId = null)}
-            >
-              <span class="text-[11px] font-medium text-gray-400 mr-1"
-                >Move to</span
-              >
-              {#each DAY_LABELS as label, i}
-                <button
-                  onclick={(e) => {
-                    e.stopPropagation();
-                    handleMoveToDay(task.id, i);
-                  }}
-                  disabled={i === dayIndex}
-                  class="w-7 h-7 rounded-full text-[11px] font-semibold flex items-center justify-center
-                    transition-all
-                    {i === dayIndex
-                    ? 'bg-gray-100 text-gray-300 cursor-default'
-                    : 'hover:scale-110 text-white cursor-pointer'}"
-                  style={i !== dayIndex
-                    ? `background-color: ${theme.accent}`
-                    : ""}
-                  aria-label="Move to {[
-                    'Sunday',
-                    'Monday',
-                    'Tuesday',
-                    'Wednesday',
-                    'Thursday',
-                    'Friday',
-                    'Saturday',
-                  ][i]}"
-                >
-                  {label}
-                </button>
-              {/each}
-            </div>
-          {/if}
+          </TaskContextMenu>
         </div>
       {/each}
     </div>
@@ -482,6 +429,12 @@
       />
     </div>
   </div>
+
+  <ReschedulePicker
+    task={rescheduleTask}
+    bind:open={rescheduleOpen}
+    onReschedule={handleReschedule}
+  />
 </article>
 
 <style>
