@@ -1,44 +1,28 @@
 // Shared types for ProSys — read-only for feature tasks.
 // All interfaces match the data model in docs/plan/data-model.md.
 
-// ── Theme ──────────────────────────────────────────────
+// ── Re-exports from domain layer ─────────────────────────
+export type {
+	DayIndex,
+	ThemeVariant,
+	ThemeConfig,
+	MemberData,
+	Member,
+	TaskData,
+	Task,
+	HabitData,
+	Habit,
+	CreateTaskInput,
+	UpdateTaskInput,
+	CreateHabitInput,
+	CreateMemberInput,
+	UpdateMemberInput,
+	ValidationResult
+} from '$lib/domain/types';
 
-export type ThemeVariant = 'default' | 'playful';
+import type { Task, ThemeConfig } from '$lib/domain/types';
 
-export interface ThemeConfig {
-	variant: ThemeVariant;
-	accent: string;
-	accentLight: string;
-	accentDark: string;
-	headerBg: string;
-	ringColor: string;
-	checkColor: string;
-	emoji: string;
-}
-
-// ── Family Member ──────────────────────────────────────
-
-export interface Member {
-	id: string;
-	name: string;
-	theme: ThemeConfig;
-	quote: { text: string; author: string };
-	createdAt: string;
-	updatedAt: string;
-}
-
-// ── Task ───────────────────────────────────────────────
-
-export interface Task {
-	id: string;
-	memberId: string | null;
-	weekStart: string; // ISO date of week's Sunday, e.g. '2026-02-08'
-	dayIndex: number; // 0=Sun … 6=Sat
-	title: string;
-	emoji?: string;
-	completed: boolean;
-	sortOrder: number;
-}
+// ── UI-only types (not part of domain) ───────────────────
 
 export interface PlannerTask extends Task {
 	memberName?: string;
@@ -54,17 +38,14 @@ export interface DayData {
 	tasks: Task[];
 }
 
-// ── Habit ──────────────────────────────────────────────
+// ── Habit UI types ──────────────────────────────────────
 
-export interface Habit {
+export interface HabitWithDays {
 	id: string;
 	memberId: string;
 	name: string;
 	emoji?: string;
 	sortOrder: number;
-}
-
-export interface HabitWithDays extends Habit {
 	days: boolean[]; // 7 booleans for Sun–Sat
 }
 
@@ -83,16 +64,16 @@ export type WSMessage =
 	| { type: 'task:deleted'; payload: { id: string; memberId: string | null; weekStart: string; dayIndex: number } }
 	| { type: 'task:reordered'; payload: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] } }
 	| { type: 'task:moved'; payload: { task: Task; fromDay: number; fromWeek?: string } }
-	| { type: 'habit:created'; payload: Habit }
-	| { type: 'habit:updated'; payload: Habit }
+	| { type: 'habit:created'; payload: { id: string; memberId: string; name: string; emoji?: string; sortOrder: number } }
+	| { type: 'habit:updated'; payload: { id: string; memberId: string; name: string; emoji?: string; sortOrder: number } }
 	| { type: 'habit:deleted'; payload: { id: string; memberId: string } }
 	| { type: 'habit:reordered'; payload: { memberId: string; habitIds: string[] } }
 	| {
 			type: 'habit:toggled';
 			payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean };
 		}
-	| { type: 'member:created'; payload: Member }
-	| { type: 'member:updated'; payload: Member }
+	| { type: 'member:created'; payload: { id: string; name: string; theme: ThemeConfig; quote: { text: string; author: string }; createdAt: string; updatedAt: string } }
+	| { type: 'member:updated'; payload: { id: string; name: string; theme: ThemeConfig; quote: { text: string; author: string }; createdAt: string; updatedAt: string } }
 	| { type: 'member:deleted'; payload: { id: string } };
 
 // ── Theme Presets ──────────────────────────────────────
