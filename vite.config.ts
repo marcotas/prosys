@@ -3,6 +3,11 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, type Plugin } from 'vite';
 import { Bonjour } from 'bonjour-service';
 import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { UserConfig } from 'vitest/config';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
 
@@ -58,11 +63,20 @@ function prosysWs(): Plugin {
 	};
 }
 
+const isTest = process.env.VITEST === 'true';
+
 export default defineConfig(({ command }) => ({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
-	plugins: [prosysWs(), tailwindcss(), sveltekit()],
+	plugins: isTest ? [] : [prosysWs(), tailwindcss(), sveltekit()],
+
+	test: {
+		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts'],
+		alias: {
+			'$lib': resolve(__dirname, 'src/lib')
+		}
+	},
 
 	// Force Vite to bundle all pure-JS dependencies into the SSR output so
 	// the Tauri production build doesn't need to ship node_modules for them.
@@ -80,4 +94,4 @@ export default defineConfig(({ command }) => ({
 				? ['better-sqlite3', 'ws', 'qrcode']
 				: ['better-sqlite3']
 	}
-}));
+} satisfies UserConfig));
