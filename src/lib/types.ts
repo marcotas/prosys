@@ -1,44 +1,28 @@
 // Shared types for ProSys — read-only for feature tasks.
 // All interfaces match the data model in docs/plan/data-model.md.
 
-// ── Theme ──────────────────────────────────────────────
+// ── Re-exports from domain layer ─────────────────────────
+export type {
+	DayIndex,
+	ThemeVariant,
+	ThemeConfig,
+	MemberData,
+	Member,
+	TaskData,
+	Task,
+	HabitData,
+	Habit,
+	CreateTaskInput,
+	UpdateTaskInput,
+	CreateHabitInput,
+	CreateMemberInput,
+	UpdateMemberInput,
+	ValidationResult
+} from '$lib/domain/types';
 
-export type ThemeVariant = 'default' | 'playful';
+import type { Task, Habit, Member, ThemeConfig } from '$lib/domain/types';
 
-export interface ThemeConfig {
-	variant: ThemeVariant;
-	accent: string;
-	accentLight: string;
-	accentDark: string;
-	headerBg: string;
-	ringColor: string;
-	checkColor: string;
-	emoji: string;
-}
-
-// ── Family Member ──────────────────────────────────────
-
-export interface Member {
-	id: string;
-	name: string;
-	theme: ThemeConfig;
-	quote: { text: string; author: string };
-	createdAt: string;
-	updatedAt: string;
-}
-
-// ── Task ───────────────────────────────────────────────
-
-export interface Task {
-	id: string;
-	memberId: string | null;
-	weekStart: string; // ISO date of week's Sunday, e.g. '2026-02-08'
-	dayIndex: number; // 0=Sun … 6=Sat
-	title: string;
-	emoji?: string;
-	completed: boolean;
-	sortOrder: number;
-}
+// ── UI-only types (not part of domain) ───────────────────
 
 export interface PlannerTask extends Task {
 	memberName?: string;
@@ -54,15 +38,7 @@ export interface DayData {
 	tasks: Task[];
 }
 
-// ── Habit ──────────────────────────────────────────────
-
-export interface Habit {
-	id: string;
-	memberId: string;
-	name: string;
-	emoji?: string;
-	sortOrder: number;
-}
+// ── Habit UI types ──────────────────────────────────────
 
 export interface HabitWithDays extends Habit {
 	days: boolean[]; // 7 booleans for Sun–Sat
