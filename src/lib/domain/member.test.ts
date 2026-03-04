@@ -177,6 +177,20 @@ describe('Member mutations', () => {
 	});
 });
 
+describe('Member getter immutability', () => {
+	it('theme getter returns a copy (cannot mutate internal state)', () => {
+		const member = Member.fromData(makeMemberData());
+		member.theme.accent = '#000000';
+		expect(member.theme.accent).toBe('#4a7c59');
+	});
+
+	it('quote getter returns a copy (cannot mutate internal state)', () => {
+		const member = Member.fromData(makeMemberData());
+		member.quote.text = 'Changed';
+		expect(member.quote.text).toBe('Hello world');
+	});
+});
+
 describe('Member serialization', () => {
 	it('toJSON() returns plain data matching the input', () => {
 		const data = makeMemberData();

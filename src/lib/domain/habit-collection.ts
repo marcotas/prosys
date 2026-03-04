@@ -21,7 +21,7 @@ export class HabitCollection {
 
 	/** Return all habits for a member, sorted by sortOrder ascending. */
 	getAll(memberId: string): Habit[] {
-		return (this.cache.get(memberId) ?? []).sort((a, b) => a.sortOrder - b.sortOrder);
+		return [...(this.cache.get(memberId) ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
 	}
 
 	/** Find a habit by id across all members. Returns undefined if not found. */

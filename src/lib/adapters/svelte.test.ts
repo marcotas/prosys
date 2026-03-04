@@ -41,14 +41,23 @@ function useNotifierTestable<T extends ChangeNotifier>(
 	writableFn: typeof mockWritable
 ) {
 	const store = writableFn(notifier);
-	const unsubscribe = notifier.onChange(() => store.set(notifier));
+	let subscriberCount = 0;
+	let unsubscribeNotifier: (() => void) | null = null;
 
 	return {
 		subscribe(run: (value: T) => void) {
+			if (subscriberCount === 0) {
+				unsubscribeNotifier = notifier.onChange(() => store.set(notifier));
+			}
+			subscriberCount++;
 			const unsub = store.subscribe(run);
 			return () => {
 				unsub();
-				unsubscribe();
+				subscriberCount--;
+				if (subscriberCount === 0 && unsubscribeNotifier) {
+					unsubscribeNotifier();
+					unsubscribeNotifier = null;
+				}
 			};
 		},
 		set: store.set,
@@ -97,5 +106,41 @@ describe('useNotifier adapter', () => {
 		unsub();
 		notifier.increment();
 		expect(listener).toHaveBeenCalledOnce();
+	});
+
+	it('multi-subscriber: first unsub does not break second subscriber', () => {
+		const notifier = new TestNotifier();
+		const store = useNotifierTestable(notifier, mockWritable);
+
+		const values1: number[] = [];
+		const values2: number[] = [];
+		const unsub1 = store.subscribe((n) => values1.push(n.value));
+		const unsub2 = store.subscribe((n) => values2.push(n.value));
+
+		notifier.increment(); // both should receive
+		unsub1(); // first unsubscribes
+		notifier.increment(); // second should still receive
+
+		expect(values1).toEqual([0, 1]); // initial + 1 update
+		expect(values2).toEqual([0, 1, 2]); // initial + 2 updates
+
+		unsub2();
+	});
+
+	it('re-subscribing after all unsub reconnects notifier', () => {
+		const notifier = new TestNotifier();
+		const store = useNotifierTestable(notifier, mockWritable);
+
+		const unsub1 = store.subscribe(() => {});
+		unsub1(); // all unsubscribed, notifier listener removed
+
+		const values: number[] = [];
+		notifier.increment(); // should NOT be captured
+
+		const unsub2 = store.subscribe((n) => values.push(n.value));
+		notifier.increment(); // should be captured
+
+		expect(values).toEqual([1, 2]); // initial (value=1) + update (value=2)
+		unsub2();
 	});
 });

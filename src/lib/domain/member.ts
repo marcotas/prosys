@@ -38,11 +38,11 @@ export class Member {
 	}
 
 	get theme(): ThemeConfig {
-		return this.data.theme;
+		return { ...this.data.theme };
 	}
 
 	get quote(): { text: string; author: string } {
-		return this.data.quote;
+		return { ...this.data.quote };
 	}
 
 	get createdAt(): string {

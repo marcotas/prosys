@@ -20,7 +20,7 @@ export type {
 	ValidationResult
 } from '$lib/domain/types';
 
-import type { Task, ThemeConfig } from '$lib/domain/types';
+import type { Task, Habit, Member, ThemeConfig } from '$lib/domain/types';
 
 // ── UI-only types (not part of domain) ───────────────────
 
@@ -40,12 +40,7 @@ export interface DayData {
 
 // ── Habit UI types ──────────────────────────────────────
 
-export interface HabitWithDays {
-	id: string;
-	memberId: string;
-	name: string;
-	emoji?: string;
-	sortOrder: number;
+export interface HabitWithDays extends Habit {
 	days: boolean[]; // 7 booleans for Sun–Sat
 }
 
@@ -64,16 +59,16 @@ export type WSMessage =
 	| { type: 'task:deleted'; payload: { id: string; memberId: string | null; weekStart: string; dayIndex: number } }
 	| { type: 'task:reordered'; payload: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] } }
 	| { type: 'task:moved'; payload: { task: Task; fromDay: number; fromWeek?: string } }
-	| { type: 'habit:created'; payload: { id: string; memberId: string; name: string; emoji?: string; sortOrder: number } }
-	| { type: 'habit:updated'; payload: { id: string; memberId: string; name: string; emoji?: string; sortOrder: number } }
+	| { type: 'habit:created'; payload: Habit }
+	| { type: 'habit:updated'; payload: Habit }
 	| { type: 'habit:deleted'; payload: { id: string; memberId: string } }
 	| { type: 'habit:reordered'; payload: { memberId: string; habitIds: string[] } }
 	| {
 			type: 'habit:toggled';
 			payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean };
 		}
-	| { type: 'member:created'; payload: { id: string; name: string; theme: ThemeConfig; quote: { text: string; author: string }; createdAt: string; updatedAt: string } }
-	| { type: 'member:updated'; payload: { id: string; name: string; theme: ThemeConfig; quote: { text: string; author: string }; createdAt: string; updatedAt: string } }
+	| { type: 'member:created'; payload: Member }
+	| { type: 'member:updated'; payload: Member }
 	| { type: 'member:deleted'; payload: { id: string } };
 
 // ── Theme Presets ──────────────────────────────────────
