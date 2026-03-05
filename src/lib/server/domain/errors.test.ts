@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DomainError, NotFoundError, ValidationError } from './errors';
+import { DomainError, NotFoundError, ValidationError, ConflictError } from './errors';
 
 // ── DomainError ──────────────────────────────────────────
 
@@ -64,6 +64,30 @@ describe('ValidationError', () => {
 
 	it('is an instance of Error', () => {
 		const err = new ValidationError('invalid');
+		expect(err).toBeInstanceOf(Error);
+	});
+});
+
+// ── ConflictError ───────────────────────────────────────
+
+describe('ConflictError', () => {
+	it('sets name to "ConflictError"', () => {
+		const err = new ConflictError('Resource already exists');
+		expect(err.name).toBe('ConflictError');
+	});
+
+	it('preserves the message', () => {
+		const err = new ConflictError('Habit completion already exists');
+		expect(err.message).toBe('Habit completion already exists');
+	});
+
+	it('is an instance of DomainError', () => {
+		const err = new ConflictError('conflict');
+		expect(err).toBeInstanceOf(DomainError);
+	});
+
+	it('is an instance of Error', () => {
+		const err = new ConflictError('conflict');
 		expect(err).toBeInstanceOf(Error);
 	});
 });

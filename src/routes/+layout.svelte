@@ -2,6 +2,7 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
+	import { Toaster } from 'svelte-sonner';
 	import { wsStore } from '$lib/stores/ws.svelte';
 	import { taskStore } from '$lib/stores/tasks.svelte';
 	import { habitStore } from '$lib/stores/habits.svelte';
@@ -125,6 +126,8 @@
 		rel="stylesheet"
 	/>
 </svelte:head>
+
+<Toaster position="top-center" richColors closeButton />
 
 <div class="min-h-screen bg-gray-50">
 	{@render children()}

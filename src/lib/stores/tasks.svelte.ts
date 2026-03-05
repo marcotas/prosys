@@ -1,6 +1,8 @@
 import type { Task, PlannerTask, FamilyHabitProgress } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
 import { offlineQueue, isNetworkError } from './offline-queue.svelte';
+import { ApiError, throwApiError } from '$lib/utils/api-error';
+import { notifyError } from '$lib/utils/notify';
 
 type CreateTaskData = {
 	memberId?: string | null;
@@ -56,7 +58,7 @@ function createTaskStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/members/${memberId}/tasks?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load tasks: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: Task[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);
@@ -74,7 +76,7 @@ function createTaskStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/members/${memberId}/tasks?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load tasks: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: Task[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);
@@ -140,7 +142,7 @@ function createTaskStore() {
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 					body: JSON.stringify(data)
 				});
-				if (!res.ok) throw new Error(`Failed to create task: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const created: Task = await res.json();
 
 				// Replace temp task with server response
@@ -176,7 +178,8 @@ function createTaskStore() {
 					rollback.set(familyKey, fc.filter((t) => t.id !== tempId));
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
+				return optimistic;
 			}
 		},
 
@@ -229,7 +232,7 @@ function createTaskStore() {
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 					body: JSON.stringify(data)
 				});
-				if (!res.ok) throw new Error(`Failed to update task: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const updated: Task = await res.json();
 
 				// Replace with server response in all caches that now contain the task
@@ -262,7 +265,7 @@ function createTaskStore() {
 					rollback.set(key, [...list, previous]);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -302,7 +305,7 @@ function createTaskStore() {
 
 			try {
 				const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE', headers: wsHeaders() });
-				if (!res.ok) throw new Error(`Failed to delete task: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -318,7 +321,7 @@ function createTaskStore() {
 					rollback.set(key, prev);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -360,7 +363,7 @@ function createTaskStore() {
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 					body: JSON.stringify({ memberId, weekStart, dayIndex, taskIds })
 				});
-				if (!res.ok) throw new Error(`Failed to reorder tasks: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -377,7 +380,7 @@ function createTaskStore() {
 					rollback.set(key, prev);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -459,7 +462,7 @@ function createTaskStore() {
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 					body: JSON.stringify(patchBody)
 				});
-				if (!res.ok) throw new Error(`Failed to move task: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -488,7 +491,7 @@ function createTaskStore() {
 					rollback.set(key, prev);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -523,7 +526,7 @@ function createTaskStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/family/tasks?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load family tasks: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: Task[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);
@@ -538,7 +541,7 @@ function createTaskStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/family/tasks?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load family tasks: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: Task[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);

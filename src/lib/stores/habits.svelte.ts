@@ -1,6 +1,8 @@
 import type { Habit, HabitWithDays, FamilyHabitProgress } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
 import { offlineQueue, isNetworkError } from './offline-queue.svelte';
+import { ApiError, throwApiError } from '$lib/utils/api-error';
+import { notifyError } from '$lib/utils/notify';
 
 const FAMILY_KEY = '__family_habits__';
 
@@ -45,7 +47,7 @@ function createHabitStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/members/${memberId}/habits?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load habits: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: HabitWithDays[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);
@@ -63,7 +65,7 @@ function createHabitStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/members/${memberId}/habits?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load habits: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: HabitWithDays[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data);
@@ -120,7 +122,7 @@ function createHabitStore() {
 				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify({ memberId, name, emoji })
 			});
-				if (!res.ok) throw new Error(`Failed to create habit: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const created: Habit = await res.json();
 
 				// Replace temp habit with server response in all cached weeks
@@ -163,7 +165,8 @@ function createHabitStore() {
 					rollback.set(key, val);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
+				return { id: tempId, memberId, name, emoji, sortOrder: optimistic.sortOrder } as Habit;
 			}
 		},
 
@@ -210,7 +213,7 @@ function createHabitStore() {
 				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify(data)
 			});
-				if (!res.ok) throw new Error(`Failed to update habit: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const updated: Habit = await res.json();
 
 				// Replace with server response in all cached weeks
@@ -243,7 +246,7 @@ function createHabitStore() {
 					rollback.set(key, val);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -286,7 +289,7 @@ function createHabitStore() {
 
 			try {
 				const res = await fetch(`/api/habits/${id}`, { method: 'DELETE', headers: wsHeaders() });
-				if (!res.ok) throw new Error(`Failed to delete habit: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -305,7 +308,7 @@ function createHabitStore() {
 					rollback.set(key, val);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -368,7 +371,7 @@ function createHabitStore() {
 				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify({ weekStart, dayIndex })
 			});
-				if (!res.ok) throw new Error(`Failed to toggle habit: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -385,7 +388,7 @@ function createHabitStore() {
 				if (previousFamily) rollback.set(fk, previousFamily as any);
 				else rollback.delete(fk);
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -431,7 +434,7 @@ function createHabitStore() {
 				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify({ memberId, habitIds })
 			});
-				if (!res.ok) throw new Error(`Failed to reorder habits: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -451,7 +454,7 @@ function createHabitStore() {
 					rollback.set(key, val);
 				}
 				weekCache = rollback;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -472,7 +475,7 @@ function createHabitStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/family/habits?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load family habits: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: FamilyHabitProgress[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data as any);
@@ -487,7 +490,7 @@ function createHabitStore() {
 			loading = true;
 			try {
 				const res = await fetch(`/api/family/habits?week=${weekStart}`);
-				if (!res.ok) throw new Error(`Failed to load family habits: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: FamilyHabitProgress[] = await res.json();
 				const next = new Map(weekCache);
 				next.set(key, data as any);

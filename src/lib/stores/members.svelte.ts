@@ -1,6 +1,8 @@
 import type { Member, ThemeConfig } from '$lib/types';
 import { wsHeaders } from './ws.svelte';
 import { offlineQueue, isNetworkError } from './offline-queue.svelte';
+import { ApiError, throwApiError } from '$lib/utils/api-error';
+import { notifyError } from '$lib/utils/notify';
 
 type CreateMemberData = {
 	name: string;
@@ -53,7 +55,7 @@ function createMemberStore() {
 			loading = true;
 			try {
 				const res = await fetch('/api/members');
-				if (!res.ok) throw new Error(`Failed to load members: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const data: Member[] = await res.json();
 				members = data;
 
@@ -84,7 +86,7 @@ function createMemberStore() {
 					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 					body: JSON.stringify(data)
 				});
-				if (!res.ok) throw new Error(`Failed to create member: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const created: Member = await res.json();
 				members = [...members, created];
 				selectedMemberId = created.id;
@@ -101,7 +103,8 @@ function createMemberStore() {
 					});
 					return optimistic;
 				}
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
+				return optimistic;
 			}
 		},
 
@@ -122,7 +125,7 @@ function createMemberStore() {
 				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
 				body: JSON.stringify(data)
 			});
-				if (!res.ok) throw new Error(`Failed to update member: ${res.status}`);
+				if (!res.ok) await throwApiError(res);
 				const updated: Member = await res.json();
 				members = members.map((m) => (m.id === id ? updated : m));
 			} catch (err) {
@@ -137,7 +140,7 @@ function createMemberStore() {
 				}
 				// Rollback on failure
 				members = members.map((m) => (m.id === id ? previous : m));
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
@@ -153,9 +156,7 @@ function createMemberStore() {
 
 			try {
 				const res = await fetch(`/api/members/${id}`, { method: 'DELETE', headers: wsHeaders() });
-				if (!res.ok) {
-					throw new Error(`Failed to delete member: ${res.status}`);
-				}
+				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
 					await offlineQueue.enqueue({
@@ -167,7 +168,7 @@ function createMemberStore() {
 				}
 				// Rollback on failure
 				members = previous;
-				throw err;
+				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
 			}
 		},
 
