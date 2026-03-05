@@ -120,6 +120,17 @@ describe('HabitCollection.reorder', () => {
 		const col = new HabitCollection();
 		col.reorder('unknown', ['a', 'b']);
 	});
+
+	it('skips unknown habit IDs without error', () => {
+		const col = new HabitCollection();
+		col.hydrate(MEMBER, [
+			makeHabit({ id: 'a', sortOrder: 0 }),
+			makeHabit({ id: 'b', sortOrder: 1 })
+		]);
+		col.reorder(MEMBER, ['b', 'nonexistent', 'a']);
+		const habits = col.getAll(MEMBER);
+		expect(habits.map(h => h.id)).toEqual(['b', 'a']);
+	});
 });
 
 describe('HabitCollection.nextSortOrder', () => {

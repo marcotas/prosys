@@ -1,4 +1,5 @@
 import type { MemberData, CreateMemberInput, ThemeConfig } from './types';
+import { ID } from './id';
 
 export class Member {
 	private constructor(private data: MemberData) {}
@@ -10,7 +11,7 @@ export class Member {
 
 		const now = new Date().toISOString();
 		return new Member({
-			id: crypto.randomUUID(),
+			id: ID.generate().toString(),
 			name: input.name.trim(),
 			theme: { ...input.theme },
 			quote: { ...input.quote },

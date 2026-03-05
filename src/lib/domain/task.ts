@@ -1,5 +1,6 @@
 import type { TaskData, CreateTaskInput } from './types';
 import { isoToDate } from '$lib/utils/dates';
+import { ID } from './id';
 
 export class Task {
 	private constructor(private data: TaskData) {}
@@ -22,7 +23,7 @@ export class Task {
 		if (errors.length > 0) throw new Error(errors.join('; '));
 
 		return new Task({
-			id: crypto.randomUUID(),
+			id: ID.generate().toString(),
 			memberId: input.memberId ?? null,
 			weekStart: input.weekStart,
 			dayIndex: input.dayIndex,
