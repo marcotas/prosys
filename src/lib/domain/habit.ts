@@ -1,4 +1,5 @@
 import type { HabitData, CreateHabitInput } from './types';
+import { ID } from './id';
 
 export class Habit {
 	private constructor(private data: HabitData) {}
@@ -10,7 +11,7 @@ export class Habit {
 		if (errors.length > 0) throw new Error(errors.join('; '));
 
 		return new Habit({
-			id: crypto.randomUUID(),
+			id: ID.generate().toString(),
 			memberId: input.memberId,
 			name: input.name.trim(),
 			emoji: input.emoji,

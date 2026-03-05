@@ -167,6 +167,17 @@ describe('TaskCollection.reorder', () => {
 		col.reorder('unknown', 0, ['a', 'b']);
 		// No error thrown
 	});
+
+	it('skips unknown task IDs without error', () => {
+		const col = new TaskCollection();
+		col.hydrate(KEY, [
+			makeTask({ id: 'a', dayIndex: 0, sortOrder: 0 }),
+			makeTask({ id: 'b', dayIndex: 0, sortOrder: 1 })
+		]);
+		col.reorder(KEY, 0, ['b', 'nonexistent', 'a']);
+		const tasks = col.getForDay(KEY, 0);
+		expect(tasks.map((t) => t.id)).toEqual(['b', 'a']);
+	});
 });
 
 // ── nextSortOrder ────────────────────────────────────────

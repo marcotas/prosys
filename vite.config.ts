@@ -72,9 +72,23 @@ export default defineConfig(({ command }) => ({
 	plugins: isTest ? [] : [prosysWs(), tailwindcss(), sveltekit()],
 
 	test: {
-		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts'],
+		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts'],
 		alias: {
 			'$lib': resolve(__dirname, 'src/lib')
+		},
+		coverage: {
+			provider: 'istanbul',
+			include: ['src/lib/domain/**/*.ts'],
+			exclude: ['**/*.test.ts', '**/*.d.ts'],
+			reporter: ['text', 'html', 'json'],
+			thresholds: {
+				'src/lib/domain/**/*.ts': {
+					statements: 100,
+					branches: 100,
+					functions: 100,
+					lines: 100
+				}
+			}
 		}
 	},
 

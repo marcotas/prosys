@@ -339,7 +339,7 @@
             ontouchstart={(e) => swipe.onTouchStart(e, task.id)}
           >
             <!-- Drag handle -->
-            <div class="mt-[5px]"><DragHandle theme={THEME} /></div>
+            <div class="mt-1.25"><DragHandle theme={THEME} /></div>
 
             <!-- Checkbox -->
             <button
@@ -349,7 +349,7 @@
               aria-label="Mark {task.title} as {task.completed
                 ? 'incomplete'
                 : 'complete'}"
-              class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center
+              class="shrink-0 w-4.5 h-4.5 mt-0.75 rounded-[5px] flex items-center justify-center
 							transition-all duration-150 mr-2.5
 							{task.completed ? '' : 'border-2 hover:border-opacity-80'}"
               style={task.completed
@@ -434,7 +434,7 @@
     <div class="pl-1 pr-4 py-1.5 flex items-center">
       <span class="shrink-0 w-5" aria-hidden="true"></span>
       <span
-        class="shrink-0 w-[18px] h-[18px] rounded-[5px] mr-2.5 border-2 border-dashed opacity-30"
+        class="shrink-0 w-4.5 h-4.5 rounded-[5px] mr-2.5 border-2 border-dashed opacity-30"
         style="border-color: #d1d5db"
         aria-hidden="true"
       ></span>

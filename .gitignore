@@ -10,3 +10,4 @@ src-tauri/server-bundle/
 package-lock.json
 yarn.lock
 *.db
+coverage/
