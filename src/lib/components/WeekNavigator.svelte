@@ -2,7 +2,7 @@
 	import type { ThemeConfig } from '$lib/types';
 	import { formatWeekRange } from '$lib/utils/dates';
 
-	let { weekOffset = 0, isTodayWeek = true, theme, onPrev, onNext, onToday } = $props<{
+	const { weekOffset = 0, isTodayWeek = true, theme, onPrev, onNext, onToday } = $props<{
 		weekOffset: number;
 		isTodayWeek: boolean;
 		theme: ThemeConfig;
@@ -11,8 +11,8 @@
 		onToday: () => void;
 	}>();
 
-	let playful = $derived(theme.variant === 'playful');
-	let weekLabel = $derived(formatWeekRange(weekOffset));
+	const playful = $derived(theme.variant === 'playful');
+	const weekLabel = $derived(formatWeekRange(weekOffset));
 </script>
 
 <nav

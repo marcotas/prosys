@@ -1,5 +1,5 @@
-import { NotFoundError } from '$lib/server/domain/errors';
 import type { HabitRepository } from '$lib/server/repositories/habit-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 import { habitRepository } from '$lib/server/repositories/habit-repository';
 
 export class DeleteHabit {

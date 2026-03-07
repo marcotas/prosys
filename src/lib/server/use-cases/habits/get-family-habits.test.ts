@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetFamilyHabits } from './get-family-habits';
-import { ValidationError } from '$lib/server/domain/errors';
 import type { HabitRepository } from '$lib/server/repositories/habit-repository';
 import type { FamilyHabitProgress } from '$lib/types';
+import { ValidationError } from '$lib/server/domain/errors';
 
 // -- Mock Repository -----------------------------------------------
 

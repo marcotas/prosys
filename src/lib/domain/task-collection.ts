@@ -1,4 +1,4 @@
-import { Task } from './task';
+import type { Task } from './task';
 
 /**
  * Manages a `Map<string, Task[]>` cache where keys are composite strings
@@ -40,6 +40,16 @@ export class TaskCollection {
 			if (found) return found;
 		}
 		return undefined;
+	}
+
+	/** Find ALL instances of a task by id across all keys. */
+	findAllById(taskId: string): Task[] {
+		const results: Task[] = [];
+		for (const tasks of this.cache.values()) {
+			const found = tasks.find((t) => t.id === taskId);
+			if (found) results.push(found);
+		}
+		return results;
 	}
 
 	/** Append a task to the given key, creating the key if absent. */

@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
-import * as schema from '$lib/server/db/schema';
-import type { MemberData, ThemeConfig } from '$lib/domain/types';
+import { drizzle } from 'drizzle-orm/better-sqlite3';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { MemberRepository } from './member-repository';
+import type { MemberData, ThemeConfig } from '$lib/domain/types';
+import * as schema from '$lib/server/db/schema';
 
 // ── Test Helpers ────────────────────────────────────────
 

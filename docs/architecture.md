@@ -169,15 +169,48 @@ const store = useNotifier(controller);
 
 **How it works:** `useNotifier` creates a Svelte `writable` store initialized with the notifier instance. It subscribes to `onChange()` so that whenever the notifier calls `notifyChanges()`, the writable re-sets the same reference, triggering Svelte's reactivity. The `onChange` listener is cleaned up when the last Svelte subscriber unsubscribes.
 
-### Layer 4: Controllers (Future)
+### Layer 4: Infrastructure
 
-Will extend `ChangeNotifier`, own a Collection, and handle:
-- API calls (fetch with optimistic updates)
-- WebSocket message handling
-- Offline queue integration
-- Error rollback via `snapshot()`/`restore()`
+Located in `src/lib/infra/`. Framework-agnostic network and persistence classes:
 
-Naming: `TaskController`, `HabitController`, `MemberController`
+#### ApiClient
+HTTP client wrapping `fetch()`. Injects `Content-Type: application/json` and `X-WS-Client-Id` headers. Methods: `get`, `post`, `patch`, `put`, `delete`. Throws `ApiError` on non-ok responses.
+
+#### OfflineQueue (extends ChangeNotifier)
+IndexedDB-backed FIFO queue for failed API mutations. Methods: `init()`, `enqueue()`, `getAll()`, `remove()`, `clear()`, `replay()`. Calls `notifyChanges()` on `pendingCount` changes for UI reactivity.
+
+#### WebSocketClient (extends ChangeNotifier)
+Manages WebSocket connection with auto-reconnect (exponential backoff 1s → 30s). Supports multiple handlers per message type via `onMessage()`. On reconnect after disconnect, drains the offline queue via `drainQueueAndRefresh()`. Calls `notifyChanges()` on `connected`/`syncing` changes.
+
+#### optimisticAction helper
+Shared mutation flow: `snapshot → apply → notify → request → onSuccess / rollback+rethrow / enqueue-offline`. Used by all controller mutations.
+
+#### Singleton wiring (`infra/index.ts`)
+```ts
+export const apiClient = new ApiClient();
+export const offlineQueue = new OfflineQueue();
+export const wsClient = new WebSocketClient(offlineQueue);
+apiClient.setClientId(wsClient.clientId);
+```
+
+### Layer 4: Controllers
+
+Located in `src/lib/controllers/`. Extend `ChangeNotifier`, own a Collection, inject infrastructure via constructor.
+
+#### TaskController
+- **Constructor DI**: receives `ApiClient`, `OfflineQueue`, `WebSocketClient`
+- **WS self-registration**: registers 5 handlers (`task:created/updated/deleted/reordered/moved`) in constructor
+- **Hydration**: `hydrateWeek()`, `hydrateFamilyWeek()` — SSR data seeding
+- **Queries**: `getTasksForDay()`, `getFamilyTasksForDay()`, `getAllFamilyTasks()` — read from `TaskCollection`
+- **Loaders**: `loadWeek()`, `reloadWeek()`, `loadFamilyWeek()`, `reloadFamilyWeek()` — fetch from API
+- **Mutations**: `create()`, `update()`, `delete()`, `toggle()`, `reorder()`, `moveToDate()`, `moveToDay()`, `assignTask()` — all via `optimisticAction`
+- **Remote sync**: `applyRemoteCreate/Update/Delete/Reorder/Move` — WS message handlers
+- **Dual-cache architecture**: Tasks exist in both member cache (`memberId:weekStart`) and family cache (`__family__:weekStart`). `removeFromAll()` loops `while(remove())` to handle both caches.
+
+#### Singleton wiring (`controllers/index.ts`)
+```ts
+export const taskController = new TaskController(apiClient, offlineQueue, wsClient);
+```
 
 ### Layer 5: Domain Services (Future)
 
@@ -221,6 +254,28 @@ The ChangeNotifier pattern already requires manually triggering reactivity (`not
 
 Members are a global resource, not grouped by any parent. `Map<string, Member>` (id to member) is simpler and more natural than `Map<string, Member[]>`. TaskCollection and HabitCollection use arrays because tasks/habits are grouped by composite keys.
 
+### Why infrastructure is separate from controllers?
+
+- **Single responsibility** -- ApiClient handles HTTP, OfflineQueue handles persistence, WebSocketClient handles real-time
+- **Reusability** -- same infra is shared across all controllers (TaskController, future HabitController, etc.)
+- **Testability** -- mock individual infra pieces in controller tests
+
+### Why controllers self-register WS handlers?
+
+- **Self-contained** -- each controller knows what messages it cares about
+- **No fragile manual wiring** -- adding a new controller doesn't require editing `+layout.svelte`
+- **Testable** -- pass a mock WebSocketClient, verify handlers are registered
+
+### Why optimisticAction is a function, not a base class?
+
+- **Avoids fragile base class problem** -- controllers have enough inheritance with ChangeNotifier
+- **Explicit** -- each mutation defines its own apply/request/onSuccess/offlinePayload
+- **Composable** -- easy to wrap or extend without class hierarchy changes
+
+### Why OfflineQueue and WebSocketClient extend ChangeNotifier?
+
+Both have state that the UI needs reactively: `pendingCount` (shown in status bar) and `connected`/`syncing` (shown as connection indicator). Extending ChangeNotifier lets them notify the UI via the same `useNotifier` adapter pattern.
+
 ## Data Types
 
 All data interfaces live in `src/lib/domain/types.ts`:
@@ -254,23 +309,44 @@ src/lib/
     change-notifier.ts       # ChangeNotifier base class
     change-notifier.test.ts  # 8 tests
     task.ts                  # Task entity class
-    task.test.ts             # 40 tests
+    task.test.ts             # 41 tests
     task-collection.ts       # TaskCollection class
-    task-collection.test.ts  # 23 tests
+    task-collection.test.ts  # 24 tests
     habit.ts                 # Habit entity class
     habit.test.ts            # 21 tests
     habit-collection.ts      # HabitCollection class
-    habit-collection.test.ts # 19 tests
+    habit-collection.test.ts # 20 tests
     member.ts                # Member entity class
-    member.test.ts           # 22 tests
+    member.test.ts           # 24 tests
     member-collection.ts     # MemberCollection class
     member-collection.test.ts # 16 tests
+    id.ts                    # ID value object (crypto.randomUUID)
+    id.test.ts               # 18 tests
+  infra/
+    api-client.ts            # ApiClient (HTTP wrapper)
+    api-client.test.ts       # 9 tests
+    offline-queue.ts         # OfflineQueue (IndexedDB FIFO)
+    offline-queue.test.ts    # 14 tests
+    ws-client.ts             # WebSocketClient (connect, reconnect, dispatch)
+    ws-client.test.ts        # 32 tests
+    optimistic-action.ts     # optimisticAction helper + isNetworkError
+    optimistic-action.test.ts # 8 tests
+    index.ts                 # Singleton wiring
+  controllers/
+    task-controller.ts       # TaskController
+    task-controller.test.ts  # 72 tests
+    index.ts                 # Singleton wiring
   adapters/
     svelte.ts                # useNotifier adapter
-    svelte.test.ts           # 4 tests
+    svelte.test.ts           # 6 tests
+  server/
+    repositories/            # Drizzle-backed data access
+    use-cases/               # Business operations (tasks/, habits/, members/)
+    domain/errors.ts         # DomainError hierarchy
+    helpers/api-handler.ts   # Error-handling wrapper for API routes
 ```
 
-**Total: 153 tests across 8 test files.**
+**Total: 540 tests across 37 test files.**
 
 ## Testing
 
@@ -283,7 +359,7 @@ pnpm test <file>       # run specific test file
 pnpm test:coverage     # run with coverage report
 ```
 
-Tests are in `src/lib/domain/**/*.test.ts` and `src/lib/adapters/**/*.test.ts`.
+Tests are in `src/lib/domain/**/*.test.ts`, `src/lib/infra/**/*.test.ts`, `src/lib/controllers/**/*.test.ts`, `src/lib/adapters/**/*.test.ts`, and `src/lib/server/**/*.test.ts`.
 
 ### Testing patterns used
 
@@ -293,3 +369,13 @@ Tests are in `src/lib/domain/**/*.test.ts` and `src/lib/adapters/**/*.test.ts`.
 - **Test subclass for protected methods** -- `TestNotifier extends ChangeNotifier` exposes `notifyChanges()` for testing
 - **`fromData()` for test setup** -- tests use `Entity.fromData(makeData())` to create test instances without validation overhead
 - **Snapshot/restore testing** -- collections tested for independent deep copies to verify rollback works correctly
+- **Mock infrastructure** -- controller tests inject mock ApiClient, OfflineQueue, WebSocketClient with `_dispatch` helper for simulating WS messages
+- **`fake-indexeddb/auto`** -- used for OfflineQueue tests (real IndexedDB API in Node.js)
+
+### Coverage thresholds (enforced in `vite.config.ts`)
+
+| Layer | Statements | Branches | Functions | Lines |
+|---|---|---|---|---|
+| `domain/**/*.ts` | 100% | 100% | 100% | 100% |
+| `infra/**/*.ts` | 95% | 90% | 90% | 100% |
+| `controllers/**/*.ts` | 95% | 85% | 100% | 95% |

@@ -2,7 +2,7 @@
 	import type { ThemeConfig, ThemeVariant } from '$lib/types';
 	import { themePresets, emojiOptions } from '$lib/types';
 
-	let { value, onChange } = $props<{
+	const { value, onChange } = $props<{
 		value: ThemeConfig;
 		onChange: (theme: ThemeConfig) => void;
 	}>();
@@ -41,7 +41,7 @@
 		onChange(theme);
 	}
 
-	let currentPreset = $derived(themePresets.find((p) => p.id === selectedPresetId));
+	const currentPreset = $derived(themePresets.find((p) => p.id === selectedPresetId));
 </script>
 
 <div class="space-y-5">
@@ -130,7 +130,7 @@
 				{#if showEmojiGrid}
 					<div class="absolute z-10 mt-2 w-full bg-white rounded-xl border border-gray-200 shadow-lg p-3">
 						<div class="grid grid-cols-8 gap-1">
-							{#each emojiOptions as opt}
+							{#each emojiOptions as opt (opt)}
 								<button
 									type="button"
 									onclick={() => selectEmoji(opt)}

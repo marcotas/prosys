@@ -1,7 +1,7 @@
-import { Task } from '$lib/domain/task';
 import type { UpdateTaskInput, TaskData } from '$lib/domain/types';
-import { NotFoundError } from '$lib/server/domain/errors';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { Task } from '$lib/domain/task';
+import { NotFoundError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
 
 export interface UpdateTaskResult {

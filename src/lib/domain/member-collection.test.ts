@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { MemberCollection } from './member-collection';
 import { Member } from './member';
+import { MemberCollection } from './member-collection';
 import type { MemberData, ThemeConfig } from './types';
 
 const testTheme: ThemeConfig = {

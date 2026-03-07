@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ThemeConfig } from '$lib/types';
 
-	let {
+	const {
 		name,
 		theme,
 		unassigned = false,
@@ -15,8 +15,8 @@
 		onclick?: () => void;
 	} = $props();
 
-	let isPlayful = $derived(theme?.variant === 'playful');
-	let dims = $derived(size === 'md' ? 'w-7 h-7 text-xs' : 'w-5 h-5 text-[10px]');
+	const isPlayful = $derived(theme?.variant === 'playful');
+	const dims = $derived(size === 'md' ? 'w-7 h-7 text-xs' : 'w-5 h-5 text-[10px]');
 </script>
 
 {#if unassigned && onclick}

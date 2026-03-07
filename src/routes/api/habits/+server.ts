@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { createHabit } from '$lib/server/use-cases/habits/create-habit';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { createHabit } from '$lib/server/use-cases/habits/create-habit';
 import { broadcast } from '$lib/server/ws';
 
 // -- POST /api/habits ------------------------------------------------

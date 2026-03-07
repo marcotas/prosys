@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpdateMember } from './update-member';
-import { NotFoundError } from '$lib/server/domain/errors';
-import type { MemberRepository } from '$lib/server/repositories/member-repository';
 import type { MemberData, ThemeConfig } from '$lib/domain/types';
+import type { MemberRepository } from '$lib/server/repositories/member-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 
 const testTheme: ThemeConfig = {
 	variant: 'default',

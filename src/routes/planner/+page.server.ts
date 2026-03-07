@@ -1,7 +1,7 @@
-import { db } from '$lib/server/db';
-import { familyMembers, tasks, habits, habitCompletions } from '$lib/server/db/schema';
 import { eq, and, asc, inArray } from 'drizzle-orm';
 import type { Member, PlannerTask, FamilyHabitProgress, ThemeVariant, HabitWithDays } from '$lib/types';
+import { db } from '$lib/server/db';
+import { familyMembers, tasks, habits, habitCompletions } from '$lib/server/db/schema';
 
 function rowToMember(row: typeof familyMembers.$inferSelect): Member {
 	return {
@@ -78,15 +78,15 @@ export const load = async () => {
 		memberName: row.memberName ?? undefined,
 		memberTheme: row.memberName
 			? {
-					variant: (row.memberThemeVariant ?? 'default') as ThemeVariant,
-					accent: row.memberThemeAccent!,
-					accentLight: row.memberThemeAccentLight!,
-					accentDark: row.memberThemeAccentDark!,
-					headerBg: row.memberThemeHeaderBg!,
-					ringColor: row.memberThemeRingColor!,
-					checkColor: row.memberThemeCheckColor!,
-					emoji: row.memberThemeEmoji ?? ''
-				}
+				variant: (row.memberThemeVariant ?? 'default') as ThemeVariant,
+				accent: row.memberThemeAccent!,
+				accentLight: row.memberThemeAccentLight!,
+				accentDark: row.memberThemeAccentDark!,
+				headerBg: row.memberThemeHeaderBg!,
+				ringColor: row.memberThemeRingColor!,
+				checkColor: row.memberThemeCheckColor!,
+				emoji: row.memberThemeEmoji ?? ''
+			}
 			: undefined
 	}));
 

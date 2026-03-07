@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { apiHandler } from './api-handler';
 import { json } from '@sveltejs/kit';
+import { describe, it, expect } from 'vitest';
 import { NotFoundError, ValidationError, ConflictError, DomainError } from '../domain/errors';
+import { apiHandler } from './api-handler';
 
 function fakeEvent(overrides: Record<string, unknown> = {}) {
 	return { url: new URL('http://localhost/api/test'), ...overrides } as any;

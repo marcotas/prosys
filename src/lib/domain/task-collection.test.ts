@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { TaskCollection } from './task-collection';
 import { Task } from './task';
+import { TaskCollection } from './task-collection';
 import type { TaskData } from './types';
 
 // ── Helpers ──────────────────────────────────────────────
@@ -97,6 +97,24 @@ describe('TaskCollection.findById', () => {
 		const col = new TaskCollection();
 		col.hydrate(KEY, [makeTask({ id: 'a' })]);
 		expect(col.findById('unknown')).toBeUndefined();
+	});
+});
+
+// ── findAllById ─────────────────────────────────────────
+
+describe('TaskCollection.findAllById', () => {
+	it('returns all instances across multiple keys', () => {
+		const col = new TaskCollection();
+		col.hydrate('key1', [makeTask({ id: 'a' })]);
+		col.hydrate('key2', [makeTask({ id: 'a' }), makeTask({ id: 'b' })]);
+		const results = col.findAllById('a');
+		expect(results).toHaveLength(2);
+	});
+
+	it('returns empty array for unknown id', () => {
+		const col = new TaskCollection();
+		col.hydrate(KEY, [makeTask({ id: 'a' })]);
+		expect(col.findAllById('unknown')).toHaveLength(0);
 	});
 });
 

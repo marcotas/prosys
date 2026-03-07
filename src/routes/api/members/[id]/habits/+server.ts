@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getMemberHabits } from '$lib/server/use-cases/habits/get-member-habits';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { getMemberHabits } from '$lib/server/use-cases/habits/get-member-habits';
 
 // -- GET /api/members/[id]/habits?week=YYYY-MM-DD --------------------
 

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CreateTask } from './create-task';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
-import type { TaskData } from '$lib/domain/types';
 
 // ── Mock Repository ────────────────────────────────────
 

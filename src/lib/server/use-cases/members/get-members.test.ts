@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetMembers } from './get-members';
-import type { MemberRepository } from '$lib/server/repositories/member-repository';
 import type { MemberData, ThemeConfig } from '$lib/domain/types';
+import type { MemberRepository } from '$lib/server/repositories/member-repository';
 
 const testTheme: ThemeConfig = {
 	variant: 'default',

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ThemeVariant } from '$lib/types';
 
-	let {
+	const {
 		percent = 0,
 		size = 100,
 		strokeWidth = 8,
@@ -9,11 +9,11 @@
 		variant = 'default' as ThemeVariant
 	} = $props();
 
-	let radius = $derived((size - strokeWidth) / 2);
-	let circumference = $derived(2 * Math.PI * radius);
-	let offset = $derived(circumference - (percent / 100) * circumference);
+	const radius = $derived((size - strokeWidth) / 2);
+	const circumference = $derived(2 * Math.PI * radius);
+	const offset = $derived(circumference - (percent / 100) * circumference);
 
-	let playful = $derived(variant === 'playful');
+	const playful = $derived(variant === 'playful');
 
 	function getKidCompletionMessage(pct: number): string {
 		if (pct === 100) return 'Perfect! ⭐';
@@ -24,8 +24,8 @@
 		return "Let's go! 🏁";
 	}
 
-	let kidMessage = $derived(getKidCompletionMessage(percent));
-	let fontSize = $derived(playful ? 'text-lg' : 'text-xl');
+	const kidMessage = $derived(getKidCompletionMessage(percent));
+	const fontSize = $derived(playful ? 'text-lg' : 'text-xl');
 </script>
 
 <div class="flex flex-col items-center gap-1">

@@ -1,5 +1,5 @@
-import { NotFoundError } from '$lib/server/domain/errors';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
 
 export interface DeleteTaskResult {

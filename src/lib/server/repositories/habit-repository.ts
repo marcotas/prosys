@@ -1,11 +1,11 @@
 import { eq, and, asc, inArray, max } from 'drizzle-orm';
-import { habits, habitCompletions, familyMembers } from '$lib/server/db/schema';
-import { db } from '$lib/server/db';
-import { ID } from '$lib/domain/id';
 import type { HabitData } from '$lib/domain/types';
+import type * as schema from '$lib/server/db/schema';
 import type { HabitWithDays, FamilyHabitProgress, ThemeVariant } from '$lib/types';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import type * as schema from '$lib/server/db/schema';
+import { ID } from '$lib/domain/id';
+import { db } from '$lib/server/db';
+import { habits, habitCompletions, familyMembers } from '$lib/server/db/schema';
 
 type DbInstance = BetterSQLite3Database<typeof schema>;
 

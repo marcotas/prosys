@@ -1,6 +1,6 @@
+import { ID } from './id';
 import type { TaskData, CreateTaskInput } from './types';
 import { isoToDate } from '$lib/utils/dates';
-import { ID } from './id';
 
 export class Task {
 	private constructor(private data: TaskData) {}
@@ -59,6 +59,10 @@ export class Task {
 		return this.data.emoji;
 	}
 	get isCompleted(): boolean {
+		return this.data.completed;
+	}
+	/** Alias for template compatibility (components access task.completed). */
+	get completed(): boolean {
 		return this.data.completed;
 	}
 	get sortOrder(): number {

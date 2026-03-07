@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { getFamilyHabits } from '$lib/server/use-cases/habits/get-family-habits';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { getFamilyHabits } from '$lib/server/use-cases/habits/get-family-habits';
 
 // -- GET /api/family/habits?week=YYYY-MM-DD --------------------------
 

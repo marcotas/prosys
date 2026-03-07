@@ -1,5 +1,5 @@
-import { ValidationError } from '$lib/server/domain/errors';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { ValidationError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
 
 export interface ReorderTasksInput {

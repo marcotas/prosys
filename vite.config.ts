@@ -1,11 +1,12 @@
-import { sveltekit } from '@sveltejs/kit/vite';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, type Plugin } from 'vite';
-import { Bonjour } from 'bonjour-service';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
+import { Bonjour } from 'bonjour-service';
+import { defineConfig, type Plugin } from 'vite';
 import type { UserConfig } from 'vitest/config';
+import type { WebSocket } from 'ws';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,7 +28,7 @@ function prosysWs(): Plugin {
 
 				server.httpServer?.on('upgrade', (req, socket, head) => {
 					if (req.url === '/ws') {
-						wss.handleUpgrade(req, socket, head, (ws: import('ws').WebSocket) => {
+						wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
 							wss.emit('connection', ws, req);
 						});
 					}
@@ -48,6 +49,7 @@ function prosysWs(): Plugin {
 					probe: false
 				});
 
+				// eslint-disable-next-line no-console
 				console.log(`mDNS: broadcasting _prosys._tcp on port ${port}`);
 			});
 		},
@@ -72,14 +74,14 @@ export default defineConfig(({ command }) => ({
 	plugins: isTest ? [] : [prosysWs(), tailwindcss(), sveltekit()],
 
 	test: {
-		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts'],
+		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts', 'src/lib/infra/**/*.test.ts', 'src/lib/controllers/**/*.test.ts'],
 		alias: {
 			'$lib': resolve(__dirname, 'src/lib')
 		},
 		coverage: {
 			provider: 'istanbul',
-			include: ['src/lib/domain/**/*.ts'],
-			exclude: ['**/*.test.ts', '**/*.d.ts'],
+			include: ['src/lib/domain/**/*.ts', 'src/lib/infra/**/*.ts', 'src/lib/controllers/**/*.ts'],
+			exclude: ['**/*.test.ts', '**/*.d.ts', 'src/lib/infra/index.ts', 'src/lib/controllers/index.ts'],
 			reporter: ['text', 'html', 'json'],
 			thresholds: {
 				'src/lib/domain/**/*.ts': {
@@ -87,6 +89,18 @@ export default defineConfig(({ command }) => ({
 					branches: 100,
 					functions: 100,
 					lines: 100
+				},
+				'src/lib/infra/**/*.ts': {
+					statements: 95,
+					branches: 90,
+					functions: 90,
+					lines: 100
+				},
+				'src/lib/controllers/**/*.ts': {
+					statements: 95,
+					branches: 85,
+					functions: 100,
+					lines: 95
 				}
 			}
 		}

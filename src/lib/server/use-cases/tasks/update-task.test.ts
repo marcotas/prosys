@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpdateTask } from './update-task';
-import { NotFoundError } from '$lib/server/domain/errors';
-import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import type { TaskData } from '$lib/domain/types';
+import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 
 // ── Mock Repository ────────────────────────────────────
 

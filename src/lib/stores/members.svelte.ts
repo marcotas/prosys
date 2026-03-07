@@ -1,6 +1,5 @@
 import type { Member, ThemeConfig } from '$lib/types';
-import { wsHeaders } from './ws.svelte';
-import { offlineQueue, isNetworkError } from './offline-queue.svelte';
+import { wsHeaders, offlineQueue, isNetworkError } from '$lib/infra';
 import { ApiError, throwApiError } from '$lib/utils/api-error';
 import { notifyError } from '$lib/utils/notify';
 
@@ -120,11 +119,11 @@ function createMemberStore() {
 			members = members.map((m) => (m.id === id ? optimistic : m));
 
 			try {
-			const res = await fetch(`/api/members/${id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify(data)
-			});
+				const res = await fetch(`/api/members/${id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify(data)
+				});
 				if (!res.ok) await throwApiError(res);
 				const updated: Member = await res.json();
 				members = members.map((m) => (m.id === id ? updated : m));

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { HabitCollection } from './habit-collection';
 import { Habit } from './habit';
+import { HabitCollection } from './habit-collection';
 import type { HabitData } from './types';
 
 function makeHabitData(overrides: Partial<HabitData> = {}): HabitData {

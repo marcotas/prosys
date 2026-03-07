@@ -1,5 +1,5 @@
-import type { RequestEvent } from '@sveltejs/kit';
 import { handleDomainError } from './handle-domain-error';
+import type { RequestEvent } from '@sveltejs/kit';
 
 type RouteHandler<P extends Partial<Record<string, string>> = Partial<Record<string, string>>> =
 	(event: RequestEvent<P>) => Promise<Response> | Response;

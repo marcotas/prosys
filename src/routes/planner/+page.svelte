@@ -1,32 +1,36 @@
 <script lang="ts">
-	import type { Member, DayData, PlannerTask, ThemeConfig } from '$lib/types';
 	import { untrack } from 'svelte';
+	import type { Member, PlannerTask, ThemeConfig } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import { useNotifier } from '$lib/adapters/svelte';
+	import FamilyHabitTracker from '$lib/components/FamilyHabitTracker.svelte';
+	import FamilyProgress from '$lib/components/FamilyProgress.svelte';
+	import FamilySwitcher from '$lib/components/FamilySwitcher.svelte';
+	import PlannerDayCard from '$lib/components/PlannerDayCard.svelte';
+	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
+	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
+	import { taskController } from '$lib/controllers';
+	import { wsClient } from '$lib/infra';
+	import { habitStore } from '$lib/stores/habits.svelte';
+	import { memberStore } from '$lib/stores/members.svelte';
 	import {
 		computeWeekDays,
 		getWeekStart,
 		getTodayWeekOffset,
 		getTodayISO
 	} from '$lib/utils/dates';
-	import { memberStore } from '$lib/stores/members.svelte';
-	import { taskStore } from '$lib/stores/tasks.svelte';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import { wsStore } from '$lib/stores/ws.svelte';
-	import FamilySwitcher from '$lib/components/FamilySwitcher.svelte';
-	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
-	import FamilyProgress from '$lib/components/FamilyProgress.svelte';
-	import FamilyHabitTracker from '$lib/components/FamilyHabitTracker.svelte';
-	import PlannerDayCard from '$lib/components/PlannerDayCard.svelte';
-	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
 
-	let { data } = $props();
+	const { data } = $props();
+
+	// Reactive bridge for framework-agnostic TaskController
+	const tasks = useNotifier(taskController);
 
 	// Hydrate stores
 	$effect(() => {
 		if (data.members.length > 0) {
 			untrack(() => {
 				memberStore.hydrate(data.members, data.members[0].id);
-				taskStore.hydrateFamilyWeek(data.weekStart, data.tasks);
+				taskController.hydrateFamilyWeek(data.weekStart, data.tasks);
 				habitStore.hydrateFamilyWeek(data.weekStart, data.habitProgress);
 			});
 		}
@@ -36,10 +40,10 @@
 	let editingMember = $state<Member | null>(null);
 	let weekOffset = $state(getTodayWeekOffset());
 
-	let todayOffset = $derived(getTodayWeekOffset());
-	let isTodayWeek = $derived(weekOffset === todayOffset);
-	let currentWeekStart = $derived(getWeekStart(weekOffset));
-	let todayISO = $derived(getTodayISO());
+	const todayOffset = $derived(getTodayWeekOffset());
+	const isTodayWeek = $derived(weekOffset === todayOffset);
+	const currentWeekStart = $derived(getWeekStart(weekOffset));
+	const todayISO = $derived(getTodayISO());
 
 	const PLANNER_THEME: ThemeConfig = {
 		variant: 'default',
@@ -101,7 +105,7 @@
 	// ── Load family tasks/habits when week changes ──
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		taskStore.loadFamilyWeek(weekStart);
+		taskController.loadFamilyWeek(weekStart);
 	});
 
 	$effect(() => {
@@ -112,25 +116,25 @@
 	// ── Sync callback ──
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		return wsStore.onSync(async () => {
+		return wsClient.onSync(async () => {
 			await memberStore.load();
-			await taskStore.reloadFamilyWeek(weekStart);
+			await taskController.reloadFamilyWeek(weekStart);
 			await habitStore.reloadFamilyWeek(weekStart);
 		});
 	});
 
 	// ── Build days from family tasks ──
-	let members = $derived(
+	const members = $derived(
 		memberStore.members.length > 0 ? memberStore.members : data.members
 	);
 
-	let visibleDays = $derived.by(() => {
+	const visibleDays = $derived.by(() => {
 		const weekStart = currentWeekStart;
 		const storeTasks = computeWeekDays(weekOffset).map((d, i) => ({
 			dayName: d.dayName,
 			date: d.date,
 			isoDate: d.isoDate,
-			tasks: taskStore.getFamilyTasksForDay(weekStart, i)
+			tasks: $tasks.getFamilyTasksForDay(weekStart, i).map(t => t.toJSON())
 		}));
 		const hasStoreTasks = storeTasks.some((d) => d.tasks.length > 0);
 		if (hasStoreTasks) return storeTasks;
@@ -143,7 +147,7 @@
 		}));
 	});
 
-	let visibleHabitProgress = $derived.by(() => {
+	const visibleHabitProgress = $derived.by(() => {
 		const weekStart = currentWeekStart;
 		const storeData = habitStore.getFamilyHabitProgress(weekStart);
 		if (storeData.length > 0) return storeData;
@@ -152,16 +156,16 @@
 
 	// ── Reschedule (cross-week move) ──
 	function rescheduleTask(taskId: string, toWeekStart: string, toDayIndex: number) {
-		taskStore.moveToDate(taskId, toWeekStart, toDayIndex);
+		taskController.moveToDate(taskId, toWeekStart, toDayIndex);
 	}
 
 	// ── Task operations ──
 	function toggleTask(taskId: string) {
-		taskStore.toggle(taskId);
+		taskController.toggle(taskId);
 	}
 
 	function addTask(dayIndex: number, title: string, emoji?: string) {
-		taskStore.create({
+		taskController.create({
 			weekStart: currentWeekStart,
 			dayIndex,
 			title,
@@ -170,25 +174,25 @@
 	}
 
 	function deleteTask(taskId: string) {
-		taskStore.delete(taskId);
+		taskController.delete(taskId);
 	}
 
 	function updateTask(taskId: string, updates: { title?: string; emoji?: string }) {
-		taskStore.update(taskId, updates);
+		taskController.update(taskId, updates);
 	}
 
 	function assignTask(taskId: string, memberId: string | null) {
-		taskStore.assignTask(taskId, memberId);
+		taskController.assignTask(taskId, memberId);
 	}
 
 	function reorderTasks(dayIndex: number, taskIds: string[]) {
-		taskStore.reorder(null as any, currentWeekStart, dayIndex, taskIds);
+		taskController.reorder(null, currentWeekStart, dayIndex, taskIds);
 	}
 
 	async function moveTask(taskId: string, toDayIndex: number, orderedTaskIds: string[]) {
-		await taskStore.moveToDay(taskId, toDayIndex);
+		await taskController.moveToDay(taskId, toDayIndex);
 		if (orderedTaskIds.length > 0) {
-			await taskStore.reorder(null as any, currentWeekStart, toDayIndex, orderedTaskIds);
+			await taskController.reorder(null, currentWeekStart, toDayIndex, orderedTaskIds);
 		}
 	}
 

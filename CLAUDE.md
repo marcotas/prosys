@@ -16,8 +16,9 @@ A family weekly task manager and habit tracker that runs entirely on the local n
 | `pnpm tauri:build` | Production macOS app (runs build + server bundle + Rust compile) |
 | `pnpm db:generate` | Generate Drizzle migration from schema changes |
 | `pnpm db:migrate` | Apply pending migrations |
-
-No test runner is configured.
+| `pnpm test` | Run all tests (vitest) |
+| `pnpm test:watch` | Run tests in watch mode |
+| `pnpm test:coverage` | Run tests with Istanbul coverage (enforces thresholds) |
 
 ## Tech Stack
 
@@ -44,12 +45,25 @@ Tauri (Rust) → spawns Node.js server (server.js)
 
 ### Source Layout
 
-- `src/lib/stores/*.svelte.ts` — Svelte 5 rune-based stores (tasks, habits, members, ws, offline-queue). Use `$state.raw<Map>()` for collection state.
-- `src/lib/components/` — UI components (DayCard, HabitTracker, ProgressRing, etc.). Built with Tailwind + bits-ui headless primitives for complex interactions (popovers, dialogs).
+**Client-side DDD layers** (framework-agnostic, fully tested):
+- `src/lib/domain/` — Entities (Task, Habit, Member), Collections, ChangeNotifier, types
+- `src/lib/infra/` — ApiClient, OfflineQueue, WebSocketClient, `optimisticAction` helper
+- `src/lib/controllers/` — TaskController (extends ChangeNotifier, owns Collection + infra)
+- `src/lib/adapters/svelte.ts` — `useNotifier()` bridges ChangeNotifier → Svelte store reactivity
+
+**Server-side DDD layers**:
+- `src/lib/server/repositories/` — Drizzle-backed data access (TaskRepository, HabitRepository, MemberRepository)
+- `src/lib/server/use-cases/` — Business operations organized by domain (tasks/, habits/, members/)
+- `src/lib/server/domain/errors.ts` — DomainError hierarchy (ValidationError, NotFoundError, ConflictError)
+- `src/lib/server/helpers/api-handler.ts` — Error-handling wrapper for API routes
+
+**Remaining layers** (not yet migrated to DDD):
+- `src/lib/stores/*.svelte.ts` — Svelte 5 rune-based stores for habits and members. Use `$state.raw<Map>()` for collection state.
+- `src/lib/components/` — UI components (DayCard, HabitTracker, ProgressRing, etc.). Built with Tailwind + bits-ui headless primitives.
 - `src/lib/server/db/` — Drizzle schema (`schema.ts`), connection (`index.ts`), migrations (`migrate.ts`)
 - `src/lib/server/ws.ts` — WebSocket setup, `broadcast()` via `globalThis.__wsClients`
 - `src/lib/utils/` — Date math (`dates.ts`), nanoid wrapper (`ids.ts`)
-- `src/lib/types.ts` — All shared TypeScript interfaces
+- `src/lib/types.ts` — Shared TypeScript interfaces (re-exports from `domain/types.ts`)
 - `src/routes/api/` — REST endpoints (members, tasks, habits) with WebSocket broadcast
 - `src/routes/+page.svelte` — Main weekly dashboard
 - `src/routes/connect/` — QR code connection page for mobile
@@ -58,10 +72,24 @@ Tauri (Rust) → spawns Node.js server (server.js)
 
 ### Data Flow
 
-1. SSR loads initial data in `+page.server.ts` → hydrates stores via `$effect`
-2. Client mutations → optimistic store update → `fetch()` with `X-WS-Client-Id` header
-3. API route saves to DB → `broadcast()` to all other WebSocket clients
-4. Offline: failed fetches queued in IndexedDB, replayed on reconnect
+**Client-side:**
+1. SSR loads initial data in `+page.server.ts` → hydrates controllers/stores via `$effect`
+2. Svelte components read from controllers via `useNotifier()` bridge (triggers on `notifyChanges()`)
+3. Mutations call controller methods → `optimisticAction` → apply optimistically → API call → success/rollback/offline-queue
+4. WebSocket messages dispatch to controller's self-registered handlers → update collection → notify UI
+
+**Server-side:**
+1. API route → `apiHandler()` wrapper → use case → repository → domain entity → DB
+2. `broadcast()` notifies all other WebSocket clients
+3. Offline: failed fetches queued in IndexedDB by OfflineQueue, replayed on WS reconnect
+
+### Architecture Patterns
+
+- **Hybrid constructor**: Entity classes expose `create()` (validates + generates ID) and `fromData()` (hydrates from DB/API)
+- **ChangeNotifier + useNotifier**: Controllers/infra extend ChangeNotifier (vanilla TS); `useNotifier()` wraps as a Svelte store for reactivity
+- **optimisticAction**: snapshot → apply → notify → request → onSuccess / rollback+rethrow / enqueue-offline
+- **Constructor DI**: Controllers receive infra via constructor for testability (mock ApiClient, OfflineQueue, WebSocketClient)
+- **WS self-registration**: Controllers register their own WebSocket handlers in the constructor (no fragile manual wiring)
 
 ### Database Schema
 
@@ -77,7 +105,7 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 
 1. **Use `$state.raw<Map>()`** not `$state<Map>()` for store collections — deep proxy breaks `$derived` reactivity across components
 2. **Vite SSR externals differ dev vs prod** — CJS packages (ws, qrcode) must be external in dev only; native addons (better-sqlite3) always external. See `vite.config.ts`
-3. **`crypto.randomUUID()` fails on LAN HTTP** — not a secure context. Use try/catch with fallback (see `ws.svelte.ts`)
+3. **`crypto.randomUUID()` fails on LAN HTTP** — not a secure context. Use try/catch with fallback (see `src/lib/infra/ws-client.ts`)
 4. **App bundle is ephemeral** — never write persistent data inside the Tauri bundle. Use `PROSYS_DATA_DIR`
 5. **API routes skip layout loaders** — migrations run in `+layout.server.ts`, so direct curl to API before page load hits uninitialized DB
 6. **Native addon bundling** — when adding native deps, update the copy chain in `prepare-server-bundle.js` using chained `createRequire()`
@@ -96,6 +124,10 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 19. **WKWebView HTTP disk cache survives app updates** — JS `caches.delete()` only clears CacheStorage, NOT the HTTP disk cache. The cache dir is `~/Library/Caches/{productName_lowercased}/` (e.g., `prosys/`), NOT `{identifier}/` (`com.prosys.app/`). Clear both paths from Rust on upgrade. Also set `Cache-Control: no-store` on HTML responses in `server.js` as defense-in-depth
 20. **Tauri window flashes before SvelteKit loads** — Tauri loads `frontendDist`'s `index.html` before `setup()` runs, but adapter-node doesn't produce one. Fix: `"visible": false` in window config + frontend invokes `show_main_window` after hydration (Tauri splashscreen pattern)
 21. **Hardcoded port 3000 conflicts with other apps** — never hardcode a port for a desktop app's internal server. Use `find_or_reuse_port()` which persists the port in `server-port.txt` (stable for PWA clients) but picks a new one if occupied
+
+## Architecture Docs
+
+See `docs/plans/2026-03-05-controllers-design.md` for the full DDD architecture design document.
 
 ## Learnings
 

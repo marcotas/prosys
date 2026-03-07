@@ -1,6 +1,6 @@
 import type { MemberData, UpdateMemberInput } from '$lib/domain/types';
-import { NotFoundError } from '$lib/server/domain/errors';
 import type { MemberRepository } from '$lib/server/repositories/member-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 import { memberRepository } from '$lib/server/repositories/member-repository';
 
 export class UpdateMember {
