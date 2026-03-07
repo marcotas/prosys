@@ -12,3 +12,6 @@ yarn.lock
 *.db
 coverage/
 .claude/worktrees/
+e2e/test-results/
+playwright-report/
+blob-report/
