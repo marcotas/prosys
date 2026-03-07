@@ -186,13 +186,13 @@
 	}
 
 	function reorderTasks(dayIndex: number, taskIds: string[]) {
-		taskController.reorder(null as any, currentWeekStart, dayIndex, taskIds);
+		taskController.reorder(null, currentWeekStart, dayIndex, taskIds);
 	}
 
 	async function moveTask(taskId: string, toDayIndex: number, orderedTaskIds: string[]) {
 		await taskController.moveToDay(taskId, toDayIndex);
 		if (orderedTaskIds.length > 0) {
-			await taskController.reorder(null as any, currentWeekStart, toDayIndex, orderedTaskIds);
+			await taskController.reorder(null, currentWeekStart, toDayIndex, orderedTaskIds);
 		}
 	}
 

@@ -15,10 +15,10 @@ function familyCacheKey(weekStart: string): string {
 
 function createHabitStore() {
 	// Cache of loaded weeks: "memberId:weekStart" → HabitWithDays[]
-	// This holds the merged habit definitions + completions for each week
+	// Family weeks use the "__family_habits__:weekStart" key and store FamilyHabitProgress[].
 	// Use $state.raw to avoid deep-proxy issues with Map — we always
 	// create a new Map on every mutation, so reference tracking suffices.
-	let weekCache = $state.raw<Map<string, HabitWithDays[]>>(new Map());
+	let weekCache = $state.raw<Map<string, HabitWithDays[] | FamilyHabitProgress[]>>(new Map());
 	let loading = $state(false);
 
 	return {
@@ -79,7 +79,7 @@ function createHabitStore() {
 		 */
 		getHabitsWithDays(memberId: string, weekStart: string): HabitWithDays[] {
 			const key = cacheKey(memberId, weekStart);
-			return weekCache.get(key) ?? [];
+			return (weekCache.get(key) as HabitWithDays[]) ?? [];
 		},
 
 		/**
@@ -99,17 +99,18 @@ function createHabitStore() {
 
 			// Compute sortOrder from existing habits and insert optimistically
 			const next = new Map(weekCache);
-			const previousFamilyByKey = new Map<string, any>();
+			const previousFamilyByKey = new Map<string, HabitWithDays[] | FamilyHabitProgress[]>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
-					const maxSort = habits.reduce((max, h) => Math.max(max, h.sortOrder), -1);
+					const memberHabits = habits as HabitWithDays[];
+					const maxSort = memberHabits.reduce((max, h) => Math.max(max, h.sortOrder), -1);
 					optimistic.sortOrder = maxSort + 1;
-					next.set(key, [...habits, { ...optimistic, sortOrder: maxSort + 1 }]);
+					next.set(key, [...memberHabits, { ...optimistic, sortOrder: maxSort + 1 }]);
 				}
 			}
 			for (const key of next.keys()) {
 				if (key.startsWith(FAMILY_KEY)) {
-					previousFamilyByKey.set(key, next.get(key));
+					previousFamilyByKey.set(key, next.get(key)!);
 					next.delete(key);
 				}
 			}
@@ -130,7 +131,7 @@ function createHabitStore() {
 					if (key.startsWith(`${memberId}:`)) {
 						updated.set(
 							key,
-							habits.map((h) =>
+							(habits as HabitWithDays[]).map((h) =>
 								h.id === tempId
 									? { ...created, days: [false, false, false, false, false, false, false] }
 									: h
@@ -156,7 +157,7 @@ function createHabitStore() {
 					if (key.startsWith(`${memberId}:`)) {
 						rollback.set(
 							key,
-							habits.filter((h) => h.id !== tempId)
+							(habits as HabitWithDays[]).filter((h) => h.id !== tempId)
 						);
 					}
 				}
@@ -177,8 +178,9 @@ function createHabitStore() {
 			let memberId = '';
 			const previousByKey = new Map<string, HabitWithDays[]>();
 
-			for (const [_key, habits] of weekCache) {
-				const habit = habits.find((h) => h.id === id);
+			for (const [key, habits] of weekCache) {
+				if (key.startsWith(FAMILY_KEY)) continue;
+				const habit = (habits as HabitWithDays[]).find((h) => h.id === id);
 				if (habit) {
 					memberId = habit.memberId;
 					break;
@@ -188,19 +190,20 @@ function createHabitStore() {
 
 			// Snapshot and apply optimistic update to all cached weeks for this member
 			const next = new Map(weekCache);
-			const previousFamilyByKey = new Map<string, any>();
+			const previousFamilyByKey = new Map<string, HabitWithDays[] | FamilyHabitProgress[]>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
-					previousByKey.set(key, [...habits]);
+					const memberHabits = habits as HabitWithDays[];
+					previousByKey.set(key, [...memberHabits]);
 					next.set(
 						key,
-						habits.map((h) => (h.id === id ? { ...h, ...data } : h))
+						memberHabits.map((h) => (h.id === id ? { ...h, ...data } : h))
 					);
 				}
 			}
 			for (const key of next.keys()) {
 				if (key.startsWith(FAMILY_KEY)) {
-					previousFamilyByKey.set(key, next.get(key));
+					previousFamilyByKey.set(key, next.get(key)!);
 					next.delete(key);
 				}
 			}
@@ -221,7 +224,7 @@ function createHabitStore() {
 					if (key.startsWith(`${memberId}:`)) {
 						committed.set(
 							key,
-							habits.map((h) => (h.id === id ? { ...h, ...updated } : h))
+							(habits as HabitWithDays[]).map((h) => (h.id === id ? { ...h, ...updated } : h))
 						);
 					}
 				}
@@ -257,8 +260,9 @@ function createHabitStore() {
 			let memberId = '';
 			const previousByKey = new Map<string, HabitWithDays[]>();
 
-			for (const [_key, habits] of weekCache) {
-				const habit = habits.find((h) => h.id === id);
+			for (const [key, habits] of weekCache) {
+				if (key.startsWith(FAMILY_KEY)) continue;
+				const habit = (habits as HabitWithDays[]).find((h) => h.id === id);
 				if (habit) {
 					memberId = habit.memberId;
 					break;
@@ -268,19 +272,20 @@ function createHabitStore() {
 
 			// Snapshot and remove optimistically from all cached weeks
 			const next = new Map(weekCache);
-			const previousFamilyByKey = new Map<string, any>();
+			const previousFamilyByKey = new Map<string, HabitWithDays[] | FamilyHabitProgress[]>();
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${memberId}:`)) {
-					previousByKey.set(key, [...habits]);
+					const memberHabits = habits as HabitWithDays[];
+					previousByKey.set(key, [...memberHabits]);
 					next.set(
 						key,
-						habits.filter((h) => h.id !== id)
+						memberHabits.filter((h) => h.id !== id)
 					);
 				}
 			}
 			for (const key of next.keys()) {
 				if (key.startsWith(FAMILY_KEY)) {
-					previousFamilyByKey.set(key, next.get(key));
+					previousFamilyByKey.set(key, next.get(key)!);
 					next.delete(key);
 				}
 			}
@@ -319,7 +324,8 @@ function createHabitStore() {
 			let foundKey = '';
 
 			for (const [key, habits] of weekCache) {
-				const habit = habits.find((h) => h.id === habitId);
+				if (key.startsWith(FAMILY_KEY)) continue;
+				const habit = (habits as HabitWithDays[]).find((h) => h.id === habitId);
 				if (habit && key.endsWith(`:${weekStart}`)) {
 					foundKey = key;
 					break;
@@ -327,15 +333,15 @@ function createHabitStore() {
 			}
 			if (!foundKey) return;
 
-			const previousList = [...(weekCache.get(foundKey) ?? [])];
+			const previousList = [...(weekCache.get(foundKey) as HabitWithDays[] ?? [])];
 			const fk = familyCacheKey(weekStart);
 			const previousFamily = weekCache.has(fk)
-				? (weekCache.get(fk) as any as FamilyHabitProgress[])
+				? (weekCache.get(fk) as FamilyHabitProgress[])
 				: undefined;
 
 			// Optimistic toggle
 			const next = new Map(weekCache);
-			const habits = next.get(foundKey) ?? [];
+			const habits = next.get(foundKey) as HabitWithDays[] ?? [];
 			next.set(
 				foundKey,
 				habits.map((h) => {
@@ -347,7 +353,7 @@ function createHabitStore() {
 					return h;
 				})
 			);
-			const familyData = next.get(fk) as any as FamilyHabitProgress[] | undefined;
+			const familyData = next.get(fk) as FamilyHabitProgress[] | undefined;
 			if (familyData) {
 				const updated = familyData.map((mp) => ({
 					...mp,
@@ -358,7 +364,7 @@ function createHabitStore() {
 						return { ...h, days: newDays };
 					})
 				}));
-				next.set(fk, updated as any);
+				next.set(fk, updated);
 			}
 			weekCache = next;
 
@@ -381,8 +387,8 @@ function createHabitStore() {
 				}
 				// Rollback
 				const rollback = new Map(weekCache);
-				rollback.set(foundKey, previousList);
-				if (previousFamily) rollback.set(fk, previousFamily as any);
+				rollback.set(foundKey, previousList as HabitWithDays[]);
+				if (previousFamily) rollback.set(fk, previousFamily);
 				else rollback.delete(fk);
 				weekCache = rollback;
 				notifyError(err instanceof ApiError ? err.message : 'Something went wrong');
@@ -396,10 +402,10 @@ function createHabitStore() {
 		async reorder(memberId: string, habitIds: string[]): Promise<void> {
 			// Snapshot all cached weeks for this member
 			const previousByKey = new Map<string, HabitWithDays[]>();
-			const previousFamilyByKey = new Map<string, any>();
+			const previousFamilyByKey = new Map<string, HabitWithDays[] | FamilyHabitProgress[]>();
 			for (const [key, habits] of weekCache) {
 				if (key.startsWith(`${memberId}:`)) {
-					previousByKey.set(key, [...habits]);
+					previousByKey.set(key, [...(habits as HabitWithDays[])]);
 				}
 			}
 
@@ -409,7 +415,7 @@ function createHabitStore() {
 				if (key.startsWith(`${memberId}:`)) {
 					next.set(
 						key,
-						habits.map((h) => {
+						(habits as HabitWithDays[]).map((h) => {
 							const idx = habitIds.indexOf(h.id);
 							if (idx === -1) return h;
 							return { ...h, sortOrder: idx };
@@ -419,7 +425,7 @@ function createHabitStore() {
 			}
 			for (const key of next.keys()) {
 				if (key.startsWith(FAMILY_KEY)) {
-					previousFamilyByKey.set(key, next.get(key));
+					previousFamilyByKey.set(key, next.get(key)!);
 					next.delete(key);
 				}
 			}
@@ -461,7 +467,7 @@ function createHabitStore() {
 			const key = familyCacheKey(weekStart);
 			if (weekCache.has(key)) return;
 			const next = new Map(weekCache);
-			next.set(key, data as any);
+			next.set(key, data);
 			weekCache = next;
 		},
 
@@ -475,7 +481,7 @@ function createHabitStore() {
 				if (!res.ok) await throwApiError(res);
 				const data: FamilyHabitProgress[] = await res.json();
 				const next = new Map(weekCache);
-				next.set(key, data as any);
+				next.set(key, data);
 				weekCache = next;
 			} finally {
 				loading = false;
@@ -490,7 +496,7 @@ function createHabitStore() {
 				if (!res.ok) await throwApiError(res);
 				const data: FamilyHabitProgress[] = await res.json();
 				const next = new Map(weekCache);
-				next.set(key, data as any);
+				next.set(key, data);
 				weekCache = next;
 			} finally {
 				loading = false;
@@ -499,7 +505,7 @@ function createHabitStore() {
 
 		getFamilyHabitProgress(weekStart: string): FamilyHabitProgress[] {
 			const key = familyCacheKey(weekStart);
-			return (weekCache.get(key) as any as FamilyHabitProgress[]) ?? [];
+			return (weekCache.get(key) as FamilyHabitProgress[]) ?? [];
 		},
 
 		// ── Remote apply methods (called by WS message handlers) ──
@@ -508,7 +514,7 @@ function createHabitStore() {
 			const next = new Map(weekCache);
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${habit.memberId}:`)) {
-					next.set(key, [...habits, { ...habit, days: [false, false, false, false, false, false, false] }]);
+					next.set(key, [...(habits as HabitWithDays[]), { ...habit, days: [false, false, false, false, false, false, false] }]);
 				}
 			}
 			// Invalidate family caches so they reload with fresh data
@@ -522,7 +528,7 @@ function createHabitStore() {
 			const next = new Map(weekCache);
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${habit.memberId}:`)) {
-					next.set(key, habits.map((h) => (h.id === habit.id ? { ...h, ...habit } : h)));
+					next.set(key, (habits as HabitWithDays[]).map((h) => (h.id === habit.id ? { ...h, ...habit } : h)));
 				}
 			}
 			for (const key of next.keys()) {
@@ -535,7 +541,7 @@ function createHabitStore() {
 			const next = new Map(weekCache);
 			for (const [key, habits] of next) {
 				if (key.startsWith(`${payload.memberId}:`)) {
-					next.set(key, habits.filter((h) => h.id !== payload.id));
+					next.set(key, (habits as HabitWithDays[]).filter((h) => h.id !== payload.id));
 				}
 			}
 			for (const key of next.keys()) {
@@ -550,12 +556,13 @@ function createHabitStore() {
 			for (const [key, habits] of next) {
 				if (key.startsWith(FAMILY_KEY)) continue;
 				if (!key.endsWith(`:${payload.weekStart}`)) continue;
-				const habit = habits.find((h) => h.id === payload.habitId);
+				const memberHabits = habits as HabitWithDays[];
+				const habit = memberHabits.find((h) => h.id === payload.habitId);
 				if (!habit) continue;
 
 				next.set(
 					key,
-					habits.map((h) => {
+					memberHabits.map((h) => {
 						if (h.id !== payload.habitId) return h;
 						const newDays = [...h.days];
 						newDays[payload.dayIndex] = payload.completed;
@@ -565,7 +572,7 @@ function createHabitStore() {
 			}
 			// Update family cache inline (toggle is the most common remote change)
 			const fk = familyCacheKey(payload.weekStart);
-			const familyData = next.get(fk) as any as FamilyHabitProgress[] | undefined;
+			const familyData = next.get(fk) as FamilyHabitProgress[] | undefined;
 			if (familyData) {
 				const updated = familyData.map((mp) => ({
 					...mp,
@@ -576,7 +583,7 @@ function createHabitStore() {
 						return { ...h, days: newDays };
 					})
 				}));
-				next.set(fk, updated as any);
+				next.set(fk, updated);
 			}
 			weekCache = next;
 		},
@@ -587,7 +594,7 @@ function createHabitStore() {
 				if (key.startsWith(`${payload.memberId}:`)) {
 					next.set(
 						key,
-						habits
+						(habits as HabitWithDays[])
 							.map((h) => {
 								const idx = payload.habitIds.indexOf(h.id);
 								if (idx === -1) return h;

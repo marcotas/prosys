@@ -2,7 +2,8 @@
 	import { flip } from 'svelte/animate';
 	import {
 		dragHandleZone,
-		SHADOW_ITEM_MARKER_PROPERTY_NAME
+		SHADOW_ITEM_MARKER_PROPERTY_NAME,
+		type DndEvent
 	} from 'svelte-dnd-action';
 	import DragHandle from './DragHandle.svelte';
 	import ProgressRing from './ProgressRing.svelte';
@@ -75,14 +76,14 @@
 		dndItems = [...day.tasks];
 	});
 
-	function handleDndConsider(e: CustomEvent<{ items: any[] }>) {
-		dndItems = e.detail.items as Task[];
+	function handleDndConsider(e: CustomEvent<DndEvent<Task>>) {
+		dndItems = e.detail.items;
 	}
 
-	function handleDndFinalize(e: CustomEvent<{ items: any[] }>) {
+	function handleDndFinalize(e: CustomEvent<DndEvent<Task>>) {
 		// Filter out any shadow/placeholder items
-		const items = (e.detail.items as Task[]).filter(
-			(t: any) => !t[SHADOW_ITEM_MARKER_PROPERTY_NAME]
+		const items = e.detail.items.filter(
+			(t: Task) => !(t as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
 		);
 		dndItems = items;
 
@@ -255,7 +256,7 @@
 				{@const isSwiping =
 					swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
 				{@const isRevealed = offset < 0 || swipe.swipedOpenId === task.id}
-				{@const isShadow = (task as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
+				{@const isShadow = (task as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				<div
 					animate:flip={{ duration: FLIP_DURATION }}
 					class="relative overflow-hidden {isShadow

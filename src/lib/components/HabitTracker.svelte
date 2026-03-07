@@ -3,7 +3,8 @@
 	import { slide } from 'svelte/transition';
 	import {
 		dragHandleZone,
-		SHADOW_ITEM_MARKER_PROPERTY_NAME
+		SHADOW_ITEM_MARKER_PROPERTY_NAME,
+		type DndEvent
 	} from 'svelte-dnd-action';
 	import DragHandle from './DragHandle.svelte';
 	import type { HabitWithDays, ThemeConfig } from '$lib/types';
@@ -101,13 +102,13 @@
 		dndItems = [...habits];
 	});
 
-	function handleDndConsider(e: CustomEvent<{ items: any[] }>) {
-		dndItems = e.detail.items as HabitWithDays[];
+	function handleDndConsider(e: CustomEvent<DndEvent<HabitWithDays>>) {
+		dndItems = e.detail.items;
 	}
 
-	function handleDndFinalize(e: CustomEvent<{ items: any[] }>) {
-		const items = (e.detail.items as HabitWithDays[]).filter(
-			(h: any) => !h[SHADOW_ITEM_MARKER_PROPERTY_NAME]
+	function handleDndFinalize(e: CustomEvent<DndEvent<HabitWithDays>>) {
+		const items = e.detail.items.filter(
+			(h: HabitWithDays) => !(h as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
 		);
 		dndItems = items;
 
@@ -226,7 +227,7 @@
 									swipe.swipeState?.locked}
 							{@const isRevealed =
 								offset < 0 || swipe.swipedOpenId === habit.id}
-							{@const isShadow = (habit as any)[
+							{@const isShadow = (habit as Record<string, unknown>)[
 								SHADOW_ITEM_MARKER_PROPERTY_NAME
 							]}
 							<tr

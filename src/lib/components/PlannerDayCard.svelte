@@ -2,7 +2,8 @@
 	import { flip } from 'svelte/animate';
 	import {
 		dragHandleZone,
-		SHADOW_ITEM_MARKER_PROPERTY_NAME
+		SHADOW_ITEM_MARKER_PROPERTY_NAME,
+		type DndEvent
 	} from 'svelte-dnd-action';
 	import AssignPicker from './AssignPicker.svelte';
 	import DragHandle from './DragHandle.svelte';
@@ -103,13 +104,13 @@
 		dndItems = [...day.tasks];
 	});
 
-	function handleDndConsider(e: CustomEvent<{ items: any[] }>) {
-		dndItems = e.detail.items as Task[];
+	function handleDndConsider(e: CustomEvent<DndEvent<Task>>) {
+		dndItems = e.detail.items;
 	}
 
-	function handleDndFinalize(e: CustomEvent<{ items: any[] }>) {
-		const items = (e.detail.items as Task[]).filter(
-			(t: any) => !t[SHADOW_ITEM_MARKER_PROPERTY_NAME]
+	function handleDndFinalize(e: CustomEvent<DndEvent<Task>>) {
+		const items = e.detail.items.filter(
+			(t: Task) => !(t as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
 		);
 		dndItems = items;
 
@@ -265,7 +266,7 @@
 				{@const isSwiping =
 					swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
 				{@const isRevealed = offset < 0 || swipe.swipedOpenId === task.id}
-				{@const isShadow = (task as any)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
+				{@const isShadow = (task as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				{@const taskTheme = getTaskTheme(task)}
 				{@const _taskMember = getTaskMember(task)}
 				<div
