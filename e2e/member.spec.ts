@@ -4,7 +4,7 @@ import { cleanData, createMember } from './helpers';
 test.describe('Member management', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/');
+		await page.goto('/', { waitUntil: 'networkidle' });
 	});
 
 	test('shows welcome screen when no members exist', async ({ page }) => {

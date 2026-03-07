@@ -8,7 +8,7 @@ test.describe('Habit management', () => {
 		// Clear localStorage before any navigation so HabitTracker starts expanded
 		await page.addInitScript(() => localStorage.clear());
 		await cleanData(page);
-		await page.goto('/');
+		await page.goto('/', { waitUntil: 'networkidle' });
 		await createMember(page, 'Alice');
 	});
 

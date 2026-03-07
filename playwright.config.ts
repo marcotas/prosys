@@ -13,8 +13,10 @@ export default defineConfig({
 	reporter: process.env.CI ? 'html' : 'list',
 	use: {
 		baseURL: 'http://localhost:5173',
-		trace: 'on-first-retry'
+		trace: 'on-first-retry',
+		navigationTimeout: 60_000
 	},
+	timeout: process.env.CI ? 60_000 : 30_000,
 	projects: [
 		{ name: 'chromium', use: { browserName: 'chromium' } }
 	],
@@ -22,6 +24,7 @@ export default defineConfig({
 		command: 'pnpm dev',
 		port: 5173,
 		reuseExistingServer: !process.env.CI,
+		timeout: 120_000,
 		env: {
 			PROSYS_DATA_DIR: e2eDataDir
 		}

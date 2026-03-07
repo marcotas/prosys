@@ -21,10 +21,19 @@ export async function createMember(page: Page, name: string) {
 	// Use .or() to avoid TOCTOU race between welcome screen and dashboard
 	const trigger = page.getByRole('button', { name: 'Create First Profile' })
 		.or(page.getByLabel('Add family member'));
-	await trigger.click();
 
 	const dialog = page.getByRole('dialog', { name: 'New Profile' });
-	await dialog.waitFor();
+
+	// Retry click if dialog doesn't appear (SSR hydration race on CI)
+	for (let attempt = 0; attempt < 3; attempt++) {
+		await trigger.click();
+		try {
+			await dialog.waitFor({ timeout: 5_000 });
+			break;
+		} catch {
+			if (attempt === 2) throw new Error('Dialog did not appear after 3 click attempts');
+		}
+	}
 	await dialog.locator('#profile-name').fill(name);
 	await dialog.getByRole('button', { name: 'Create Profile' }).click();
 	await dialog.waitFor({ state: 'hidden' });
