@@ -1,8 +1,8 @@
-import { Task } from '$lib/domain/task';
 import type { CreateTaskInput, TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
-import { taskRepository } from '$lib/server/repositories/task-repository';
+import { Task } from '$lib/domain/task';
 import { ValidationError } from '$lib/server/domain/errors';
+import { taskRepository } from '$lib/server/repositories/task-repository';
 
 export class CreateTask {
 	constructor(private taskRepo: TaskRepository) {}

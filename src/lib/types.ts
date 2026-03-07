@@ -2,6 +2,8 @@
 // All interfaces match the data model in docs/plan/data-model.md.
 
 // ── Re-exports from domain layer ─────────────────────────
+import type { Task, Habit, Member, ThemeConfig } from '$lib/domain/types';
+
 export type {
 	DayIndex,
 	ThemeVariant,
@@ -19,8 +21,6 @@ export type {
 	UpdateMemberInput,
 	ValidationResult
 } from '$lib/domain/types';
-
-import type { Task, Habit, Member, ThemeConfig } from '$lib/domain/types';
 
 // ── UI-only types (not part of domain) ───────────────────
 
@@ -64,9 +64,9 @@ export type WSMessage =
 	| { type: 'habit:deleted'; payload: { id: string; memberId: string } }
 	| { type: 'habit:reordered'; payload: { memberId: string; habitIds: string[] } }
 	| {
-			type: 'habit:toggled';
-			payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean };
-		}
+		type: 'habit:toggled';
+		payload: { habitId: string; weekStart: string; dayIndex: number; completed: boolean };
+	}
 	| { type: 'member:created'; payload: Member }
 	| { type: 'member:updated'; payload: Member }
 	| { type: 'member:deleted'; payload: { id: string } };

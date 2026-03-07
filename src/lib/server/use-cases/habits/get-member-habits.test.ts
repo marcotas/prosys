@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetMemberHabits } from './get-member-habits';
-import { ValidationError } from '$lib/server/domain/errors';
 import type { HabitRepository } from '$lib/server/repositories/habit-repository';
 import type { HabitWithDays } from '$lib/types';
+import { ValidationError } from '$lib/server/domain/errors';
 
 // -- Mock Repository -----------------------------------------------
 

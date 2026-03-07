@@ -1,17 +1,17 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { browser } from '$app/environment';
 	import { Toaster } from 'svelte-sonner';
-	import { wsClient, offlineQueue } from '$lib/infra';
-	import { useNotifier } from '$lib/adapters/svelte';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import { memberStore } from '$lib/stores/members.svelte';
 	import type { Habit, Member } from '$lib/types';
+	import { browser } from '$app/environment';
+	import { useNotifier } from '$lib/adapters/svelte';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
+	import { wsClient, offlineQueue } from '$lib/infra';
+	import { habitStore } from '$lib/stores/habits.svelte';
+	import { memberStore } from '$lib/stores/members.svelte';
 
-	let { children } = $props();
+	const { children } = $props();
 
 	// ── Update notifications ────────────────────────────
 	let tauriUpdate = $state<{ version: string; download: () => Promise<void> } | null>(null);
@@ -46,7 +46,7 @@
 			wsClient.onMessage('habit:reordered', (p: { memberId: string; habitIds: string[] }) => habitStore.applyRemoteReorder(p)),
 			wsClient.onMessage('member:created', (p: Member) => memberStore.applyRemoteCreate(p)),
 			wsClient.onMessage('member:updated', (p: Member) => memberStore.applyRemoteUpdate(p)),
-			wsClient.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p)),
+			wsClient.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p))
 		];
 
 		// ── Tauri updater (desktop only) ────────────────────
@@ -99,22 +99,22 @@
 	}
 
 	// ── Connection status ────────────────────────────────
-	let statusLabel = $derived(
+	const statusLabel = $derived(
 		$ws.syncing
 			? 'Syncing...'
 			: $ws.connected
-				? $oq.pendingCount > 0
-					? `${$oq.pendingCount} pending`
-					: ''
-				: 'Offline'
+			? $oq.pendingCount > 0
+				? `${$oq.pendingCount} pending`
+				: ''
+			: 'Offline'
 	);
 
-	let statusTitle = $derived(
+	const statusTitle = $derived(
 		$ws.syncing
 			? 'Syncing offline changes...'
 			: $ws.connected
-				? 'Real-time sync active'
-				: 'Server unreachable — changes saved locally'
+			? 'Real-time sync active'
+			: 'Server unreachable — changes saved locally'
 	);
 </script>
 

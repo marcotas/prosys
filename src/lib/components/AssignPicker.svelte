@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Member } from '$lib/types';
 	import { Popover, Dialog } from 'bits-ui';
 	import { fly, fade } from 'svelte/transition';
 	import MemberBadge from './MemberBadge.svelte';
+	import type { Member } from '$lib/types';
 
-	let {
+	const {
 		members,
 		currentMemberId = null,
 		onAssign
@@ -25,7 +25,7 @@
 		return () => mql.removeEventListener('change', handler);
 	});
 
-	let currentMember = $derived(
+	const currentMember = $derived(
 		currentMemberId ? members.find((m) => m.id === currentMemberId) : undefined
 	);
 
@@ -41,7 +41,7 @@
 	</svg>
 {/snippet}
 
-{#snippet unassignIcon(size: number)}
+{#snippet _unassignIcon(size: number)}
 	<span class="w-{size} h-{size} rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0">
 		<svg class="w-{size - 2} h-{size - 2} text-gray-300" viewBox="0 0 12 12" fill="none" aria-hidden="true">
 			<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />

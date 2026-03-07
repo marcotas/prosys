@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "file_path=$(cat | jq -r '.tool_input.file_path') && cd \"$CLAUDE_PROJECT_DIR\" && npx eslint --fix \"$file_path\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ]
+  }
+}

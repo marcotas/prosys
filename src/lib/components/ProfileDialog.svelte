@@ -1,9 +1,9 @@
 <script lang="ts">
+	import ThemePicker from './ThemePicker.svelte';
 	import type { Member, ThemeConfig } from '$lib/types';
 	import { themePresets } from '$lib/types';
-	import ThemePicker from './ThemePicker.svelte';
 
-	let {
+	const {
 		open = false,
 		member = null as Member | null,
 		onSave,
@@ -17,8 +17,8 @@
 		onClose: () => void;
 	}>();
 
-	let isEditing = $derived(member !== null);
-	let title = $derived(isEditing ? 'Edit Profile' : 'New Profile');
+	const isEditing = $derived(member !== null);
+	const title = $derived(isEditing ? 'Edit Profile' : 'New Profile');
 
 	let name = $state('');
 	let quoteText = $state('');
@@ -64,7 +64,7 @@
 		}
 	}
 
-	let canSave = $derived(name.trim().length > 0);
+	const canSave = $derived(name.trim().length > 0);
 </script>
 
 {#if open}

@@ -1,26 +1,26 @@
 <script lang="ts">
-	import type { Member, DayData, PlannerTask, ThemeConfig } from '$lib/types';
 	import { untrack } from 'svelte';
+	import type { Member, PlannerTask, ThemeConfig } from '$lib/types';
 	import { goto } from '$app/navigation';
+	import { useNotifier } from '$lib/adapters/svelte';
+	import FamilyHabitTracker from '$lib/components/FamilyHabitTracker.svelte';
+	import FamilyProgress from '$lib/components/FamilyProgress.svelte';
+	import FamilySwitcher from '$lib/components/FamilySwitcher.svelte';
+	import PlannerDayCard from '$lib/components/PlannerDayCard.svelte';
+	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
+	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
+	import { taskController } from '$lib/controllers';
+	import { wsClient } from '$lib/infra';
+	import { habitStore } from '$lib/stores/habits.svelte';
+	import { memberStore } from '$lib/stores/members.svelte';
 	import {
 		computeWeekDays,
 		getWeekStart,
 		getTodayWeekOffset,
 		getTodayISO
 	} from '$lib/utils/dates';
-	import { memberStore } from '$lib/stores/members.svelte';
-	import { taskController } from '$lib/controllers';
-	import { wsClient } from '$lib/infra';
-	import { useNotifier } from '$lib/adapters/svelte';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import FamilySwitcher from '$lib/components/FamilySwitcher.svelte';
-	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
-	import FamilyProgress from '$lib/components/FamilyProgress.svelte';
-	import FamilyHabitTracker from '$lib/components/FamilyHabitTracker.svelte';
-	import PlannerDayCard from '$lib/components/PlannerDayCard.svelte';
-	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
 
-	let { data } = $props();
+	const { data } = $props();
 
 	// Reactive bridge for framework-agnostic TaskController
 	const tasks = useNotifier(taskController);
@@ -40,10 +40,10 @@
 	let editingMember = $state<Member | null>(null);
 	let weekOffset = $state(getTodayWeekOffset());
 
-	let todayOffset = $derived(getTodayWeekOffset());
-	let isTodayWeek = $derived(weekOffset === todayOffset);
-	let currentWeekStart = $derived(getWeekStart(weekOffset));
-	let todayISO = $derived(getTodayISO());
+	const todayOffset = $derived(getTodayWeekOffset());
+	const isTodayWeek = $derived(weekOffset === todayOffset);
+	const currentWeekStart = $derived(getWeekStart(weekOffset));
+	const todayISO = $derived(getTodayISO());
 
 	const PLANNER_THEME: ThemeConfig = {
 		variant: 'default',
@@ -124,11 +124,11 @@
 	});
 
 	// ── Build days from family tasks ──
-	let members = $derived(
+	const members = $derived(
 		memberStore.members.length > 0 ? memberStore.members : data.members
 	);
 
-	let visibleDays = $derived.by(() => {
+	const visibleDays = $derived.by(() => {
 		const weekStart = currentWeekStart;
 		const storeTasks = computeWeekDays(weekOffset).map((d, i) => ({
 			dayName: d.dayName,
@@ -147,7 +147,7 @@
 		}));
 	});
 
-	let visibleHabitProgress = $derived.by(() => {
+	const visibleHabitProgress = $derived.by(() => {
 		const weekStart = currentWeekStart;
 		const storeData = habitStore.getFamilyHabitProgress(weekStart);
 		if (storeData.length > 0) return storeData;

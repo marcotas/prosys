@@ -1,4 +1,4 @@
-import { Habit } from './habit';
+import type { Habit } from './habit';
 
 /**
  * Manages a `Map<string, Habit[]>` cache keyed by memberId.

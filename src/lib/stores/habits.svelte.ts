@@ -116,11 +116,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-			const res = await fetch('/api/habits', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify({ memberId, name, emoji })
-			});
+				const res = await fetch('/api/habits', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify({ memberId, name, emoji })
+				});
 				if (!res.ok) await throwApiError(res);
 				const created: Habit = await res.json();
 
@@ -177,7 +177,7 @@ function createHabitStore() {
 			let memberId = '';
 			const previousByKey = new Map<string, HabitWithDays[]>();
 
-			for (const [key, habits] of weekCache) {
+			for (const [_key, habits] of weekCache) {
 				const habit = habits.find((h) => h.id === id);
 				if (habit) {
 					memberId = habit.memberId;
@@ -207,11 +207,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-			const res = await fetch(`/api/habits/${id}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify(data)
-			});
+				const res = await fetch(`/api/habits/${id}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify(data)
+				});
 				if (!res.ok) await throwApiError(res);
 				const updated: Habit = await res.json();
 
@@ -257,7 +257,7 @@ function createHabitStore() {
 			let memberId = '';
 			const previousByKey = new Map<string, HabitWithDays[]>();
 
-			for (const [key, habits] of weekCache) {
+			for (const [_key, habits] of weekCache) {
 				const habit = habits.find((h) => h.id === id);
 				if (habit) {
 					memberId = habit.memberId;
@@ -317,13 +317,11 @@ function createHabitStore() {
 		async toggle(habitId: string, weekStart: string, dayIndex: number): Promise<void> {
 			// Find the habit in the specific week cache
 			let foundKey = '';
-			let memberId = '';
 
 			for (const [key, habits] of weekCache) {
 				const habit = habits.find((h) => h.id === habitId);
 				if (habit && key.endsWith(`:${weekStart}`)) {
 					foundKey = key;
-					memberId = habit.memberId;
 					break;
 				}
 			}
@@ -365,11 +363,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-			const res = await fetch(`/api/habits/${habitId}/toggle`, {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify({ weekStart, dayIndex })
-			});
+				const res = await fetch(`/api/habits/${habitId}/toggle`, {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify({ weekStart, dayIndex })
+				});
 				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {
@@ -428,11 +426,11 @@ function createHabitStore() {
 			weekCache = next;
 
 			try {
-			const res = await fetch('/api/habits/reorder', {
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json', ...wsHeaders() },
-				body: JSON.stringify({ memberId, habitIds })
-			});
+				const res = await fetch('/api/habits/reorder', {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json', ...wsHeaders() },
+					body: JSON.stringify({ memberId, habitIds })
+				});
 				if (!res.ok) await throwApiError(res);
 			} catch (err) {
 				if (isNetworkError(err)) {

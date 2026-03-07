@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ToggleHabit } from './toggle-habit';
-import { NotFoundError, ValidationError } from '$lib/server/domain/errors';
-import type { HabitRepository } from '$lib/server/repositories/habit-repository';
 import type { HabitData } from '$lib/domain/types';
+import type { HabitRepository } from '$lib/server/repositories/habit-repository';
+import { NotFoundError, ValidationError } from '$lib/server/domain/errors';
 
 // -- Mock Repository -----------------------------------------------
 

@@ -1,4 +1,4 @@
-import { Task } from './task';
+import type { Task } from './task';
 
 /**
  * Manages a `Map<string, Task[]>` cache where keys are composite strings

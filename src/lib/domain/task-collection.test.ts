@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { TaskCollection } from './task-collection';
 import { Task } from './task';
+import { TaskCollection } from './task-collection';
 import type { TaskData } from './types';
 
 // ── Helpers ──────────────────────────────────────────────

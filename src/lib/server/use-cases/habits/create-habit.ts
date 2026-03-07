@@ -1,8 +1,8 @@
-import { Habit } from '$lib/domain/habit';
 import type { CreateHabitInput, HabitData } from '$lib/domain/types';
 import type { HabitRepository } from '$lib/server/repositories/habit-repository';
-import { habitRepository } from '$lib/server/repositories/habit-repository';
+import { Habit } from '$lib/domain/habit';
 import { ValidationError } from '$lib/server/domain/errors';
+import { habitRepository } from '$lib/server/repositories/habit-repository';
 
 export class CreateHabit {
 	constructor(private readonly habitRepo: HabitRepository) {}

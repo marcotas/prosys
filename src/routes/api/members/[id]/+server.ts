@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { updateMember } from '$lib/server/use-cases/members/update-member';
-import { deleteMember } from '$lib/server/use-cases/members/delete-member';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { deleteMember } from '$lib/server/use-cases/members/delete-member';
+import { updateMember } from '$lib/server/use-cases/members/update-member';
 import { broadcast } from '$lib/server/ws';
 
 // ── PATCH /api/members/[id] ─────────────────────────────

@@ -1,5 +1,5 @@
-import { apiClient, offlineQueue, wsClient } from '$lib/infra';
 import { TaskController } from './task-controller';
+import { apiClient, offlineQueue, wsClient } from '$lib/infra';
 
 export { TaskController } from './task-controller';
 

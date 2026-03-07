@@ -1,14 +1,15 @@
 <script lang="ts">
 	import { ContextMenu } from 'bits-ui';
+	import type { Snippet } from 'svelte';
 
-	let {
+	const {
 		onReschedule,
 		onDelete,
 		children
 	}: {
 		onReschedule: () => void;
 		onDelete: () => void;
-		children: import('svelte').Snippet;
+		children: Snippet;
 	} = $props();
 </script>
 

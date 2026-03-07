@@ -1,0 +1,6 @@
+#!/bin/sh
+echo "Running lint..."
+pnpm lint || exit 1
+
+echo "Running tests..."
+pnpm test || exit 1

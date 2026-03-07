@@ -41,7 +41,7 @@ describe('Habit.create', () => {
 	});
 
 	it('creates without emoji', () => {
-		const { emoji, ...input } = validInput;
+		const { emoji: _emoji, ...input } = validInput;
 		const habit = Habit.create(input);
 		expect(habit.emoji).toBeUndefined();
 	});

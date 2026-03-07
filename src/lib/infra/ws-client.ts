@@ -1,5 +1,5 @@
-import { ChangeNotifier } from '$lib/domain/change-notifier';
 import type { OfflineQueue } from './offline-queue';
+import { ChangeNotifier } from '$lib/domain/change-notifier';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type MessageHandler = (payload: any) => void;

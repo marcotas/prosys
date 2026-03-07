@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DeleteHabit } from './delete-habit';
-import { NotFoundError } from '$lib/server/domain/errors';
-import type { HabitRepository } from '$lib/server/repositories/habit-repository';
 import type { HabitData } from '$lib/domain/types';
+import type { HabitRepository } from '$lib/server/repositories/habit-repository';
+import { NotFoundError } from '$lib/server/domain/errors';
 
 // -- Mock Repository -----------------------------------------------
 

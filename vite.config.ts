@@ -1,11 +1,12 @@
-import { sveltekit } from '@sveltejs/kit/vite';
-import tailwindcss from '@tailwindcss/vite';
-import { defineConfig, type Plugin } from 'vite';
-import { Bonjour } from 'bonjour-service';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sveltekit } from '@sveltejs/kit/vite';
+import tailwindcss from '@tailwindcss/vite';
+import { Bonjour } from 'bonjour-service';
+import { defineConfig, type Plugin } from 'vite';
 import type { UserConfig } from 'vitest/config';
+import type { WebSocket } from 'ws';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,7 +28,7 @@ function prosysWs(): Plugin {
 
 				server.httpServer?.on('upgrade', (req, socket, head) => {
 					if (req.url === '/ws') {
-						wss.handleUpgrade(req, socket, head, (ws: import('ws').WebSocket) => {
+						wss.handleUpgrade(req, socket, head, (ws: WebSocket) => {
 							wss.emit('connection', ws, req);
 						});
 					}
@@ -48,6 +49,7 @@ function prosysWs(): Plugin {
 					probe: false
 				});
 
+				// eslint-disable-next-line no-console
 				console.log(`mDNS: broadcasting _prosys._tcp on port ${port}`);
 			});
 		},

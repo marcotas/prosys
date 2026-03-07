@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { TaskController } from './task-controller';
+import type { TaskData, CreateTaskInput } from '$lib/domain/types';
 import type { ApiClient } from '$lib/infra/api-client';
 import type { OfflineQueue } from '$lib/infra/offline-queue';
 import type { WebSocketClient } from '$lib/infra/ws-client';
-import type { TaskData, CreateTaskInput } from '$lib/domain/types';
 
 // ── Mock factories ──────────────────────────────────────
 

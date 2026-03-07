@@ -1,5 +1,5 @@
-import type { MemberData, CreateMemberInput, ThemeConfig } from './types';
 import { ID } from './id';
+import type { MemberData, CreateMemberInput, ThemeConfig } from './types';
 
 export class Member {
 	private constructor(private data: MemberData) {}

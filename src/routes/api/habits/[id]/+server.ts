@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { updateHabit } from '$lib/server/use-cases/habits/update-habit';
-import { deleteHabit } from '$lib/server/use-cases/habits/delete-habit';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { deleteHabit } from '$lib/server/use-cases/habits/delete-habit';
+import { updateHabit } from '$lib/server/use-cases/habits/update-habit';
 import { broadcast } from '$lib/server/ws';
 
 // -- PATCH /api/habits/[id] ------------------------------------------

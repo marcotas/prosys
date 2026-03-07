@@ -54,7 +54,7 @@ describe('Task.create', () => {
 	});
 
 	it('defaults memberId to null when not provided', () => {
-		const { memberId, ...input } = validInput;
+		const { memberId: _memberId, ...input } = validInput;
 		const task = Task.create(input);
 		expect(task.memberId).toBeNull();
 	});

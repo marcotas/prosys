@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Member } from '$lib/types';
 	import { Popover } from 'bits-ui';
+	import type { Member } from '$lib/types';
 
-	let { members, selectedId, onSelect, onAdd, onEdit } = $props<{
+	const { members, selectedId, onSelect, onAdd, onEdit } = $props<{
 		members: Member[];
 		selectedId: string;
 		onSelect: (id: string) => void;
@@ -10,8 +10,8 @@
 		onEdit: (member: Member) => void;
 	}>();
 
-	let isFamilySelected = $derived(selectedId === '__family__');
-	let selectedMember = $derived(members.find((m) => m.id === selectedId));
+	const isFamilySelected = $derived(selectedId === '__family__');
+	const selectedMember = $derived(members.find((m) => m.id === selectedId));
 
 	let isMobile = $state(false);
 	let open = $state(false);
@@ -43,8 +43,8 @@
 				class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl
 					focus-visible:ring-2 focus-visible:ring-offset-1
 					{isFamilySelected
-					? 'shadow-sm border-2'
-					: 'border-2 border-transparent hover:bg-white/60'}"
+						? 'shadow-sm border-2'
+						: 'border-2 border-transparent hover:bg-white/60'}"
 				style={isFamilySelected
 					? 'background-color: #eef2ff; border-color: #6366f140; color: #312e81; --tw-ring-color: #6366f1'
 					: 'color: #6b7280; --tw-ring-color: #6366f1'}
@@ -74,8 +74,8 @@
 				class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl
 					focus-visible:ring-2 focus-visible:ring-offset-1
 					{!isFamilySelected && selectedMember
-					? 'shadow-sm border-2'
-					: 'border-2 border-transparent hover:bg-white/60'}"
+						? 'shadow-sm border-2'
+						: 'border-2 border-transparent hover:bg-white/60'}"
 				style={!isFamilySelected && selectedMember
 					? `background-color: ${selectedMember.theme.accentLight}; border-color: ${selectedMember.theme.accent}40; color: ${selectedMember.theme.accentDark}; --tw-ring-color: ${selectedMember.theme.accent}`
 					: 'color: #6b7280; --tw-ring-color: #6366f1'}
@@ -177,8 +177,8 @@
 				class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl
 					focus-visible:ring-2 focus-visible:ring-offset-1
 					{isFamilySelected
-					? 'shadow-sm border-2'
-					: 'border-2 border-transparent hover:bg-white/60'}"
+						? 'shadow-sm border-2'
+						: 'border-2 border-transparent hover:bg-white/60'}"
 				style={isFamilySelected
 					? 'background-color: #eef2ff; border-color: #6366f140; color: #312e81; --tw-ring-color: #6366f1'
 					: 'color: #6b7280; --tw-ring-color: #6366f1'}
@@ -212,8 +212,8 @@
 					class="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl
 						focus-visible:ring-2 focus-visible:ring-offset-1
 						{isSelected
-						? 'shadow-sm border-2'
-						: 'border-2 border-transparent hover:bg-white/60'}"
+							? 'shadow-sm border-2'
+							: 'border-2 border-transparent hover:bg-white/60'}"
 					style={isSelected
 						? `background-color: ${member.theme.accentLight}; border-color: ${member.theme.accent}40; color: ${member.theme.accentDark}; --tw-ring-color: ${member.theme.accent}`
 						: `color: #6b7280; --tw-ring-color: ${member.theme.accent}`}

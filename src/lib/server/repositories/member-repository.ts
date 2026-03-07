@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
-import { familyMembers } from '$lib/server/db/schema';
-import { db as defaultDb } from '$lib/server/db';
 import type { MemberData, ThemeConfig, ThemeVariant } from '$lib/domain/types';
+import { db as defaultDb } from '$lib/server/db';
+import { familyMembers } from '$lib/server/db/schema';
 
 type Db = typeof defaultDb;
 type MemberRow = typeof familyMembers.$inferSelect;

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetFamilyTasks } from './get-family-tasks';
-import { ValidationError } from '$lib/server/domain/errors';
 import type { TaskRepository, PlannerTaskRow } from '$lib/server/repositories/task-repository';
+import { ValidationError } from '$lib/server/domain/errors';
 
 // ── Mock Repository ────────────────────────────────────
 

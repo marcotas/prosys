@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WebSocketClient } from './ws-client';
-import type { OfflineQueue } from './offline-queue';
-import type { QueuedMutation } from './offline-queue';
+import type { OfflineQueue, QueuedMutation } from './offline-queue';
 
 // ── Mock WebSocket ──────────────────────────────────────
 

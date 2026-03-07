@@ -1,6 +1,6 @@
-import { Member } from '$lib/domain/member';
 import type { MemberData, ThemeConfig } from '$lib/domain/types';
 import type { MemberRepository } from '$lib/server/repositories/member-repository';
+import { Member } from '$lib/domain/member';
 import { memberRepository } from '$lib/server/repositories/member-repository';
 
 // ── Seed data ───────────────────────────────────────────

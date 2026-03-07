@@ -1,10 +1,10 @@
-import { ChangeNotifier } from '$lib/domain/change-notifier';
-import { TaskCollection } from '$lib/domain/task-collection';
-import { Task } from '$lib/domain/task';
 import type { TaskData, CreateTaskInput, UpdateTaskInput } from '$lib/domain/types';
 import type { ApiClient } from '$lib/infra/api-client';
 import type { OfflineQueue } from '$lib/infra/offline-queue';
 import type { WebSocketClient } from '$lib/infra/ws-client';
+import { ChangeNotifier } from '$lib/domain/change-notifier';
+import { Task } from '$lib/domain/task';
+import { TaskCollection } from '$lib/domain/task-collection';
 import { optimisticAction } from '$lib/infra/optimistic-action';
 
 const FAMILY_KEY_PREFIX = '__family__';
@@ -188,7 +188,7 @@ export class TaskController extends ChangeNotifier {
 						if (data.title !== undefined) t.updateTitle(data.title);
 						if (data.emoji !== undefined) t.updateEmoji(data.emoji);
 						if (data.completed !== undefined) {
-							data.completed ? t.complete() : t.uncomplete();
+							if (data.completed) t.complete(); else t.uncomplete();
 						}
 						if (data.sortOrder !== undefined) t.setSortOrder(data.sortOrder);
 					}

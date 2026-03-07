@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ReorderHabits } from './reorder-habits';
-import { ValidationError } from '$lib/server/domain/errors';
 import type { HabitRepository } from '$lib/server/repositories/habit-repository';
+import { ValidationError } from '$lib/server/domain/errors';
 
 // -- Mock Repository -----------------------------------------------
 

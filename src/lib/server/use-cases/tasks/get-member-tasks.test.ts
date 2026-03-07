@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GetMemberTasks } from './get-member-tasks';
-import { ValidationError } from '$lib/server/domain/errors';
-import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import type { TaskData } from '$lib/domain/types';
+import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { ValidationError } from '$lib/server/domain/errors';
 
 // ── Mock Repository ────────────────────────────────────
 

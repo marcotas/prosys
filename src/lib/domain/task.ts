@@ -1,6 +1,6 @@
+import { ID } from './id';
 import type { TaskData, CreateTaskInput } from './types';
 import { isoToDate } from '$lib/utils/dates';
-import { ID } from './id';
 
 export class Task {
 	private constructor(private data: TaskData) {}

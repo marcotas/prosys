@@ -1,6 +1,6 @@
+import os from 'node:os';
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import os from 'node:os';
 
 /** Returns the server's LAN IPv4 address and port so clients can build the connect URL. */
 export const GET: RequestHandler = ({ request }) => {

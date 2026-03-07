@@ -506,7 +506,7 @@ export function computeWeekDays(weekOffset: number): { dayName: string; date: st
 		const d = getBaseDate(weekOffset, i);
 		days.push({
 			dayName: dayNames[d.getDay()],
-			date: formatDD_MM_YYYY(d),
+			date: formatDD_MM_YYYY(d)
 		});
 	}
 	return days;

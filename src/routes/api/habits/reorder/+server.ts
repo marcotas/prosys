@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import { reorderHabits } from '$lib/server/use-cases/habits/reorder-habits';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { reorderHabits } from '$lib/server/use-cases/habits/reorder-habits';
 import { broadcast } from '$lib/server/ws';
 
 // -- PUT /api/habits/reorder -----------------------------------------

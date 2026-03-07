@@ -1,5 +1,5 @@
-import type { HabitData, CreateHabitInput } from './types';
 import { ID } from './id';
+import type { HabitData, CreateHabitInput } from './types';
 
 export class Habit {
 	private constructor(private data: HabitData) {}

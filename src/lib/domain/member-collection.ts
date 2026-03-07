@@ -1,4 +1,4 @@
-import { Member } from './member';
+import type { Member } from './member';
 
 /**
  * Manages a flat `Map<string, Member>` cache keyed by member ID.

@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
-import * as schema from '$lib/server/db/schema';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { HabitRepository } from './habit-repository';
+import * as schema from '$lib/server/db/schema';
 
 // ── Test helpers ────────────────────────────────────────
 

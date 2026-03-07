@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { toggleHabit } from '$lib/server/use-cases/habits/toggle-habit';
 import { apiHandler } from '$lib/server/helpers/api-handler';
+import { toggleHabit } from '$lib/server/use-cases/habits/toggle-habit';
 import { broadcast } from '$lib/server/ws';
 
 // -- PUT /api/habits/[id]/toggle -------------------------------------

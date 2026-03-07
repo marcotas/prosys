@@ -1,18 +1,18 @@
 <script lang="ts">
-	import type { DayData } from '$lib/types';
+	import { slide } from 'svelte/transition';
 	import ProgressRing from './ProgressRing.svelte';
 	import WeeklyBarChart from './WeeklyBarChart.svelte';
-	import { slide } from 'svelte/transition';
+	import type { DayData } from '$lib/types';
 
-	let { days } = $props<{ days: DayData[] }>();
+	const { days } = $props<{ days: DayData[] }>();
 
-	let totalTasks = $derived(
+	const totalTasks = $derived(
 		days.reduce((sum: number, d: DayData) => sum + d.tasks.length, 0)
 	);
-	let totalCompleted = $derived(
+	const totalCompleted = $derived(
 		days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t: { completed: boolean }) => t.completed).length, 0)
 	);
-	let overallPercent = $derived(
+	const overallPercent = $derived(
 		totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0
 	);
 

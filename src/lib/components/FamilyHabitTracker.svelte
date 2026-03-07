@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { FamilyHabitProgress } from '$lib/types';
-	import { dayAbbreviations } from '$lib/utils/dates';
 	import { slide } from 'svelte/transition';
 	import MemberBadge from './MemberBadge.svelte';
+	import type { FamilyHabitProgress } from '$lib/types';
+	import { dayAbbreviations } from '$lib/utils/dates';
 
-	let { habitProgress }: { habitProgress: FamilyHabitProgress[] } = $props();
+	const { habitProgress }: { habitProgress: FamilyHabitProgress[] } = $props();
 
 	const HEADER_COLOR = '#6366f1';
 
@@ -33,7 +33,7 @@
 		return Math.round((completed / total) * 100);
 	}
 
-	let totalMembers = $derived(habitProgress.filter((m) => m.habits.length > 0).length);
+	const totalMembers = $derived(habitProgress.filter((m) => m.habits.length > 0).length);
 </script>
 
 <section
@@ -79,7 +79,7 @@
 							>
 								Profile
 							</th>
-							{#each dayAbbreviations as abbr}
+							{#each dayAbbreviations as abbr (abbr)}
 								<th class="px-1.5 py-2.5 text-[11px] font-semibold text-center uppercase tracking-wide text-gray-400">
 									{abbr}
 								</th>
@@ -101,7 +101,7 @@
 									</div>
 								</td>
 
-								{#each { length: 7 } as _, dayIdx}
+								{#each { length: 7 } as _, dayIdx (dayIdx)}
 									{@const dp = getDayProgress(member, dayIdx)}
 									<td class="px-1.5 py-2 text-center">
 										{#if hasHabits}

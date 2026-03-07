@@ -18,7 +18,10 @@
     "test:coverage": "vitest run --coverage",
     "changeset": "changeset",
     "version": "changeset version && node scripts/sync-version.js",
-    "release": "pnpm run version && pnpm tauri:build"
+    "release": "pnpm run version && pnpm tauri:build",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "prepare": "git config core.hooksPath .githooks"
   },
   "dependencies": {
     "@tauri-apps/plugin-process": "~2.3.1",
@@ -37,11 +40,14 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
-      "esbuild"
+      "esbuild",
+      "unrs-resolver"
     ]
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.8",
+    "@eslint/js": "^10.0.1",
+    "@stylistic/eslint-plugin": "^5.10.0",
     "@sveltejs/adapter-node": "^5.5.3",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
@@ -53,9 +59,15 @@
     "@vitest/coverage-istanbul": "^4.0.18",
     "drizzle-kit": "^0.31.9",
     "esbuild": "^0.27.3",
+    "eslint": "^10.0.3",
+    "eslint-plugin-import-x": "^4.16.1",
+    "eslint-plugin-svelte": "^3.15.0",
     "fake-indexeddb": "^6.2.5",
+    "globals": "^17.4.0",
+    "svelte-eslint-parser": "^1.6.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^8.56.1",
     "vite": "^6.0.0",
     "vitest": "^4.0.18"
   }

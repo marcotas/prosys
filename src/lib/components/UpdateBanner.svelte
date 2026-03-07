@@ -7,7 +7,7 @@
 		onDismiss: () => void;
 	}
 
-	let { message, detail, actionLabel, onAction, onDismiss }: Props = $props();
+	const { message, detail, actionLabel, onAction, onDismiss }: Props = $props();
 </script>
 
 <div

@@ -1,8 +1,10 @@
 import { eq, and, asc, max } from 'drizzle-orm';
-import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
-import { tasks, familyMembers } from '$lib/server/db/schema';
-import { db } from '$lib/server/db';
 import type { TaskData, ThemeVariant } from '$lib/domain/types';
+import type * as schema from '$lib/server/db/schema';
+import type { Database } from 'better-sqlite3';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { db } from '$lib/server/db';
+import { tasks, familyMembers } from '$lib/server/db/schema';
 
 // ── Row-to-Domain Mapper ────────────────────────────────
 
@@ -58,7 +60,7 @@ interface TaskInsertRow {
 // ── TaskRepository ──────────────────────────────────────
 
 export class TaskRepository {
-	constructor(private readonly db: BetterSQLite3Database<typeof import('$lib/server/db/schema')>) {}
+	constructor(private readonly db: BetterSQLite3Database<typeof schema>) {}
 
 	/**
 	 * Find a single task by ID.
@@ -126,15 +128,15 @@ export class TaskRepository {
 			memberName: row.memberName ?? undefined,
 			memberTheme: row.memberName
 				? {
-						variant: (row.memberThemeVariant ?? 'default') as ThemeVariant,
-						accent: row.memberThemeAccent!,
-						accentLight: row.memberThemeAccentLight!,
-						accentDark: row.memberThemeAccentDark!,
-						headerBg: row.memberThemeHeaderBg!,
-						ringColor: row.memberThemeRingColor!,
-						checkColor: row.memberThemeCheckColor!,
-						emoji: row.memberThemeEmoji ?? ''
-					}
+					variant: (row.memberThemeVariant ?? 'default') as ThemeVariant,
+					accent: row.memberThemeAccent!,
+					accentLight: row.memberThemeAccentLight!,
+					accentDark: row.memberThemeAccentDark!,
+					headerBg: row.memberThemeHeaderBg!,
+					ringColor: row.memberThemeRingColor!,
+					checkColor: row.memberThemeCheckColor!,
+					emoji: row.memberThemeEmoji ?? ''
+				}
 				: undefined
 		}));
 	}
@@ -233,7 +235,7 @@ export class TaskRepository {
 	reorder(taskIds: string[], now: string): void {
 		// Access the underlying better-sqlite3 instance for raw SQL transaction
 		// since Drizzle's .transaction() has overhead for bulk updates.
-		const client = this.db.$client as import('better-sqlite3').Database;
+		const client = this.db.$client as Database;
 		const stmt = client.prepare(
 			'UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ?'
 		);

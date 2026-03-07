@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { Task } from '$lib/types';
 	import { Dialog } from 'bits-ui';
 	import { fly, fade, scale } from 'svelte/transition';
+	import type { Task } from '$lib/types';
 	import {
 		getMonthGrid,
 		getWeekStartForDate,
@@ -12,6 +12,7 @@
 		dayAbbreviations
 	} from '$lib/utils/dates';
 
+	/* eslint-disable prefer-const */
 	let {
 		task,
 		open = $bindable(false),
@@ -21,6 +22,7 @@
 		open: boolean;
 		onReschedule: (toWeekStart: string, toDayIndex: number) => void;
 	} = $props();
+	/* eslint-enable prefer-const */
 
 	let isMobile = $state(false);
 
@@ -46,12 +48,12 @@
 		}
 	});
 
-	let grid = $derived(getMonthGrid(viewYear, viewMonth));
-	let label = $derived(monthLabel(viewYear, viewMonth));
-	let todayISO = $derived(getTodayISO());
+	const grid = $derived(getMonthGrid(viewYear, viewMonth));
+	const label = $derived(monthLabel(viewYear, viewMonth));
+	const todayISO = $derived(getTodayISO());
 
 	// Task's current date for highlighting
-	let taskDate = $derived.by(() => {
+	const taskDate = $derived.by(() => {
 		if (!task) return '';
 		const d = isoToDate(task.weekStart);
 		d.setDate(d.getDate() + task.dayIndex);
@@ -113,17 +115,17 @@
 
 	<!-- Day-of-week header -->
 	<div class="grid grid-cols-7 px-3">
-		{#each DAY_HEADERS as d}
+		{#each DAY_HEADERS as d (d)}
 			<div class="text-center text-[11px] font-medium text-gray-400 py-1">{d}</div>
 		{/each}
 	</div>
 
 	<!-- Calendar grid -->
 	<div class="px-3 pb-3">
-		{#each grid as week}
+		{#each grid as week, weekIdx (weekIdx)}
 			{@const weekHasToday = week.some((d) => d && dateToISO(d) === todayISO)}
 			<div class="grid grid-cols-7 {weekHasToday ? 'bg-gray-100 rounded-lg' : ''}">
-				{#each week as cell}
+				{#each week as cell, cellIdx (cellIdx)}
 					{#if cell}
 						{@const iso = dateToISO(cell)}
 						{@const isTaskDay = iso === taskDate}

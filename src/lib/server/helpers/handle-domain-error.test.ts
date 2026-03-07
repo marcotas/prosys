@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { handleDomainError } from './handle-domain-error';
 import { ConflictError, NotFoundError, ValidationError, DomainError } from '../domain/errors';
+import { handleDomainError } from './handle-domain-error';
 
 // ── handleDomainError ────────────────────────────────────
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { optimisticAction, isNetworkError } from './optimistic-action';
-import type { MutationPlan } from './optimistic-action';
 import type { OfflineQueue } from './offline-queue';
+import type { MutationPlan } from './optimistic-action';
 
 // ── isNetworkError ──────────────────────────────────────
 
