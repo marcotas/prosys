@@ -9,9 +9,10 @@
 		getTodayISO
 	} from '$lib/utils/dates';
 	import { memberStore } from '$lib/stores/members.svelte';
-	import { taskStore } from '$lib/stores/tasks.svelte';
+	import { taskController } from '$lib/controllers';
+	import { wsClient } from '$lib/infra';
+	import { useNotifier } from '$lib/adapters/svelte';
 	import { habitStore } from '$lib/stores/habits.svelte';
-	import { wsStore } from '$lib/stores/ws.svelte';
 	import FamilySwitcher from '$lib/components/FamilySwitcher.svelte';
 	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
 	import FamilyProgress from '$lib/components/FamilyProgress.svelte';
@@ -21,12 +22,15 @@
 
 	let { data } = $props();
 
+	// Reactive bridge for framework-agnostic TaskController
+	const tasks = useNotifier(taskController);
+
 	// Hydrate stores
 	$effect(() => {
 		if (data.members.length > 0) {
 			untrack(() => {
 				memberStore.hydrate(data.members, data.members[0].id);
-				taskStore.hydrateFamilyWeek(data.weekStart, data.tasks);
+				taskController.hydrateFamilyWeek(data.weekStart, data.tasks);
 				habitStore.hydrateFamilyWeek(data.weekStart, data.habitProgress);
 			});
 		}
@@ -101,7 +105,7 @@
 	// ── Load family tasks/habits when week changes ──
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		taskStore.loadFamilyWeek(weekStart);
+		taskController.loadFamilyWeek(weekStart);
 	});
 
 	$effect(() => {
@@ -112,9 +116,9 @@
 	// ── Sync callback ──
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		return wsStore.onSync(async () => {
+		return wsClient.onSync(async () => {
 			await memberStore.load();
-			await taskStore.reloadFamilyWeek(weekStart);
+			await taskController.reloadFamilyWeek(weekStart);
 			await habitStore.reloadFamilyWeek(weekStart);
 		});
 	});
@@ -130,7 +134,7 @@
 			dayName: d.dayName,
 			date: d.date,
 			isoDate: d.isoDate,
-			tasks: taskStore.getFamilyTasksForDay(weekStart, i)
+			tasks: $tasks.getFamilyTasksForDay(weekStart, i).map(t => t.toJSON())
 		}));
 		const hasStoreTasks = storeTasks.some((d) => d.tasks.length > 0);
 		if (hasStoreTasks) return storeTasks;
@@ -152,16 +156,16 @@
 
 	// ── Reschedule (cross-week move) ──
 	function rescheduleTask(taskId: string, toWeekStart: string, toDayIndex: number) {
-		taskStore.moveToDate(taskId, toWeekStart, toDayIndex);
+		taskController.moveToDate(taskId, toWeekStart, toDayIndex);
 	}
 
 	// ── Task operations ──
 	function toggleTask(taskId: string) {
-		taskStore.toggle(taskId);
+		taskController.toggle(taskId);
 	}
 
 	function addTask(dayIndex: number, title: string, emoji?: string) {
-		taskStore.create({
+		taskController.create({
 			weekStart: currentWeekStart,
 			dayIndex,
 			title,
@@ -170,25 +174,25 @@
 	}
 
 	function deleteTask(taskId: string) {
-		taskStore.delete(taskId);
+		taskController.delete(taskId);
 	}
 
 	function updateTask(taskId: string, updates: { title?: string; emoji?: string }) {
-		taskStore.update(taskId, updates);
+		taskController.update(taskId, updates);
 	}
 
 	function assignTask(taskId: string, memberId: string | null) {
-		taskStore.assignTask(taskId, memberId);
+		taskController.assignTask(taskId, memberId);
 	}
 
 	function reorderTasks(dayIndex: number, taskIds: string[]) {
-		taskStore.reorder(null as any, currentWeekStart, dayIndex, taskIds);
+		taskController.reorder(null as any, currentWeekStart, dayIndex, taskIds);
 	}
 
 	async function moveTask(taskId: string, toDayIndex: number, orderedTaskIds: string[]) {
-		await taskStore.moveToDay(taskId, toDayIndex);
+		await taskController.moveToDay(taskId, toDayIndex);
 		if (orderedTaskIds.length > 0) {
-			await taskStore.reorder(null as any, currentWeekStart, toDayIndex, orderedTaskIds);
+			await taskController.reorder(null as any, currentWeekStart, toDayIndex, orderedTaskIds);
 		}
 	}
 

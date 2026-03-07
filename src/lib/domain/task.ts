@@ -61,6 +61,10 @@ export class Task {
 	get isCompleted(): boolean {
 		return this.data.completed;
 	}
+	/** Alias for template compatibility (components access task.completed). */
+	get completed(): boolean {
+		return this.data.completed;
+	}
 	get sortOrder(): number {
 		return this.data.sortOrder;
 	}

@@ -42,6 +42,16 @@ export class TaskCollection {
 		return undefined;
 	}
 
+	/** Find ALL instances of a task by id across all keys. */
+	findAllById(taskId: string): Task[] {
+		const results: Task[] = [];
+		for (const tasks of this.cache.values()) {
+			const found = tasks.find((t) => t.id === taskId);
+			if (found) results.push(found);
+		}
+		return results;
+	}
+
 	/** Append a task to the given key, creating the key if absent. */
 	insert(key: string, task: Task): void {
 		const tasks = this.cache.get(key) ?? [];

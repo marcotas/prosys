@@ -9,9 +9,10 @@
     getTodayISO,
   } from "$lib/utils/dates";
   import { memberStore } from "$lib/stores/members.svelte";
-  import { taskStore } from "$lib/stores/tasks.svelte";
+  import { taskController } from "$lib/controllers";
+  import { wsClient } from "$lib/infra";
+  import { useNotifier } from "$lib/adapters/svelte";
   import { habitStore } from "$lib/stores/habits.svelte";
-  import { wsStore } from "$lib/stores/ws.svelte";
   import FamilySwitcher from "$lib/components/FamilySwitcher.svelte";
   import WeekNavigator from "$lib/components/WeekNavigator.svelte";
   import OverallProgress from "$lib/components/OverallProgress.svelte";
@@ -22,12 +23,15 @@
   // SSR data from +page.server.ts
   let { data } = $props();
 
+  // Reactive bridge for framework-agnostic TaskController
+  const tasks = useNotifier(taskController);
+
   // Hydrate stores on the client with server data (skips if already cached)
   $effect(() => {
     if (data.members.length > 0) {
       untrack(() => {
         memberStore.hydrate(data.members, data.defaultMemberId);
-        taskStore.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
+        taskController.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
         habitStore.hydrateWeek(
           data.defaultMemberId,
           data.weekStart,
@@ -111,7 +115,7 @@
     const memberId = memberStore.selectedMemberId;
     const weekStart = currentWeekStart;
     if (memberId) {
-      taskStore.loadWeek(memberId, weekStart);
+      taskController.loadWeek(memberId, weekStart);
     }
   });
 
@@ -131,9 +135,9 @@
     const weekStart = currentWeekStart;
     if (!memberId) return;
 
-    return wsStore.onSync(async () => {
+    return wsClient.onSync(async () => {
       await memberStore.load();
-      await taskStore.reloadWeek(memberId, weekStart);
+      await taskController.reloadWeek(memberId, weekStart);
       await habitStore.reloadWeek(memberId, weekStart);
     });
   });
@@ -148,7 +152,7 @@
           dayName: d.dayName,
           date: d.date,
           isoDate: d.isoDate,
-          tasks: taskStore.getTasksForDay(memberId, weekStart, i),
+          tasks: $tasks.getTasksForDay(memberId, weekStart, i).map(t => t.toJSON()),
         }))
       : null;
     // If store has tasks loaded, use them; otherwise fall back to SSR data
@@ -178,12 +182,12 @@
 
   // Task operations — wired to task store
   function toggleTask(_dayIndex: number, taskId: string) {
-    taskStore.toggle(taskId);
+    taskController.toggle(taskId);
   }
   function addTask(dayIndex: number, title: string, emoji?: string) {
     const memberId = memberStore.selectedMemberId;
     if (!memberId) return;
-    taskStore.create({
+    taskController.create({
       memberId,
       weekStart: currentWeekStart,
       dayIndex,
@@ -192,14 +196,14 @@
     });
   }
   function deleteTask(_dayIndex: number, taskId: string) {
-    taskStore.delete(taskId);
+    taskController.delete(taskId);
   }
   function updateTask(
     _dayIndex: number,
     taskId: string,
     updates: { title?: string; emoji?: string },
   ) {
-    taskStore.update(taskId, updates);
+    taskController.update(taskId, updates);
   }
 
   // Habit operations — wired to habit store
@@ -223,7 +227,7 @@
 
   // ── Reschedule (cross-week move) ──
   function rescheduleTask(taskId: string, toWeekStart: string, toDayIndex: number) {
-    taskStore.moveToDate(taskId, toWeekStart, toDayIndex);
+    taskController.moveToDate(taskId, toWeekStart, toDayIndex);
   }
 
   // ── Reorder operations (drag & drop) ──
@@ -231,7 +235,7 @@
   function reorderTasks(dayIndex: number, taskIds: string[]) {
     const memberId = memberStore.selectedMemberId;
     if (!memberId) return;
-    taskStore.reorder(memberId, currentWeekStart, dayIndex, taskIds);
+    taskController.reorder(memberId, currentWeekStart, dayIndex, taskIds);
   }
 
   async function moveTask(
@@ -240,10 +244,10 @@
     orderedTaskIds: string[],
   ) {
     const memberId = memberStore.selectedMemberId;
-    await taskStore.moveToDay(taskId, toDayIndex);
+    await taskController.moveToDay(taskId, toDayIndex);
     // If we have the drop-position order, reorder so the task lands where it was dropped
     if (memberId && orderedTaskIds.length > 0) {
-      await taskStore.reorder(
+      await taskController.reorder(
         memberId,
         currentWeekStart,
         toDayIndex,

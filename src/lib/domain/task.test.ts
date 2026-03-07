@@ -38,6 +38,7 @@ describe('Task.create', () => {
 		expect(task.memberId).toBe('member-1');
 		expect(task.emoji).toBe('🥛');
 		expect(task.isCompleted).toBe(false);
+		expect(task.completed).toBe(false);
 		expect(task.sortOrder).toBe(0);
 	});
 

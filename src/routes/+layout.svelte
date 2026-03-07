@@ -3,12 +3,11 @@
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 	import { Toaster } from 'svelte-sonner';
-	import { wsStore } from '$lib/stores/ws.svelte';
-	import { taskStore } from '$lib/stores/tasks.svelte';
+	import { wsClient, offlineQueue } from '$lib/infra';
+	import { useNotifier } from '$lib/adapters/svelte';
 	import { habitStore } from '$lib/stores/habits.svelte';
 	import { memberStore } from '$lib/stores/members.svelte';
-	import { offlineQueue } from '$lib/stores/offline-queue.svelte';
-	import type { Task, Habit, Member } from '$lib/types';
+	import type { Habit, Member } from '$lib/types';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 
@@ -20,9 +19,14 @@
 	let swUpdateAvailable = $state(false);
 	let swUpdateDismissed = $state(false);
 
+	// ── Reactive bridges for framework-agnostic infra ────
+	const ws = useNotifier(wsClient);
+	const oq = useNotifier(offlineQueue);
+
 	// ── WebSocket lifecycle ──────────────────────────────
 	onMount(() => {
-		wsStore.init();
+		offlineQueue.init();
+		wsClient.connect();
 
 		// Show the Tauri window now that the UI has hydrated.
 		// The window starts hidden ("visible": false in tauri.conf.json) to
@@ -32,21 +36,17 @@
 			(window as any).__TAURI_INTERNALS__.invoke('show_main_window');
 		}
 
-		// Register WS message handlers → store apply methods
+		// Register WS message handlers for stores not yet migrated to controllers.
+		// Task handlers are self-registered by TaskController's constructor.
 		const unsubs = [
-			wsStore.onMessage('task:created', (p: Task) => taskStore.applyRemoteCreate(p)),
-			wsStore.onMessage('task:updated', (p: Task) => taskStore.applyRemoteUpdate(p)),
-			wsStore.onMessage('task:deleted', (p: { id: string; memberId: string | null; weekStart: string; dayIndex: number }) => taskStore.applyRemoteDelete(p)),
-			wsStore.onMessage('task:reordered', (p: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] }) => taskStore.applyRemoteReorder(p)),
-			wsStore.onMessage('task:moved', (p: { task: Task; fromDay: number }) => taskStore.applyRemoteMove(p)),
-			wsStore.onMessage('habit:created', (p: Habit) => habitStore.applyRemoteCreate(p)),
-			wsStore.onMessage('habit:updated', (p: Habit) => habitStore.applyRemoteUpdate(p)),
-			wsStore.onMessage('habit:deleted', (p: { id: string; memberId: string }) => habitStore.applyRemoteDelete(p)),
-			wsStore.onMessage('habit:toggled', (p: { habitId: string; weekStart: string; dayIndex: number; completed: boolean }) => habitStore.applyRemoteToggle(p)),
-			wsStore.onMessage('habit:reordered', (p: { memberId: string; habitIds: string[] }) => habitStore.applyRemoteReorder(p)),
-			wsStore.onMessage('member:created', (p: Member) => memberStore.applyRemoteCreate(p)),
-			wsStore.onMessage('member:updated', (p: Member) => memberStore.applyRemoteUpdate(p)),
-			wsStore.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p)),
+			wsClient.onMessage('habit:created', (p: Habit) => habitStore.applyRemoteCreate(p)),
+			wsClient.onMessage('habit:updated', (p: Habit) => habitStore.applyRemoteUpdate(p)),
+			wsClient.onMessage('habit:deleted', (p: { id: string; memberId: string }) => habitStore.applyRemoteDelete(p)),
+			wsClient.onMessage('habit:toggled', (p: { habitId: string; weekStart: string; dayIndex: number; completed: boolean }) => habitStore.applyRemoteToggle(p)),
+			wsClient.onMessage('habit:reordered', (p: { memberId: string; habitIds: string[] }) => habitStore.applyRemoteReorder(p)),
+			wsClient.onMessage('member:created', (p: Member) => memberStore.applyRemoteCreate(p)),
+			wsClient.onMessage('member:updated', (p: Member) => memberStore.applyRemoteUpdate(p)),
+			wsClient.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p)),
 		];
 
 		// ── Tauri updater (desktop only) ────────────────────
@@ -71,7 +71,7 @@
 
 		return () => {
 			unsubs.forEach((fn) => fn());
-			wsStore.destroy();
+			wsClient.destroy();
 		};
 	});
 
@@ -100,19 +100,19 @@
 
 	// ── Connection status ────────────────────────────────
 	let statusLabel = $derived(
-		wsStore.syncing
+		$ws.syncing
 			? 'Syncing...'
-			: wsStore.connected
-				? offlineQueue.pendingCount > 0
-					? `${offlineQueue.pendingCount} pending`
+			: $ws.connected
+				? $oq.pendingCount > 0
+					? `${$oq.pendingCount} pending`
 					: ''
 				: 'Offline'
 	);
 
 	let statusTitle = $derived(
-		wsStore.syncing
+		$ws.syncing
 			? 'Syncing offline changes...'
-			: wsStore.connected
+			: $ws.connected
 				? 'Real-time sync active'
 				: 'Server unreachable — changes saved locally'
 	);
@@ -162,17 +162,17 @@
 		class="fixed top-3 right-3 z-50 flex items-center gap-1.5 px-2 py-1 rounded-full
 			bg-white/80 backdrop-blur-sm shadow-sm border border-gray-200/60 text-xs
 			transition-opacity duration-300"
-		class:text-gray-500={wsStore.connected && !wsStore.syncing}
-		class:text-amber-600={!wsStore.connected || wsStore.syncing}
+		class:text-gray-500={$ws.connected && !$ws.syncing}
+		class:text-amber-600={!$ws.connected || $ws.syncing}
 		title={statusTitle}
 	>
 		<span
 			class="w-2 h-2 rounded-full transition-colors duration-300"
-			class:bg-emerald-500={wsStore.connected && !wsStore.syncing && offlineQueue.pendingCount === 0}
-			class:bg-amber-400={wsStore.connected && !wsStore.syncing && offlineQueue.pendingCount > 0}
-			class:bg-amber-500={wsStore.syncing}
-			class:bg-red-400={!wsStore.connected && !wsStore.syncing}
-			class:animate-pulse={!wsStore.connected || wsStore.syncing}
+			class:bg-emerald-500={$ws.connected && !$ws.syncing && $oq.pendingCount === 0}
+			class:bg-amber-400={$ws.connected && !$ws.syncing && $oq.pendingCount > 0}
+			class:bg-amber-500={$ws.syncing}
+			class:bg-red-400={!$ws.connected && !$ws.syncing}
+			class:animate-pulse={!$ws.connected || $ws.syncing}
 		></span>
 		{#if statusLabel}
 			<span>{statusLabel}</span>

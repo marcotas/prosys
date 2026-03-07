@@ -72,14 +72,14 @@ export default defineConfig(({ command }) => ({
 	plugins: isTest ? [] : [prosysWs(), tailwindcss(), sveltekit()],
 
 	test: {
-		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts'],
+		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts', 'src/lib/infra/**/*.test.ts', 'src/lib/controllers/**/*.test.ts'],
 		alias: {
 			'$lib': resolve(__dirname, 'src/lib')
 		},
 		coverage: {
 			provider: 'istanbul',
-			include: ['src/lib/domain/**/*.ts'],
-			exclude: ['**/*.test.ts', '**/*.d.ts'],
+			include: ['src/lib/domain/**/*.ts', 'src/lib/infra/**/*.ts', 'src/lib/controllers/**/*.ts'],
+			exclude: ['**/*.test.ts', '**/*.d.ts', 'src/lib/infra/index.ts', 'src/lib/controllers/index.ts'],
 			reporter: ['text', 'html', 'json'],
 			thresholds: {
 				'src/lib/domain/**/*.ts': {
@@ -87,6 +87,18 @@ export default defineConfig(({ command }) => ({
 					branches: 100,
 					functions: 100,
 					lines: 100
+				},
+				'src/lib/infra/**/*.ts': {
+					statements: 95,
+					branches: 90,
+					functions: 90,
+					lines: 100
+				},
+				'src/lib/controllers/**/*.ts': {
+					statements: 95,
+					branches: 85,
+					functions: 100,
+					lines: 95
 				}
 			}
 		}

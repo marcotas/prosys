@@ -1,6 +1,5 @@
 import type { Member, ThemeConfig } from '$lib/types';
-import { wsHeaders } from './ws.svelte';
-import { offlineQueue, isNetworkError } from './offline-queue.svelte';
+import { wsHeaders, offlineQueue, isNetworkError } from '$lib/infra';
 import { ApiError, throwApiError } from '$lib/utils/api-error';
 import { notifyError } from '$lib/utils/notify';
 
