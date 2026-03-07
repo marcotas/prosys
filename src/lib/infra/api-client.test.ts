@@ -139,6 +139,15 @@ describe('ApiClient', () => {
 		await expect(client.get('/api/tasks')).rejects.toThrow('Request failed (500)');
 	});
 
+	it('getHeaders() returns X-WS-Client-Id when clientId is set', () => {
+		expect(client.getHeaders()).toEqual({ 'X-WS-Client-Id': 'test-client-id' });
+	});
+
+	it('getHeaders() returns empty object when clientId is not set', () => {
+		const noIdClient = new ApiClient();
+		expect(noIdClient.getHeaders()).toEqual({});
+	});
+
 	it('post() without body omits body from request', async () => {
 		mockFetch({ ok: true, json: {} });
 
