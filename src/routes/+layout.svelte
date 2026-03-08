@@ -23,8 +23,12 @@
 	const ws = useNotifier(wsClient);
 	const oq = useNotifier(offlineQueue);
 
+	// ── Hydration signal for e2e tests ───────────────────
+	let hydrated = $state(false);
+
 	// ── WebSocket lifecycle ──────────────────────────────
 	onMount(() => {
+		hydrated = true;
 		offlineQueue.init();
 		wsClient.connect();
 
@@ -129,7 +133,7 @@
 
 <Toaster position="top-center" richColors closeButton />
 
-<div class="min-h-screen bg-gray-50">
+<div class="min-h-screen bg-gray-50" data-hydrated={hydrated || undefined}>
 	{@render children()}
 </div>
 
