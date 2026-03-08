@@ -11,5 +11,8 @@ export default async function globalSetup() {
 	// Use 'load' instead of 'networkidle' — SvelteKit's HMR WebSocket keeps
 	// the connection alive, so networkidle never resolves in dev mode.
 	await page.goto('http://localhost:5173/', { timeout: 120_000, waitUntil: 'load' });
+	// Wait for Svelte hydration so Vite compiles both SSR and client bundles.
+	// Without this, the first test hits a cold client compilation and times out.
+	await page.locator('[data-hydrated]').waitFor({ timeout: 120_000 });
 	await browser.close();
 }
