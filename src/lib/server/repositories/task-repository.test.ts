@@ -40,6 +40,8 @@ function createTestDb() {
 			emoji TEXT,
 			completed INTEGER NOT NULL DEFAULT 0,
 			sort_order INTEGER NOT NULL DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'active',
+			cancelled_at TEXT,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
@@ -105,6 +107,8 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		title: 'New task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active',
+		cancelledAt: null,
 		...overrides
 	};
 }
@@ -337,7 +341,9 @@ describe('TaskRepository', () => {
 				title: 'Updated title',
 				emoji: '🎉',
 				completed: true,
-				sortOrder: 5
+				sortOrder: 5,
+				status: 'active',
+				cancelledAt: null
 			};
 
 			repo.update(updatedData);

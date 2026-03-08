@@ -1,5 +1,10 @@
 <script lang="ts">
 	import { Popover } from 'bits-ui';
+	import CaretDown from 'phosphor-svelte/lib/CaretDown.svelte';
+	import Check from 'phosphor-svelte/lib/Check.svelte';
+	import House from 'phosphor-svelte/lib/House.svelte';
+	import PencilSimple from 'phosphor-svelte/lib/PencilSimple.svelte';
+	import Plus from 'phosphor-svelte/lib/Plus.svelte';
 	import type { Member } from '$lib/types';
 
 	const { members, selectedId, onSelect, onAdd, onEdit } = $props<{
@@ -55,10 +60,7 @@
 					style="background-color: #6366f1"
 					aria-hidden="true"
 				>
-					<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-						<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" />
-						<polyline points="9 22 9 12 15 12 15 22" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<House size="14" weight="bold" color="currentColor" />
 				</span>
 				<span class="hidden sm:inline">Family</span>
 			</a>
@@ -101,9 +103,7 @@
 					<span class="font-medium text-gray-500">Members</span>
 				{/if}
 				<!-- Chevron down icon -->
-				<svg class="w-3.5 h-3.5 shrink-0 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-					<path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-				</svg>
+				<CaretDown class="w-3.5 h-3.5 shrink-0 text-gray-400" weight="bold" color="currentColor" aria-hidden="true" />
 			</Popover.Trigger>
 			<Popover.Portal>
 				<Popover.Content
@@ -135,9 +135,9 @@
 							</span>
 							<span class="truncate">{member.name}</span>
 							{#if isSelected}
-								<svg class="w-3.5 h-3.5 ml-auto text-green-500 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-									<path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-								</svg>
+								<span class="ml-auto text-green-500 shrink-0" aria-hidden="true">
+									<Check size="14" weight="bold" color="currentColor" />
+								</span>
 							{/if}
 						</button>
 					{/each}
@@ -148,10 +148,8 @@
 							onclick={() => { onAdd(); open = false; }}
 							class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-400 hover:bg-gray-50 transition-colors"
 						>
-							<span class="w-7 h-7 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0">
-								<svg class="w-3 h-3 text-gray-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-									<path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round" />
-								</svg>
+							<span class="w-7 h-7 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0" aria-hidden="true">
+								<Plus size="12" color="currentColor" />
 							</span>
 							<span>Add Profile</span>
 						</button>
@@ -189,10 +187,7 @@
 					style="background-color: #6366f1"
 					aria-hidden="true"
 				>
-					<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-						<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke-linecap="round" stroke-linejoin="round" />
-						<polyline points="9 22 9 12 15 12 15 22" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<House size="14" weight="bold" color="currentColor" />
 				</span>
 				<span class="hidden sm:inline">Family</span>
 			</a>
@@ -242,10 +237,7 @@
 						hover:bg-gray-700 shadow-sm focus-visible:opacity-100
 						focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-500"
 				>
-					<svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-						<path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" stroke-linecap="round" stroke-linejoin="round" />
-						<path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<PencilSimple size="10" weight="bold" color="currentColor" aria-hidden="true" />
 				</button>
 			</div>
 		{/each}
@@ -259,9 +251,7 @@
 				border-2 border-dashed border-gray-200 hover:border-gray-300
 				focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-gray-400"
 		>
-			<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-				<path d="M12 5v14M5 12h14" stroke-linecap="round" stroke-linejoin="round" />
-			</svg>
+			<Plus size="20" color="currentColor" aria-hidden="true" />
 			<span class="hidden sm:inline">Add</span>
 		</button>
 	</nav>

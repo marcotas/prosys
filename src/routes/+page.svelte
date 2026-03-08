@@ -196,7 +196,7 @@
 		});
 	}
 	function deleteTask(_dayIndex: number, taskId: string) {
-		taskController.delete(taskId);
+		taskController.deleteOrCancel(taskId);
 	}
 	function updateTask(
 		_dayIndex: number,
@@ -442,6 +442,7 @@
 							{day}
 							{dayIndex}
 							{isToday}
+							isPast={!isToday && day.isoDate < todayISO}
 							theme={currentMember.theme}
 							onToggleTask={(taskId) => toggleTask(dayIndex, taskId)}
 							onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}

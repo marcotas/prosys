@@ -1,4 +1,7 @@
 <script lang="ts">
+	import CaretDown from 'phosphor-svelte/lib/CaretDown.svelte';
+	import Check from 'phosphor-svelte/lib/Check.svelte';
+	import Trash from 'phosphor-svelte/lib/Trash.svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import {
@@ -151,20 +154,12 @@
 					{habits.length} habits
 				</span>
 			{/if}
-			<svg
-				class="w-4 h-4 transition-transform duration-200 {collapsed
-					? '-rotate-90'
-					: ''}"
-				viewBox="0 0 20 20"
-				fill="currentColor"
+			<span
+				class="transition-transform duration-200 {collapsed ? '-rotate-90' : ''}"
 				aria-hidden="true"
 			>
-				<path
-					fill-rule="evenodd"
-					d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-					clip-rule="evenodd"
-				/>
-			</svg>
+				<CaretDown size="16" weight="bold" color="currentColor" />
+			</span>
 		</div>
 	</button>
 
@@ -250,20 +245,7 @@
 											class="absolute inset-y-0 right-0 flex items-center justify-center text-white cursor-pointer"
 											style="width: {DELETE_ZONE}px; background-color: #ef4444"
 										>
-											<svg
-												class="w-4 h-4"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="2"
-												aria-hidden="true"
-											>
-												<path
-													d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-													stroke-linecap="round"
-													stroke-linejoin="round"
-												/>
-											</svg>
+											<Trash size="16" weight="bold" color="currentColor" aria-hidden="true" />
 										</button>
 									{/if}
 
@@ -365,20 +347,7 @@
 													>⭐</span
 													>
 												{:else}
-													<svg
-														class="w-3 h-3"
-														viewBox="0 0 12 12"
-														fill="none"
-														aria-hidden="true"
-													>
-														<path
-															d="M2.5 6L5 8.5L9.5 3.5"
-															stroke="currentColor"
-															stroke-width="2"
-															stroke-linecap="round"
-															stroke-linejoin="round"
-														/>
-													</svg>
+													<Check size="12" weight="bold" color="currentColor" aria-hidden="true" />
 												{/if}
 											{/if}
 										</button>

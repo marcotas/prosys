@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember } from './helpers';
+import { cleanData, createMember, waitForHydration } from './helpers';
 
 test.describe('Week navigation', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.goto('/');
+		await waitForHydration(page);
 		await createMember(page, 'Alice');
 	});
 

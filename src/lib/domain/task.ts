@@ -1,5 +1,5 @@
 import { ID } from './id';
-import type { TaskData, CreateTaskInput } from './types';
+import type { TaskData, TaskStatus, CreateTaskInput } from './types';
 import { isoToDate } from '$lib/utils/dates';
 
 export class Task {
@@ -30,12 +30,18 @@ export class Task {
 			title: input.title.trim(),
 			emoji: input.emoji,
 			completed: false,
-			sortOrder: 0
+			sortOrder: 0,
+			status: 'active',
+			cancelledAt: null
 		});
 	}
 
 	static fromData(data: TaskData): Task {
-		return new Task({ ...data });
+		return new Task({
+			...data,
+			status: data.status ?? 'active',
+			cancelledAt: data.cancelledAt ?? null
+		});
 	}
 
 	// ── Getters ──────────────────────────────────────────
@@ -67,6 +73,22 @@ export class Task {
 	}
 	get sortOrder(): number {
 		return this.data.sortOrder;
+	}
+	get status(): TaskStatus {
+		return this.data.status;
+	}
+	get isCancelled(): boolean {
+		return this.data.status === 'cancelled';
+	}
+	get cancelledAt(): string | null {
+		return this.data.cancelledAt;
+	}
+	get isPast(): boolean {
+		const taskDate = isoToDate(this.data.weekStart);
+		taskDate.setDate(taskDate.getDate() + this.data.dayIndex);
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		return taskDate.getTime() < today.getTime();
 	}
 
 	// ── Mutations ────────────────────────────────────────
@@ -105,6 +127,11 @@ export class Task {
 
 	assignTo(memberId: string | null): void {
 		this.data.memberId = memberId;
+	}
+
+	cancel(): void {
+		this.data.status = 'cancelled';
+		this.data.cancelledAt = new Date().toISOString();
 	}
 
 	// ── Query ────────────────────────────────────────────

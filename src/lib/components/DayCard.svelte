@@ -1,4 +1,9 @@
 <script lang="ts">
+	import ArrowRight from 'phosphor-svelte/lib/ArrowRight.svelte';
+	import Check from 'phosphor-svelte/lib/Check.svelte';
+	import Prohibit from 'phosphor-svelte/lib/Prohibit.svelte';
+	import Trash from 'phosphor-svelte/lib/Trash.svelte';
+	import XCircle from 'phosphor-svelte/lib/XCircle.svelte';
 	import { flip } from 'svelte/animate';
 	import {
 		dragHandleZone,
@@ -17,6 +22,7 @@
 		dayIndex,
 		theme,
 		isToday = false,
+		isPast = false,
 		onToggleTask,
 		onAddTask,
 		onDeleteTask,
@@ -29,6 +35,7 @@
 		dayIndex: number;
 		theme: ThemeConfig;
 		isToday?: boolean;
+		isPast?: boolean;
 		onToggleTask: (taskId: string) => void;
 		onAddTask: (title: string, emoji?: string) => void;
 		onDeleteTask: (taskId: string) => void;
@@ -49,11 +56,13 @@
 		) => void;
 	} = $props();
 
+	// Exclude cancelled tasks from progress calculation
+	const activeTasks = $derived(day.tasks.filter((t) => t.status !== 'cancelled'));
 	const percent = $derived(
-		day.tasks.length === 0
+		activeTasks.length === 0
 			? 0
 			: Math.round(
-				(day.tasks.filter((t) => t.completed).length / day.tasks.length) *
+				(activeTasks.filter((t) => t.completed).length / activeTasks.length) *
 				100
 			)
 	);
@@ -201,7 +210,7 @@
 				class="text-[11px] font-bold px-2 py-0.5 rounded-full"
 				style="background-color: rgba(255,255,255,0.2)"
 			>
-				{day.tasks.filter((t) => t.completed).length}/{day.tasks.length}
+				{activeTasks.filter((t) => t.completed).length}/{activeTasks.length}
 			</span>
 		{/if}
 	</div>
@@ -252,10 +261,11 @@
 			role="list"
 		>
 			{#each dndItems as task (task.id)}
-				{@const offset = swipe.getSwipeOffset(task.id)}
+				{@const taskCancelled = task.status === 'cancelled'}
+				{@const offset = taskCancelled ? 0 : swipe.getSwipeOffset(task.id)}
 				{@const isSwiping =
-					swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
-				{@const isRevealed = offset < 0 || swipe.swipedOpenId === task.id}
+					!taskCancelled && swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
+				{@const isRevealed = !taskCancelled && (offset < 0 || swipe.swipedOpenId === task.id)}
 				{@const isShadow = (task as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				<div
 					animate:flip={{ duration: FLIP_DURATION }}
@@ -267,8 +277,10 @@
 					<TaskContextMenu
 						onReschedule={() => openReschedule(task)}
 						onDelete={() => onDeleteTask(task.id)}
+						{isPast}
+						isCancelled={taskCancelled}
 					>
-						<!-- Swipe-reveal zone: Move + Delete -->
+						<!-- Swipe-reveal zone: Move + Delete/Cancel -->
 						{#if isRevealed}
 							<div
 								class="absolute inset-y-0 right-0 flex"
@@ -280,41 +292,19 @@
 									class="flex-1 flex items-center justify-center text-white cursor-pointer"
 									style="background-color: {theme.accent}"
 								>
-									<svg
-										class="w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										aria-hidden="true"
-									>
-										<path
-											d="M5 12h14M12 5l7 7-7 7"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
+									<ArrowRight size="16" weight="bold" aria-hidden="true" />
 								</button>
 								<button
 									onclick={() => handleDeleteSwiped(task.id)}
-									aria-label="Delete task: {task.title}"
+									aria-label="{isPast ? 'Cancel' : 'Delete'} task: {task.title}"
 									class="flex-1 flex items-center justify-center text-white cursor-pointer"
-									style="background-color: #ef4444"
+									style="background-color: {isPast ? '#9ca3af' : '#ef4444'}"
 								>
-									<svg
-										class="w-4 h-4"
-										viewBox="0 0 24 24"
-										fill="none"
-										stroke="currentColor"
-										stroke-width="2"
-										aria-hidden="true"
-									>
-										<path
-											d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
+									{#if isPast}
+										<Prohibit size="16" weight="bold" aria-hidden="true" />
+									{:else}
+										<Trash size="16" weight="bold" aria-hidden="true" />
+									{/if}
 								</button>
 							</div>
 						{/if}
@@ -325,85 +315,92 @@
 							class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none touch-pan-y
 								{isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
 							style="transform: translateX({offset}px)"
-							ontouchstart={(e) => swipe.onTouchStart(e, task.id)}
+							ontouchstart={taskCancelled ? undefined : (e) => swipe.onTouchStart(e, task.id)}
 						>
-							<!-- Drag handle -->
-							<div class="mt-[4px]"><DragHandle {theme} /></div>
+							<!-- Drag handle (hidden for cancelled tasks) -->
+							{#if !taskCancelled}
+								<div class="mt-0.5"><DragHandle {theme} /></div>
+							{:else}
+								<div class="w-5 shrink-0"></div>
+							{/if}
 
-							<!-- Checkbox -->
-							<button
-								onclick={() => onToggleTask(task.id)}
-								role="checkbox"
-								aria-checked={task.completed}
-								aria-label="Mark {task.title} as {task.completed
-									? 'incomplete'
-									: 'complete'}"
-								class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center
-									transition-all duration-150 mr-2.5
-									{task.completed ? '' : 'border-2 hover:border-opacity-80'}"
-								style={task.completed
-									? `background-color: ${theme.checkColor}`
-									: `border-color: ${playful ? `${theme.accent}50` : '#d1d5db'}`}
-							>
-								{#if task.completed}
-									<svg
-										class="w-2.5 h-2.5 text-white"
-										viewBox="0 0 12 12"
-										fill="none"
-									>
-										<path
-											d="M2.5 6L5 8.5L9.5 3.5"
-											stroke="currentColor"
-											stroke-width="2"
-											stroke-linecap="round"
-											stroke-linejoin="round"
-										/>
-									</svg>
-								{/if}
-							</button>
+							<!-- Checkbox / Cancel icon -->
+							{#if taskCancelled}
+								<span
+									class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center mr-2.5"
+									aria-label="Cancelled"
+								>
+									<XCircle size="16" weight="regular" color="#d1d5db" aria-hidden="true" />
+								</span>
+							{:else}
+								<button
+									onclick={() => onToggleTask(task.id)}
+									role="checkbox"
+									aria-checked={task.completed}
+									aria-label="Mark {task.title} as {task.completed
+										? 'incomplete'
+										: 'complete'}"
+									class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center
+										transition-all duration-150 mr-2.5
+										{task.completed ? '' : 'border-2 hover:border-opacity-80'}"
+									style={task.completed
+										? `background-color: ${theme.checkColor}`
+										: `border-color: ${playful ? `${theme.accent}50` : '#d1d5db'}`}
+								>
+									{#if task.completed}
+										<Check size="10" weight="bold" color="white" aria-hidden="true" />
+									{/if}
+								</button>
+							{/if}
 
-							<!-- Task title (contenteditable for wrapping + inline edit) -->
-							{#if task.emoji}<span class="mr-0.5 select-none" aria-hidden="true"
+							<!-- Task title -->
+							{#if task.emoji}<span class="mr-0.5 select-none {taskCancelled ? 'opacity-40' : ''}" aria-hidden="true"
 							>{task.emoji}</span
 							>{/if}
-							<span
-								contenteditable="true"
-								role="textbox"
-								tabindex="0"
-								aria-label="Task: {task.title}"
-								onfocus={() => startEdit(task.id, task.title)}
-								onblur={(e) => {
-									const val =
-										(e.currentTarget as HTMLElement).textContent?.trim() ?? '';
-									commitEditFromContentEditable(
-										task.id,
-										task.title,
-										val,
-										e.currentTarget as HTMLElement
-									);
-								}}
-								onkeydown={(e) => {
-									if (e.key === 'Enter') {
+							{#if taskCancelled}
+								<span
+									class="flex-1 min-w-0 text-base leading-normal opacity-40 line-through text-gray-400 decoration-gray-300 wrap-anywhere"
+								>{task.title}</span>
+							{:else}
+								<span
+									contenteditable="true"
+									role="textbox"
+									tabindex="0"
+									aria-label="Task: {task.title}"
+									onfocus={() => startEdit(task.id, task.title)}
+									onblur={(e) => {
+										const val =
+											(e.currentTarget as HTMLElement).textContent?.trim() ?? '';
+										commitEditFromContentEditable(
+											task.id,
+											task.title,
+											val,
+											e.currentTarget as HTMLElement
+										);
+									}}
+									onkeydown={(e) => {
+										if (e.key === 'Enter') {
+											e.preventDefault();
+											(e.currentTarget as HTMLElement).blur();
+										}
+										if (e.key === 'Escape') {
+											e.preventDefault();
+											(e.currentTarget as HTMLElement).textContent = task.title;
+											_editingTaskId = null;
+											(e.currentTarget as HTMLElement).blur();
+										}
+									}}
+									onpaste={(e) => {
 										e.preventDefault();
-										(e.currentTarget as HTMLElement).blur();
-									}
-									if (e.key === 'Escape') {
-										e.preventDefault();
-										(e.currentTarget as HTMLElement).textContent = task.title;
-										_editingTaskId = null;
-										(e.currentTarget as HTMLElement).blur();
-									}
-								}}
-								onpaste={(e) => {
-									e.preventDefault();
-									const text = e.clipboardData?.getData('text/plain') ?? '';
-									document.execCommand('insertText', false, text);
-								}}
-								class="flex-1 min-w-0 text-base leading-normal outline-none cursor-text wrap-anywhere
-									{task.completed
-										? 'line-through text-gray-400 decoration-gray-300'
-										: 'text-gray-700'}">{task.title}</span
-							>
+										const text = e.clipboardData?.getData('text/plain') ?? '';
+										document.execCommand('insertText', false, text);
+									}}
+									class="flex-1 min-w-0 text-base leading-normal outline-none cursor-text wrap-anywhere
+										{task.completed
+											? 'line-through text-gray-400 decoration-gray-300'
+											: 'text-gray-700'}">{task.title}</span
+								>
+							{/if}
 						</div>
 					</TaskContextMenu>
 				</div>

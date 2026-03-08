@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Download, Export, X } from 'phosphor-svelte';
 	import { onMount } from 'svelte';
 	import { browser } from '$app/environment';
 
@@ -38,12 +39,8 @@
 				px-4 py-3 flex items-start gap-3"
 		>
 			<!-- Icon -->
-			<div class="shrink-0 w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center" aria-hidden="true">
-				<svg class="w-5 h-5 text-green-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-					<polyline points="16 6 12 2 8 6" />
-					<line x1="12" y1="2" x2="12" y2="15" />
-				</svg>
+			<div class="shrink-0 w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center text-green-600" aria-hidden="true">
+				<Download size="20" weight="bold" color="currentColor" />
 			</div>
 
 			<!-- Text -->
@@ -51,11 +48,9 @@
 				<p class="text-sm font-semibold text-gray-900">Install ProSys</p>
 				<p class="text-xs text-gray-500 mt-0.5 leading-relaxed">
 					Tap <strong>Share</strong>
-					<svg class="inline w-3 h-3 text-gray-400 mx-0.5 -mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" />
-						<polyline points="16 6 12 2 8 6" />
-						<line x1="12" y1="2" x2="12" y2="15" />
-					</svg>
+					<span class="inline-flex items-center align-middle mx-0.5 -mt-0.5 text-gray-400" aria-hidden="true">
+						<Export size="12" weight="bold" color="currentColor" />
+					</span>
 					then <strong>"Add to Home Screen"</strong>
 				</p>
 			</div>
@@ -66,9 +61,7 @@
 				class="shrink-0 p-1 -mt-0.5 -mr-1 text-gray-400 hover:text-gray-600 transition-colors"
 				aria-label="Dismiss"
 			>
-				<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-					<path d="M18 6L6 18" /><path d="M6 6l12 12" />
-				</svg>
+				<X size="16" weight="bold" color="currentColor" />
 			</button>
 		</div>
 	</div>

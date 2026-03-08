@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Popover, Dialog } from 'bits-ui';
+	import { Check, X } from 'phosphor-svelte';
 	import { fly, fade } from 'svelte/transition';
 	import MemberBadge from './MemberBadge.svelte';
 	import type { Member } from '$lib/types';
@@ -36,16 +37,14 @@
 </script>
 
 {#snippet checkIcon(size: 'sm' | 'md')}
-	<svg class="{size === 'md' ? 'w-4 h-4' : 'w-3.5 h-3.5'} ml-auto text-green-500 shrink-0" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-		<path d="M2.5 6L5 8.5L9.5 3.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-	</svg>
+	<span class="{size === 'md' ? 'w-4 h-4' : 'w-3.5 h-3.5'} ml-auto text-green-500 shrink-0 flex items-center justify-center" aria-hidden="true">
+		<Check size={size === 'md' ? '16' : '14'} weight="bold" color="currentColor" />
+	</span>
 {/snippet}
 
-{#snippet _unassignIcon(size: number)}
-	<span class="w-{size} h-{size} rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0">
-		<svg class="w-{size - 2} h-{size - 2} text-gray-300" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-			<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-		</svg>
+{#snippet unassignIcon(containerSize: string, iconSize: string)}
+	<span class="{containerSize} rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0 text-gray-300">
+		<X size={iconSize} weight="bold" color="currentColor" aria-hidden="true" />
 	</span>
 {/snippet}
 
@@ -106,11 +105,7 @@
 											onclick={() => select(null)}
 											class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-base text-gray-400 active:bg-gray-100 transition-colors"
 										>
-											<span class="w-7 h-7 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0">
-												<svg class="w-3 h-3 text-gray-300" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-													<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-												</svg>
-											</span>
+											{@render unassignIcon('w-7 h-7', '12')}
 											<span>Unassign</span>
 										</button>
 									</div>
@@ -160,11 +155,7 @@
 							onclick={() => select(null)}
 							class="w-full flex items-center gap-2.5 px-3 py-1.5 text-sm text-gray-400 hover:bg-gray-50 transition-colors"
 						>
-							<span class="w-5 h-5 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center shrink-0">
-								<svg class="w-2.5 h-2.5 text-gray-300" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-									<path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-								</svg>
-							</span>
+							{@render unassignIcon('w-5 h-5', '10')}
 							<span>Unassign</span>
 						</button>
 					</div>

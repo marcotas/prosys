@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
+	import CaretLeft from 'phosphor-svelte/lib/CaretLeft.svelte';
+	import CaretRight from 'phosphor-svelte/lib/CaretRight.svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import type { Task } from '$lib/types';
 	import {
@@ -97,9 +99,7 @@
 			class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-500"
 			aria-label="Previous month"
 		>
-			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-				<path d="M15 18l-6-6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-			</svg>
+			<CaretLeft class="w-4 h-4" weight="bold" color="currentColor" aria-hidden="true" />
 		</button>
 		<span class="text-sm font-semibold text-gray-800">{label}</span>
 		<button
@@ -107,15 +107,13 @@
 			class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-gray-100 transition-colors text-gray-500"
 			aria-label="Next month"
 		>
-			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-				<path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round" />
-			</svg>
+			<CaretRight class="w-4 h-4" weight="bold" color="currentColor" aria-hidden="true" />
 		</button>
 	</div>
 
 	<!-- Day-of-week header -->
 	<div class="grid grid-cols-7 px-3">
-		{#each DAY_HEADERS as d (d)}
+		{#each DAY_HEADERS as d, i (i)}
 			<div class="text-center text-[11px] font-medium text-gray-400 py-1">{d}</div>
 		{/each}
 	</div>

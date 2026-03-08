@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { ArrowClockwise, X } from 'phosphor-svelte';
+
 	interface Props {
 		message: string;
 		detail?: string;
@@ -19,13 +21,8 @@
 			px-4 py-3 flex items-start gap-3"
 	>
 		<!-- Icon -->
-		<div class="shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center" aria-hidden="true">
-			<svg class="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M21 2v6h-6" />
-				<path d="M3 12a9 9 0 0115.36-6.36L21 8" />
-				<path d="M3 22v-6h6" />
-				<path d="M21 12a9 9 0 01-15.36 6.36L3 16" />
-			</svg>
+		<div class="shrink-0 w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600" aria-hidden="true">
+			<ArrowClockwise size="20" weight="bold" color="currentColor" />
 		</div>
 
 		<!-- Text -->
@@ -48,9 +45,7 @@
 			class="shrink-0 p-1 -mt-0.5 -mr-1 text-gray-400 hover:text-gray-600 transition-colors"
 			aria-label="Dismiss"
 		>
-			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M18 6L6 18" /><path d="M6 6l12 12" />
-			</svg>
+			<X size="16" weight="bold" color="currentColor" />
 		</button>
 	</div>
 </div>

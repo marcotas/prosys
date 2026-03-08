@@ -1,6 +1,15 @@
 import type { Page } from '@playwright/test';
 
 /**
+ * Wait for SvelteKit hydration to complete.
+ * The layout sets data-hydrated on the root div in onMount,
+ * which only fires after Svelte has hydrated the SSR markup.
+ */
+export async function waitForHydration(page: Page) {
+	await page.locator('[data-hydrated]').waitFor({ timeout: 30_000 });
+}
+
+/**
  * Delete all members via API (cascades to tasks/habits), then reload.
  */
 export async function cleanData(page: Page) {
@@ -15,25 +24,17 @@ export async function cleanData(page: Page) {
 
 /**
  * Create a member via the UI. Works from both the welcome screen
- * and the main dashboard.
+ * and the main dashboard. Callers must await waitForHydration() first.
  */
 export async function createMember(page: Page, name: string) {
 	// Use .or() to avoid TOCTOU race between welcome screen and dashboard
 	const trigger = page.getByRole('button', { name: 'Create First Profile' })
 		.or(page.getByLabel('Add family member'));
 
-	const dialog = page.getByRole('dialog', { name: 'New Profile' });
+	await trigger.click();
 
-	// Retry click if dialog doesn't appear (SSR hydration race on CI)
-	for (let attempt = 0; attempt < 3; attempt++) {
-		await trigger.click();
-		try {
-			await dialog.waitFor({ timeout: 5_000 });
-			break;
-		} catch {
-			if (attempt === 2) throw new Error('Dialog did not appear after 3 click attempts');
-		}
-	}
+	const dialog = page.getByRole('dialog', { name: 'New Profile' });
+	await dialog.waitFor();
 	await dialog.locator('#profile-name').fill(name);
 	await dialog.getByRole('button', { name: 'Create Profile' }).click();
 	await dialog.waitFor({ state: 'hidden' });

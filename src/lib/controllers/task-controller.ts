@@ -29,6 +29,7 @@ export class TaskController extends ChangeNotifier {
 		super();
 		ws.onMessage('task:created', (p: TaskData) => this.applyRemoteCreate(p));
 		ws.onMessage('task:updated', (p: TaskData) => this.applyRemoteUpdate(p));
+		ws.onMessage('task:cancelled', (p: TaskData) => this.applyRemoteUpdate(p));
 		ws.onMessage('task:deleted', (p: { id: string; memberId: string | null; weekStart: string }) =>
 			this.applyRemoteDelete(p)
 		);
@@ -148,7 +149,9 @@ export class TaskController extends ChangeNotifier {
 			title: input.title,
 			emoji: input.emoji,
 			completed: false,
-			sortOrder
+			sortOrder,
+			status: 'active' as const,
+			cancelledAt: null
 		});
 
 		return optimisticAction<TaskData>(
@@ -228,6 +231,37 @@ export class TaskController extends ChangeNotifier {
 				offlinePayload: { method: 'DELETE', url: `/api/tasks/${id}`, headers: this.api.getHeaders() }
 			}
 		);
+	}
+
+	async cancel(id: string): Promise<void> {
+		const task = this.tasks.findById(id);
+		if (!task) return;
+
+		await optimisticAction<TaskData>(
+			this.tasks,
+			this.offlineQueue,
+			() => this.notifyChanges(),
+			{
+				apply: () => {
+					for (const t of this.tasks.findAllById(id)) {
+						t.cancel();
+					}
+				},
+				request: () => this.api.post<TaskData>(`/api/tasks/${id}/cancel`),
+				onSuccess: (data) => this.replaceTask(id, data),
+				offlinePayload: { method: 'POST', url: `/api/tasks/${id}/cancel`, headers: this.api.getHeaders() }
+			}
+		);
+	}
+
+	async deleteOrCancel(id: string): Promise<void> {
+		const task = this.tasks.findById(id);
+		if (!task) return;
+
+		if (task.isPast) {
+			return this.cancel(id);
+		}
+		return this.delete(id);
 	}
 
 	async reorder(

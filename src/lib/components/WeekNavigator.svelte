@@ -1,4 +1,6 @@
 <script lang="ts">
+	import CaretLeft from 'phosphor-svelte/lib/CaretLeft.svelte';
+	import CaretRight from 'phosphor-svelte/lib/CaretRight.svelte';
 	import type { ThemeConfig } from '$lib/types';
 	import { formatWeekRange } from '$lib/utils/dates';
 
@@ -27,9 +29,7 @@
 		style={playful ? `color: ${theme.accentDark}` : 'color: #6b7280'}
 		aria-label="Previous week"
 	>
-		<svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-			<path fill-rule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L9.832 10l2.938 3.71a.75.75 0 11-1.04 1.08l-3.5-4.25a.75.75 0 010-1.08l3.5-4.25a.75.75 0 011.06-.02z" clip-rule="evenodd" />
-		</svg>
+		<CaretLeft class="w-5 h-5" weight="bold" color="currentColor" aria-hidden="true" />
 	</button>
 
 	<!-- Week label + Today button -->
@@ -62,8 +62,6 @@
 		style={playful ? `color: ${theme.accentDark}` : 'color: #6b7280'}
 		aria-label="Next week"
 	>
-		<svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-			<path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L10.168 10 7.23 6.29a.75.75 0 111.04-1.08l3.5 4.25a.75.75 0 010 1.08l-3.5 4.25a.75.75 0 01-1.06.02z" clip-rule="evenodd" />
-		</svg>
+		<CaretRight class="w-5 h-5" weight="bold" color="currentColor" aria-hidden="true" />
 	</button>
 </nav>

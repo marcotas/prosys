@@ -30,6 +30,8 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active',
+		cancelledAt: null,
 		...overrides
 	};
 }

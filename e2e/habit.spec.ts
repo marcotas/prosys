@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember, addHabit } from './helpers';
+import { cleanData, createMember, addHabit, waitForHydration } from './helpers';
 
 const dayAbbreviations = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -8,7 +8,8 @@ test.describe('Habit management', () => {
 		// Clear localStorage before any navigation so HabitTracker starts expanded
 		await page.addInitScript(() => localStorage.clear());
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.goto('/');
+		await waitForHydration(page);
 		await createMember(page, 'Alice');
 	});
 

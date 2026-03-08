@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Task } from './task';
 import type { TaskData } from './types';
 
@@ -21,6 +21,8 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active',
+		cancelledAt: null,
 		...overrides
 	};
 }
@@ -40,6 +42,12 @@ describe('Task.create', () => {
 		expect(task.isCompleted).toBe(false);
 		expect(task.completed).toBe(false);
 		expect(task.sortOrder).toBe(0);
+	});
+
+	it('defaults status to active and cancelledAt to null', () => {
+		const task = Task.create(validInput);
+		expect(task.status).toBe('active');
+		expect(task.cancelledAt).toBeNull();
 	});
 
 	it('generates a unique id', () => {
@@ -133,6 +141,17 @@ describe('Task.fromData', () => {
 		data.title = 'Changed externally';
 		expect(task.title).toBe('Test task');
 	});
+
+	it('defaults status to active when undefined (backward compat)', () => {
+		const data = makeTaskData();
+		// Simulate legacy data without status/cancelledAt
+		const legacy = { ...data } as Record<string, unknown>;
+		delete legacy.status;
+		delete legacy.cancelledAt;
+		const task = Task.fromData(legacy as TaskData);
+		expect(task.status).toBe('active');
+		expect(task.cancelledAt).toBeNull();
+	});
 });
 
 // ── Mutations ────────────────────────────────────────────
@@ -222,6 +241,71 @@ describe('Task mutations', () => {
 		const task = Task.fromData(makeTaskData({ memberId: 'member-1' }));
 		task.assignTo(null);
 		expect(task.memberId).toBeNull();
+	});
+
+	it('cancel() sets status to cancelled and sets cancelledAt', () => {
+		const task = Task.fromData(makeTaskData());
+		expect(task.isCancelled).toBe(false);
+
+		task.cancel();
+
+		expect(task.status).toBe('cancelled');
+		expect(task.isCancelled).toBe(true);
+		expect(task.cancelledAt).toBeTruthy();
+	});
+
+	it('isCancelled returns true for cancelled task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' }));
+		expect(task.isCancelled).toBe(true);
+	});
+
+	it('isCancelled returns false for active task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'active' }));
+		expect(task.isCancelled).toBe(false);
+	});
+});
+
+// ── isPast ───────────────────────────────────────────────
+
+describe('Task.isPast', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('returns true for a day before today', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		expect(task.isPast).toBe(true);
+	});
+
+	it('returns true for yesterday', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
+		expect(task.isPast).toBe(true);
+	});
+
+	it('returns false for today', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns false for a future day', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-08', dayIndex: 0 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns false for today at end of day', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 23, 59, 59) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns true for yesterday at midnight', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 0, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
+		expect(task.isPast).toBe(true);
 	});
 });
 
