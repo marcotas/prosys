@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { TaskController } from './task-controller';
 import type { TaskData, CreateTaskInput } from '$lib/domain/types';
 import type { ApiClient } from '$lib/infra/api-client';
@@ -100,6 +100,7 @@ describe('TaskController', () => {
 		it('self-registers WS handlers', () => {
 			expect(ws.onMessage).toHaveBeenCalledWith('task:created', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:updated', expect.any(Function));
+			expect(ws.onMessage).toHaveBeenCalledWith('task:cancelled', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:deleted', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:reordered', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:moved', expect.any(Function));
@@ -677,6 +678,25 @@ describe('TaskController', () => {
 			});
 		});
 
+		it('uses 0 sortOrder when neither member nor family cache exists for same-week move', async () => {
+			// Task only exists in member cache, no family cache loaded, and member cache
+			// doesn't have the target member key (memberId is set but different key)
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
+			// Remove the member cache to simulate no cache for sortOrder lookup
+			ctrl.clearCache();
+			// Re-add only the task via a different path so findById works but cache lookup misses
+			ctrl.hydrateFamilyWeek(WEEK, [taskData({ dayIndex: 0 })]);
+			(api.patch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+			await ctrl.moveToDate('task-1', WEEK, 3);
+
+			// Family cache exists so sortOrder comes from there (0 + 1 = 0 since no tasks at day 3)
+			expect(api.patch).toHaveBeenCalledWith('/api/tasks/task-1', {
+				dayIndex: 3,
+				sortOrder: 0
+			});
+		});
+
 		it('same-week move updates both member and family caches', async () => {
 			const td = taskData({ dayIndex: 0 });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [td]);
@@ -790,6 +810,16 @@ describe('TaskController', () => {
 			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(1);
 		});
 
+		it('task:cancelled WS handler updates task status', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			const cancelled = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(ws as any)._dispatch('task:cancelled', cancelled);
+
+			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(tasks[0].isCancelled).toBe(true);
+		});
+
 		it('applyRemoteDelete removes from caches', () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
@@ -860,6 +890,97 @@ describe('TaskController', () => {
 			});
 
 			expect(ctrl.getFamilyTasksForDay(newWeek, 0)).toHaveLength(1);
+		});
+	});
+
+	describe('cancel()', () => {
+		it('cancels task optimistically and calls cancel API', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
+
+			await ctrl.cancel('task-1');
+
+			expect(api.post).toHaveBeenCalledWith('/api/tasks/task-1/cancel');
+			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(tasks[0].isCancelled).toBe(true);
+		});
+
+		it('cancels in both member and family caches', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
+
+			await ctrl.cancel('task-1');
+
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].isCancelled).toBe(true);
+			expect(ctrl.getFamilyTasksForDay(WEEK, 0)[0].isCancelled).toBe(true);
+		});
+
+		it('does nothing if task not found', async () => {
+			await ctrl.cancel('nonexistent');
+			expect(api.post).not.toHaveBeenCalled();
+		});
+
+		it('enqueues on network error', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(
+				new TypeError('Failed to fetch')
+			);
+
+			await ctrl.cancel('task-1');
+			expect(queue.enqueue).toHaveBeenCalledWith({
+				method: 'POST',
+				url: '/api/tasks/task-1/cancel',
+				headers: { 'X-WS-Client-Id': 'test-id' }
+			});
+		});
+
+		it('rolls back on server error', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server error'));
+
+			await expect(ctrl.cancel('task-1')).rejects.toThrow('Server error');
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].isCancelled).toBe(false);
+		});
+	});
+
+	describe('deleteOrCancel()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('calls cancel for past tasks', async () => {
+			// Freeze to 2026-03-07 so WEEK (2026-03-01) dayIndex 0 is past
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
+
+			await ctrl.deleteOrCancel('task-1');
+
+			expect(api.post).toHaveBeenCalledWith('/api/tasks/task-1/cancel');
+			expect(api.delete).not.toHaveBeenCalled();
+		});
+
+		it('calls delete for future tasks', async () => {
+			// Freeze to 2026-03-07; use a future week so task is not past
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			const futureWeek = '2099-03-02';
+			ctrl.hydrateWeek(MEMBER_ID, futureWeek, [taskData({ weekStart: futureWeek })]);
+			(api.delete as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+			await ctrl.deleteOrCancel('task-1');
+
+			expect(api.delete).toHaveBeenCalledWith('/api/tasks/task-1');
+			expect(api.post).not.toHaveBeenCalled();
+		});
+
+		it('does nothing if task not found', async () => {
+			await ctrl.deleteOrCancel('nonexistent');
+			expect(api.post).not.toHaveBeenCalled();
+			expect(api.delete).not.toHaveBeenCalled();
 		});
 	});
 

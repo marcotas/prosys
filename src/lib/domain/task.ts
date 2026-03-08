@@ -83,6 +83,13 @@ export class Task {
 	get cancelledAt(): string | null {
 		return this.data.cancelledAt;
 	}
+	get isPast(): boolean {
+		const taskDate = isoToDate(this.data.weekStart);
+		taskDate.setDate(taskDate.getDate() + this.data.dayIndex);
+		const now = new Date();
+		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+		return taskDate.getTime() < today.getTime();
+	}
 
 	// ── Mutations ────────────────────────────────────────
 

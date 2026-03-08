@@ -6,7 +6,6 @@ import { ChangeNotifier } from '$lib/domain/change-notifier';
 import { Task } from '$lib/domain/task';
 import { TaskCollection } from '$lib/domain/task-collection';
 import { optimisticAction } from '$lib/infra/optimistic-action';
-import { isTaskPast } from '$lib/utils/dates';
 
 const FAMILY_KEY_PREFIX = '__family__';
 
@@ -259,7 +258,7 @@ export class TaskController extends ChangeNotifier {
 		const task = this.tasks.findById(id);
 		if (!task) return;
 
-		if (isTaskPast(task.weekStart, task.dayIndex)) {
+		if (task.isPast) {
 			return this.cancel(id);
 		}
 		return this.delete(id);

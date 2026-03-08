@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Task } from './task';
 import type { TaskData } from './types';
 
@@ -141,6 +141,17 @@ describe('Task.fromData', () => {
 		data.title = 'Changed externally';
 		expect(task.title).toBe('Test task');
 	});
+
+	it('defaults status to active when undefined (backward compat)', () => {
+		const data = makeTaskData();
+		// Simulate legacy data without status/cancelledAt
+		const legacy = { ...data } as Record<string, unknown>;
+		delete legacy.status;
+		delete legacy.cancelledAt;
+		const task = Task.fromData(legacy as TaskData);
+		expect(task.status).toBe('active');
+		expect(task.cancelledAt).toBeNull();
+	});
 });
 
 // ── Mutations ────────────────────────────────────────────
@@ -251,6 +262,50 @@ describe('Task mutations', () => {
 	it('isCancelled returns false for active task', () => {
 		const task = Task.fromData(makeTaskData({ status: 'active' }));
 		expect(task.isCancelled).toBe(false);
+	});
+});
+
+// ── isPast ───────────────────────────────────────────────
+
+describe('Task.isPast', () => {
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('returns true for a day before today', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		expect(task.isPast).toBe(true);
+	});
+
+	it('returns true for yesterday', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
+		expect(task.isPast).toBe(true);
+	});
+
+	it('returns false for today', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns false for a future day', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-08', dayIndex: 0 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns false for today at end of day', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 23, 59, 59) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
+		expect(task.isPast).toBe(false);
+	});
+
+	it('returns true for yesterday at midnight', () => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 0, 0, 0) });
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
+		expect(task.isPast).toBe(true);
 	});
 });
 

@@ -1,15 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { CancelTask } from './cancel-task';
 import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import { Task } from '$lib/domain/task';
 import { NotFoundError, ValidationError, ConflictError } from '$lib/server/domain/errors';
-import { isTaskPast } from '$lib/utils/dates';
-
-vi.mock('$lib/utils/dates', async () => {
-	const actual = await vi.importActual('$lib/utils/dates');
-	return { ...(actual as Record<string, unknown>), isTaskPast: vi.fn() };
-});
 
 // ── Mock Repository ────────────────────────────────────
 
@@ -32,7 +26,7 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 	return {
 		id: 'task-1',
 		memberId: 'member-1',
-		weekStart: '2026-03-01',
+		weekStart: '2026-03-01', // past Sunday
 		dayIndex: 0,
 		title: 'Test task',
 		completed: false,
@@ -54,9 +48,14 @@ describe('CancelTask', () => {
 	let useCase: CancelTask;
 
 	beforeEach(() => {
+		// Freeze to 2026-03-07 so default task data (2026-03-01 dayIndex 0) is past
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		repo = makeMockRepo();
 		useCase = new CancelTask(repo);
-		vi.mocked(isTaskPast).mockReturnValue(true);
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('cancels a past task and returns updated data', () => {
@@ -79,8 +78,8 @@ describe('CancelTask', () => {
 	});
 
 	it('throws ValidationError when task is not past', () => {
-		vi.mocked(repo.findById).mockReturnValue(makeTask());
-		vi.mocked(isTaskPast).mockReturnValue(false);
+		// Use a future date so isPast returns false
+		vi.mocked(repo.findById).mockReturnValue(makeTask({ weekStart: '2099-03-02', dayIndex: 0 }));
 
 		expect(() => useCase.execute('task-1')).toThrow(ValidationError);
 		expect(() => useCase.execute('task-1')).toThrow('Only past tasks can be cancelled');
@@ -108,8 +107,7 @@ describe('CancelTask', () => {
 	});
 
 	it('does not call update when task is not past', () => {
-		vi.mocked(repo.findById).mockReturnValue(makeTask());
-		vi.mocked(isTaskPast).mockReturnValue(false);
+		vi.mocked(repo.findById).mockReturnValue(makeTask({ weekStart: '2099-03-02', dayIndex: 0 }));
 
 		try {
 			useCase.execute('task-1');

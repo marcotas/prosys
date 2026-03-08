@@ -2,7 +2,6 @@ import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import { NotFoundError, ValidationError, ConflictError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
-import { isTaskPast } from '$lib/utils/dates';
 
 export class CancelTask {
 	constructor(private taskRepo: TaskRepository) {}
@@ -11,7 +10,7 @@ export class CancelTask {
 		const task = this.taskRepo.findById(id);
 		if (!task) throw new NotFoundError('Task', id);
 
-		if (!isTaskPast(task.weekStart, task.dayIndex)) {
+		if (!task.isPast) {
 			throw new ValidationError('Only past tasks can be cancelled');
 		}
 

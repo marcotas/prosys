@@ -1,15 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { DeleteTask } from './delete-task';
 import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import { Task } from '$lib/domain/task';
 import { NotFoundError, ValidationError } from '$lib/server/domain/errors';
-import { isTaskPast } from '$lib/utils/dates';
-
-vi.mock('$lib/utils/dates', async () => {
-	const actual = await vi.importActual('$lib/utils/dates');
-	return { ...(actual as Record<string, unknown>), isTaskPast: vi.fn() };
-});
 
 // ── Mock Repository ────────────────────────────────────
 
@@ -50,9 +44,13 @@ describe('DeleteTask', () => {
 	let useCase: DeleteTask;
 
 	beforeEach(() => {
+		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		repo = makeMockRepo();
 		useCase = new DeleteTask(repo);
-		vi.mocked(isTaskPast).mockReturnValue(false); // default: future task (deletable)
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
 	});
 
 	it('deletes a task and returns its context info', () => {
@@ -99,16 +97,19 @@ describe('DeleteTask', () => {
 	});
 
 	it('throws ValidationError when deleting a past task', () => {
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(makeTaskData()));
-		vi.mocked(isTaskPast).mockReturnValue(true);
+		// Use a past date
+		vi.mocked(repo.findById).mockReturnValue(
+			Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }))
+		);
 
 		expect(() => useCase.execute('task-1')).toThrow(ValidationError);
 		expect(() => useCase.execute('task-1')).toThrow('Cannot delete past tasks; use cancel instead');
 	});
 
 	it('does not call delete for past tasks', () => {
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(makeTaskData()));
-		vi.mocked(isTaskPast).mockReturnValue(true);
+		vi.mocked(repo.findById).mockReturnValue(
+			Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }))
+		);
 
 		try {
 			useCase.execute('task-1');
