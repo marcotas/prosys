@@ -4,7 +4,7 @@ import { cleanData, createMember } from './helpers';
 test.describe('Week navigation', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.goto('/', { waitUntil: 'load' });
 		await createMember(page, 'Alice');
 	});
 

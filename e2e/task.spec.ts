@@ -4,7 +4,7 @@ import { cleanData, createMember, addTask } from './helpers';
 test.describe('Task management', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'networkidle' });
+		await page.goto('/', { waitUntil: 'load' });
 		await createMember(page, 'Alice');
 	});
 

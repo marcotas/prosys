@@ -7,8 +7,9 @@ import { chromium } from '@playwright/test';
 export default async function globalSetup() {
 	const browser = await chromium.launch();
 	const page = await browser.newPage();
-	// First load triggers Vite compilation + DB migrations — can be slow on CI
-	await page.goto('http://localhost:5173/', { timeout: 120_000 });
-	await page.waitForLoadState('networkidle');
+	// First load triggers Vite compilation + DB migrations — can be slow on CI.
+	// Use 'load' instead of 'networkidle' — SvelteKit's HMR WebSocket keeps
+	// the connection alive, so networkidle never resolves in dev mode.
+	await page.goto('http://localhost:5173/', { timeout: 120_000, waitUntil: 'load' });
 	await browser.close();
 }
