@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember } from './helpers';
+import { cleanData, createMember, waitForHydration } from './helpers';
 
 test.describe('Member management', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'load' });
+		await page.goto('/');
+		await waitForHydration(page);
 	});
 
 	test('shows welcome screen when no members exist', async ({ page }) => {

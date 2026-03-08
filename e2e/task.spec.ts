@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember, addTask } from './helpers';
+import { cleanData, createMember, addTask, waitForHydration } from './helpers';
 
 test.describe('Task management', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'load' });
+		await page.goto('/');
+		await waitForHydration(page);
 		await createMember(page, 'Alice');
 	});
 
@@ -59,7 +60,8 @@ test.describe('Task management', () => {
 test.describe('Task cancellation', () => {
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
-		await page.goto('/', { waitUntil: 'load' });
+		await page.goto('/');
+		await waitForHydration(page);
 		await createMember(page, 'Alice');
 
 		// Navigate to previous week so all days are in the past
