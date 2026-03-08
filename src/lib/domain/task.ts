@@ -1,5 +1,6 @@
+import { ValidationError, ConflictError } from './errors';
 import { ID } from './id';
-import type { TaskData, TaskStatus, CreateTaskInput } from './types';
+import type { TaskData, TaskStatus, CreateTaskInput, RescheduleEntry } from './types';
 import { isoToDate } from '$lib/utils/dates';
 
 export class Task {
@@ -32,7 +33,10 @@ export class Task {
 			completed: false,
 			sortOrder: 0,
 			status: 'active',
-			cancelledAt: null
+			cancelledAt: null,
+			rescheduleCount: 0,
+			rescheduleHistory: null,
+			rescheduledFromId: null
 		});
 	}
 
@@ -40,7 +44,10 @@ export class Task {
 		return new Task({
 			...data,
 			status: data.status ?? 'active',
-			cancelledAt: data.cancelledAt ?? null
+			cancelledAt: data.cancelledAt ?? null,
+			rescheduleCount: data.rescheduleCount ?? 0,
+			rescheduleHistory: data.rescheduleHistory ?? null,
+			rescheduledFromId: data.rescheduledFromId ?? null
 		});
 	}
 
@@ -83,12 +90,23 @@ export class Task {
 	get cancelledAt(): string | null {
 		return this.data.cancelledAt;
 	}
-	get isPast(): boolean {
+	get isRescheduled(): boolean {
+		return this.data.status === 'rescheduled';
+	}
+	get rescheduleCount(): number {
+		return this.data.rescheduleCount;
+	}
+	get rescheduleHistory(): RescheduleEntry[] | null {
+		return this.data.rescheduleHistory;
+	}
+	get rescheduledFromId(): string | null {
+		return this.data.rescheduledFromId;
+	}
+	isPast(today: Date): boolean {
 		const taskDate = isoToDate(this.data.weekStart);
 		taskDate.setDate(taskDate.getDate() + this.data.dayIndex);
-		const now = new Date();
-		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		return taskDate.getTime() < today.getTime();
+		const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+		return taskDate.getTime() < todayMidnight.getTime();
 	}
 
 	// ── Mutations ────────────────────────────────────────
@@ -129,9 +147,35 @@ export class Task {
 		this.data.memberId = memberId;
 	}
 
-	cancel(): void {
+	reschedule(today: Date): void {
+		if (!this.isPast(today)) {
+			throw new ValidationError('Only past tasks can be rescheduled');
+		}
+		if (this.data.status !== 'active') {
+			throw new ConflictError('Only active tasks can be rescheduled');
+		}
+		this.data.status = 'rescheduled';
+	}
+
+	setRescheduleInfo(
+		count: number,
+		history: RescheduleEntry[] | null,
+		fromId: string | null
+	): void {
+		this.data.rescheduleCount = count;
+		this.data.rescheduleHistory = history;
+		this.data.rescheduledFromId = fromId;
+	}
+
+	cancel(today: Date): void {
+		if (!this.isPast(today)) {
+			throw new ValidationError('Only past tasks can be cancelled');
+		}
+		if (this.isCancelled) {
+			throw new ConflictError('Task is already cancelled');
+		}
 		this.data.status = 'cancelled';
-		this.data.cancelledAt = new Date().toISOString();
+		this.data.cancelledAt = today.toISOString();
 	}
 
 	// ── Query ────────────────────────────────────────────

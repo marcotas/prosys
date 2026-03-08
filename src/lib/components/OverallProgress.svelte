@@ -8,13 +8,13 @@
 	const { member, days } = $props<{ member: Member; days: DayData[] }>();
 
 	const totalTasks = $derived(
-		days.reduce((sum: number, d: DayData) => sum + d.tasks.length, 0)
+		days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t) => t.status === 'active').length, 0)
 	);
 	const totalCompleted = $derived(
 		days.reduce(
 			(sum: number, d: DayData) =>
 				sum +
-					d.tasks.filter((t: { completed: boolean }) => t.completed)
+					d.tasks.filter((t) => t.status === 'active' && t.completed)
 						.length,
 			0
 		)

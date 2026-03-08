@@ -42,6 +42,9 @@ function createTestDb() {
 			sort_order INTEGER NOT NULL DEFAULT 0,
 			status TEXT NOT NULL DEFAULT 'active',
 			cancelled_at TEXT,
+			reschedule_count INTEGER NOT NULL DEFAULT 0,
+			reschedule_history TEXT,
+			rescheduled_from_id TEXT,
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL,
 			FOREIGN KEY (member_id) REFERENCES family_members(id) ON DELETE CASCADE
@@ -109,6 +112,9 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }

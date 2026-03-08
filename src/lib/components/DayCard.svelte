@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ArrowRight from 'phosphor-svelte/lib/ArrowRight.svelte';
 	import Check from 'phosphor-svelte/lib/Check.svelte';
+	import ClockCounterClockwise from 'phosphor-svelte/lib/ClockCounterClockwise.svelte';
 	import Prohibit from 'phosphor-svelte/lib/Prohibit.svelte';
 	import Trash from 'phosphor-svelte/lib/Trash.svelte';
 	import XCircle from 'phosphor-svelte/lib/XCircle.svelte';
@@ -56,8 +57,8 @@
 		) => void;
 	} = $props();
 
-	// Exclude cancelled tasks from progress calculation
-	const activeTasks = $derived(day.tasks.filter((t) => t.status !== 'cancelled'));
+	// Exclude cancelled and rescheduled tasks from progress calculation
+	const activeTasks = $derived(day.tasks.filter((t) => t.status === 'active'));
 	const percent = $derived(
 		activeTasks.length === 0
 			? 0
@@ -262,10 +263,12 @@
 		>
 			{#each dndItems as task (task.id)}
 				{@const taskCancelled = task.status === 'cancelled'}
-				{@const offset = taskCancelled ? 0 : swipe.getSwipeOffset(task.id)}
+				{@const taskRescheduled = task.status === 'rescheduled'}
+				{@const taskInactive = taskCancelled || taskRescheduled}
+				{@const offset = taskInactive ? 0 : swipe.getSwipeOffset(task.id)}
 				{@const isSwiping =
-					!taskCancelled && swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
-				{@const isRevealed = !taskCancelled && (offset < 0 || swipe.swipedOpenId === task.id)}
+					!taskInactive && swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
+				{@const isRevealed = !taskInactive && (offset < 0 || swipe.swipedOpenId === task.id)}
 				{@const isShadow = (task as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				<div
 					animate:flip={{ duration: FLIP_DURATION }}
@@ -279,6 +282,7 @@
 						onDelete={() => onDeleteTask(task.id)}
 						{isPast}
 						isCancelled={taskCancelled}
+						isRescheduled={taskRescheduled}
 					>
 						<!-- Swipe-reveal zone: Move + Delete/Cancel -->
 						{#if isRevealed}
@@ -315,17 +319,24 @@
 							class="relative bg-white flex items-start w-full pl-1 pr-4 py-1.5 select-none touch-pan-y
 								{isSwiping ? '' : 'transition-transform duration-200 ease-out'}"
 							style="transform: translateX({offset}px)"
-							ontouchstart={taskCancelled ? undefined : (e) => swipe.onTouchStart(e, task.id)}
+							ontouchstart={taskInactive ? undefined : (e) => swipe.onTouchStart(e, task.id)}
 						>
-							<!-- Drag handle (hidden for cancelled tasks) -->
-							{#if !taskCancelled}
+							<!-- Drag handle (hidden for inactive tasks) -->
+							{#if !taskInactive}
 								<div class="mt-0.5"><DragHandle {theme} /></div>
 							{:else}
 								<div class="w-5 shrink-0"></div>
 							{/if}
 
-							<!-- Checkbox / Cancel icon -->
-							{#if taskCancelled}
+							<!-- Checkbox / Status icon -->
+							{#if taskRescheduled}
+								<span
+									class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center mr-2.5"
+									aria-label="Rescheduled"
+								>
+									<ClockCounterClockwise size="16" weight="regular" color="#d1d5db" aria-hidden="true" />
+								</span>
+							{:else if taskCancelled}
 								<span
 									class="shrink-0 w-[18px] h-[18px] mt-[3px] rounded-[5px] flex items-center justify-center mr-2.5"
 									aria-label="Cancelled"
@@ -354,10 +365,10 @@
 							{/if}
 
 							<!-- Task title -->
-							{#if task.emoji}<span class="mr-0.5 select-none {taskCancelled ? 'opacity-40' : ''}" aria-hidden="true"
+							{#if task.emoji}<span class="mr-0.5 select-none {taskInactive ? 'opacity-40' : ''}" aria-hidden="true"
 							>{task.emoji}</span
 							>{/if}
-							{#if taskCancelled}
+							{#if taskInactive}
 								<span
 									class="flex-1 min-w-0 text-base leading-normal opacity-40 line-through text-gray-400 decoration-gray-300 wrap-anywhere"
 								>{task.title}</span>
@@ -432,6 +443,7 @@
 	<ReschedulePicker
 		task={rescheduleTask}
 		bind:open={rescheduleOpen}
+		isPastTask={isPast}
 		onReschedule={handleReschedule}
 	/>
 </article>

@@ -28,6 +28,14 @@ export const PATCH: RequestHandler = apiHandler(async ({ params, request, locals
 export const DELETE: RequestHandler = apiHandler(async ({ params, locals }) => {
 	const result = deleteTask.execute(params.id);
 
+	if (result.cancelledInstead) {
+		broadcast(
+			{ type: 'task:cancelled', payload: result.task },
+			locals.wsClientId
+		);
+		return json({ cancelledInstead: true, task: result.task });
+	}
+
 	broadcast(
 		{ type: 'task:deleted', payload: result },
 		locals.wsClientId

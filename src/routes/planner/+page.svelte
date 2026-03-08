@@ -173,8 +173,12 @@
 		});
 	}
 
-	function deleteTask(taskId: string) {
-		taskController.deleteOrCancel(taskId);
+	async function deleteTask(taskId: string) {
+		const result = await taskController.deleteOrCancel(taskId);
+		if (result.cancelledInstead) {
+			const { toast } = await import('svelte-sonner');
+			toast.info('Task was cancelled instead of deleted (it has been rescheduled before)');
+		}
 	}
 
 	function updateTask(taskId: string, updates: { title?: string; emoji?: string }) {

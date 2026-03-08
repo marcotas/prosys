@@ -33,6 +33,9 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
@@ -118,5 +121,38 @@ describe('DeleteTask', () => {
 		}
 
 		expect(repo.delete).not.toHaveBeenCalled();
+	});
+
+	it('cancels instead of deleting when rescheduleCount > 0', () => {
+		vi.mocked(repo.findById).mockReturnValue(
+			Task.fromData(
+				makeTaskData({
+					rescheduleCount: 1,
+					rescheduleHistory: [{ date: '2026-03-01', count: 1 }],
+					rescheduledFromId: 'original-id'
+				})
+			)
+		);
+
+		const result = useCase.execute('task-1');
+
+		expect(result.cancelledInstead).toBe(true);
+		expect(result.task).toBeDefined();
+		expect(result.task!.status).toBe('cancelled');
+		expect(result.task!.cancelledAt).toBeTruthy();
+		expect(repo.update).toHaveBeenCalled();
+		expect(repo.delete).not.toHaveBeenCalled();
+	});
+
+	it('deletes normally when rescheduleCount is 0', () => {
+		vi.mocked(repo.findById).mockReturnValue(
+			Task.fromData(makeTaskData({ rescheduleCount: 0 }))
+		);
+
+		const result = useCase.execute('task-1');
+
+		expect(result.cancelledInstead).toBeUndefined();
+		expect(repo.delete).toHaveBeenCalledWith('task-1');
+		expect(repo.update).not.toHaveBeenCalled();
 	});
 });

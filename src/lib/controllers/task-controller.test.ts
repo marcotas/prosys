@@ -77,6 +77,9 @@ function taskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
@@ -544,6 +547,15 @@ describe('TaskController', () => {
 	});
 
 	describe('moveToDate()', () => {
+		beforeEach(() => {
+			// Freeze to Mar 1 so WEEK (2026-03-01) tasks are not past
+			vi.useFakeTimers({ now: new Date(2026, 2, 1, 12, 0, 0) });
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('moves task within same week', async () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
 			(api.patch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -728,6 +740,14 @@ describe('TaskController', () => {
 	});
 
 	describe('moveToDay()', () => {
+		beforeEach(() => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 1, 12, 0, 0) });
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('delegates to moveToDate with current weekStart', async () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
 			(api.patch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -894,7 +914,12 @@ describe('TaskController', () => {
 	});
 
 	describe('cancel()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('cancels task optimistically and calls cancel API', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
 			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
@@ -907,6 +932,7 @@ describe('TaskController', () => {
 		});
 
 		it('cancels in both member and family caches', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
 			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
@@ -924,6 +950,7 @@ describe('TaskController', () => {
 		});
 
 		it('enqueues on network error', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(
 				new TypeError('Failed to fetch')
@@ -938,6 +965,7 @@ describe('TaskController', () => {
 		});
 
 		it('rolls back on server error', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server error'));
 

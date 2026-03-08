@@ -195,8 +195,12 @@
 			emoji
 		});
 	}
-	function deleteTask(_dayIndex: number, taskId: string) {
-		taskController.deleteOrCancel(taskId);
+	async function deleteTask(_dayIndex: number, taskId: string) {
+		const result = await taskController.deleteOrCancel(taskId);
+		if (result.cancelledInstead) {
+			const { toast } = await import('svelte-sonner');
+			toast.info('Task was cancelled instead of deleted (it has been rescheduled before)');
+		}
 	}
 	function updateTask(
 		_dayIndex: number,
