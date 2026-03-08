@@ -4,11 +4,12 @@ import type { Page } from '@playwright/test';
  * Wait for SvelteKit hydration to complete.
  * The connection indicator only renders when `browser` is true (client-side),
  * so its presence proves that Svelte has mounted and hydrated the layout.
+ * We match by the `title` attribute which is always set on the indicator div.
  */
 export async function waitForHydration(page: Page) {
-	await page.getByText('Real-time sync active').or(
-		page.getByText('Server unreachable')
-	).waitFor({ timeout: 30_000 });
+	await page.locator('[title="Real-time sync active"], [title="Server unreachable — changes saved locally"]')
+		.first()
+		.waitFor({ timeout: 30_000 });
 }
 
 /**
