@@ -1,6 +1,5 @@
 import type { UpdateTaskInput, TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
-import { Task } from '$lib/domain/task';
 import { NotFoundError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
 
@@ -15,18 +14,17 @@ export class UpdateTask {
 	constructor(private taskRepo: TaskRepository) {}
 
 	execute(id: string, input: UpdateTaskInput): UpdateTaskResult {
-		const existing = this.taskRepo.findById(id);
-		if (!existing) throw new NotFoundError('Task', id);
+		const task = this.taskRepo.findById(id);
+		if (!task) throw new NotFoundError('Task', id);
 
-		const entity = Task.fromData(existing);
-		const isMoved = entity.isMove(input);
-		const fromDay = existing.dayIndex;
-		const fromWeek = existing.weekStart;
+		const isMoved = task.isMove(input);
+		const fromDay = task.dayIndex;
+		const fromWeek = task.weekStart;
 
 		this.taskRepo.updatePartial(id, input);
 		const updated = this.taskRepo.findById(id)!;
 
-		return { task: updated, isMoved, fromDay, fromWeek };
+		return { task: updated.toJSON(), isMoved, fromDay, fromWeek };
 	}
 }
 

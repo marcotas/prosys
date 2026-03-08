@@ -5,6 +5,8 @@
 
 export type DayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+export type TaskStatus = 'active' | 'cancelled';
+
 export type ThemeVariant = 'default' | 'playful';
 
 export interface ThemeConfig {
@@ -40,6 +42,8 @@ export interface TaskData {
 	emoji?: string;
 	completed: boolean;
 	sortOrder: number;
+	status: TaskStatus;
+	cancelledAt: string | null;
 }
 
 export interface HabitData {
@@ -76,6 +80,8 @@ export type UpdateTaskInput = {
 	sortOrder?: number;
 	memberId?: string | null;
 	weekStart?: string;
+	status?: TaskStatus;
+	cancelledAt?: string | null;
 };
 
 export type CreateHabitInput = {

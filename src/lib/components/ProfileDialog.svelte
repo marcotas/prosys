@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { X } from 'phosphor-svelte';
 	import ThemePicker from './ThemePicker.svelte';
 	import type { Member, ThemeConfig } from '$lib/types';
 	import { themePresets } from '$lib/types';
@@ -102,10 +103,9 @@
 				<button
 					onclick={onClose}
 					class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors"
+					aria-label="Close dialog"
 				>
-					<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<X size="16" weight="bold" color="currentColor" />
 				</button>
 			</div>
 

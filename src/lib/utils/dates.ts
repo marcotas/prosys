@@ -115,6 +115,17 @@ export function getTodayISO(): string {
 }
 
 /**
+ * Returns true if a task's day (weekStart + dayIndex) is strictly before today.
+ */
+export function isTaskPast(weekStart: string, dayIndex: number): boolean {
+	const taskDate = isoToDate(weekStart);
+	taskDate.setDate(taskDate.getDate() + dayIndex);
+	const now = new Date();
+	const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+	return taskDate.getTime() < today.getTime();
+}
+
+/**
  * Parse an ISO date string (YYYY-MM-DD) to a local Date without timezone issues.
  */
 export function isoToDate(iso: string): Date {

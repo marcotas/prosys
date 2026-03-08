@@ -1,8 +1,9 @@
 import { eq, and, asc, max } from 'drizzle-orm';
-import type { TaskData, ThemeVariant } from '$lib/domain/types';
+import type { TaskData, TaskStatus, ThemeVariant } from '$lib/domain/types';
 import type * as schema from '$lib/server/db/schema';
 import type { Database } from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import { Task } from '$lib/domain/task';
 import { db } from '$lib/server/db';
 import { tasks, familyMembers } from '$lib/server/db/schema';
 
@@ -19,7 +20,9 @@ function rowToTaskData(row: TaskRow): TaskData {
 		title: row.title,
 		emoji: row.emoji ?? undefined,
 		completed: row.completed,
-		sortOrder: row.sortOrder
+		sortOrder: row.sortOrder,
+		status: row.status as TaskStatus,
+		cancelledAt: row.cancelledAt ?? null
 	};
 }
 
@@ -53,6 +56,8 @@ interface TaskInsertRow {
 	emoji: string | null;
 	completed: boolean;
 	sortOrder: number;
+	status: string;
+	cancelledAt: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -64,11 +69,11 @@ export class TaskRepository {
 
 	/**
 	 * Find a single task by ID.
-	 * Returns null if not found.
+	 * Returns a Task entity (command path) or null if not found.
 	 */
-	findById(id: string): TaskData | null {
+	findById(id: string): Task | null {
 		const row = this.db.select().from(tasks).where(eq(tasks.id, id)).get();
-		return row ? rowToTaskData(row) : null;
+		return row ? Task.fromData(rowToTaskData(row)) : null;
 	}
 
 	/**
@@ -100,6 +105,8 @@ export class TaskRepository {
 				emoji: tasks.emoji,
 				completed: tasks.completed,
 				sortOrder: tasks.sortOrder,
+				status: tasks.status,
+				cancelledAt: tasks.cancelledAt,
 				memberName: familyMembers.name,
 				memberThemeVariant: familyMembers.themeVariant,
 				memberThemeAccent: familyMembers.themeAccent,
@@ -125,6 +132,8 @@ export class TaskRepository {
 			emoji: row.emoji ?? undefined,
 			completed: row.completed,
 			sortOrder: row.sortOrder,
+			status: row.status as TaskStatus,
+			cancelledAt: row.cancelledAt ?? null,
 			memberName: row.memberName ?? undefined,
 			memberTheme: row.memberName
 				? {
@@ -173,6 +182,8 @@ export class TaskRepository {
 			emoji: data.emoji ?? null,
 			completed: data.completed,
 			sortOrder: data.sortOrder,
+			status: data.status,
+			cancelledAt: data.cancelledAt,
 			createdAt: now,
 			updatedAt: now
 		};
@@ -195,6 +206,8 @@ export class TaskRepository {
 				emoji: data.emoji ?? null,
 				completed: data.completed,
 				sortOrder: data.sortOrder,
+				status: data.status,
+				cancelledAt: data.cancelledAt,
 				updatedAt: now
 			})
 			.where(eq(tasks.id, data.id))
@@ -217,6 +230,8 @@ export class TaskRepository {
 		if (fields.sortOrder !== undefined) updates.sortOrder = fields.sortOrder;
 		if (fields.memberId !== undefined) updates.memberId = fields.memberId ?? null;
 		if (fields.weekStart !== undefined) updates.weekStart = fields.weekStart;
+		if (fields.status !== undefined) updates.status = fields.status;
+		if (fields.cancelledAt !== undefined) updates.cancelledAt = fields.cancelledAt ?? null;
 
 		this.db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 	}

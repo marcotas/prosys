@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { Bonjour } from 'bonjour-service';
+import { sveltePhosphorOptimize } from 'phosphor-svelte/vite';
 import { defineConfig, type Plugin } from 'vite';
 import type { UserConfig } from 'vitest/config';
 import type { WebSocket } from 'ws';
@@ -11,6 +12,28 @@ import type { WebSocket } from 'ws';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8'));
+
+/**
+ * Resolves `phosphor-svelte/lib/*.svelte` sub-path imports during SSR builds.
+ *
+ * phosphor-svelte only exposes its sub-path exports under the "svelte" export
+ * condition. Rollup's SSR bundler doesn't apply that condition, so sub-path
+ * imports fail. This plugin intercepts those import IDs and resolves them
+ * directly to the actual file path in node_modules.
+ */
+function ssrSvelteCondition(): Plugin {
+	return {
+		name: 'prosys-ssr-svelte-condition',
+		enforce: 'pre',
+		resolveId(id) {
+			// Intercept phosphor-svelte sub-path imports that use the "svelte" export condition
+			const match = id.match(/^phosphor-svelte\/lib\/(.+\.svelte)$/);
+			if (match) {
+				return resolve(__dirname, `node_modules/phosphor-svelte/lib/${match[1]}`);
+			}
+		}
+	};
+}
 
 /**
  * Vite plugin that attaches a WebSocket server and mDNS broadcast
@@ -71,10 +94,14 @@ export default defineConfig(({ command }) => ({
 	define: {
 		__APP_VERSION__: JSON.stringify(pkg.version)
 	},
-	plugins: isTest ? [] : [prosysWs(), tailwindcss(), sveltekit()],
+	// sveltePhosphorOptimize rewrites barrel phosphor-svelte imports into
+	// per-file sub-path imports for tree-shaking during both client and SSR builds.
+	// The ssrSvelteCondition plugin ensures the "svelte" export condition is
+	// applied during SSR builds so phosphor-svelte sub-path imports resolve.
+	plugins: isTest ? [] : [ssrSvelteCondition(), sveltePhosphorOptimize(), prosysWs(), tailwindcss(), sveltekit()],
 
 	test: {
-		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts', 'src/lib/infra/**/*.test.ts', 'src/lib/controllers/**/*.test.ts'],
+		include: ['src/lib/domain/**/*.test.ts', 'src/lib/adapters/**/*.test.ts', 'src/lib/server/**/*.test.ts', 'src/lib/infra/**/*.test.ts', 'src/lib/controllers/**/*.test.ts', 'src/lib/utils/**/*.test.ts'],
 		alias: {
 			'$lib': resolve(__dirname, 'src/lib')
 		},
@@ -120,6 +147,12 @@ export default defineConfig(({ command }) => ({
 		external:
 			command === 'serve'
 				? ['better-sqlite3', 'ws', 'qrcode']
-				: ['better-sqlite3']
+				: ['better-sqlite3'],
+		// Add the "svelte" export condition so packages like phosphor-svelte
+		// that only expose sub-path exports under "svelte" (e.g.
+		// "phosphor-svelte/lib/X.svelte") resolve correctly during SSR builds.
+		resolve: {
+			conditions: ['svelte']
+		}
 	}
 } satisfies UserConfig));

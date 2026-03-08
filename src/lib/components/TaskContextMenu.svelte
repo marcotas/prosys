@@ -1,14 +1,21 @@
 <script lang="ts">
 	import { ContextMenu } from 'bits-ui';
+	import CalendarBlank from 'phosphor-svelte/lib/CalendarBlank.svelte';
+	import Prohibit from 'phosphor-svelte/lib/Prohibit.svelte';
+	import Trash from 'phosphor-svelte/lib/Trash.svelte';
 	import type { Snippet } from 'svelte';
 
 	const {
 		onReschedule,
 		onDelete,
+		isPast = false,
+		isCancelled = false,
 		children
 	}: {
 		onReschedule: () => void;
 		onDelete: () => void;
+		isPast?: boolean;
+		isCancelled?: boolean;
 		children: Snippet;
 	} = $props();
 </script>
@@ -22,18 +29,22 @@
 			class="z-50 bg-white rounded-xl shadow-xl ring-1 ring-black/5 py-1.5 min-w-[160px]
 				data-[state=open]:animate-[popIn_150ms_ease-out]"
 		>
-			<ContextMenu.Item
-				onSelect={onReschedule}
-				class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg mx-1 cursor-default transition-colors"
-			>
-				<span aria-hidden="true">📅</span> Reschedule…
-			</ContextMenu.Item>
-			<ContextMenu.Item
-				onSelect={onDelete}
-				class="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg mx-1 cursor-default transition-colors"
-			>
-				<span aria-hidden="true">🗑</span> Delete
-			</ContextMenu.Item>
+			{#if !isCancelled}
+				<ContextMenu.Item
+					onSelect={onReschedule}
+					class="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg mx-1 cursor-default transition-colors"
+				>
+					<span aria-hidden="true"><CalendarBlank size="16" color="currentColor" /></span> Reschedule…
+				</ContextMenu.Item>
+			{/if}
+			{#if !isCancelled}
+				<ContextMenu.Item
+					onSelect={onDelete}
+					class="flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg mx-1 cursor-default transition-colors"
+				>
+					<span aria-hidden="true">{#if isPast}<Prohibit size="16" color="currentColor" />{:else}<Trash size="16" color="currentColor" />{/if}</span> {isPast ? 'Cancel' : 'Delete'}
+				</ContextMenu.Item>
+			{/if}
 		</ContextMenu.Content>
 	</ContextMenu.Portal>
 </ContextMenu.Root>

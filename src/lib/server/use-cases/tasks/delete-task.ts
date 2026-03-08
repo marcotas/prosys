@@ -1,6 +1,7 @@
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
-import { NotFoundError } from '$lib/server/domain/errors';
+import { NotFoundError, ValidationError } from '$lib/server/domain/errors';
 import { taskRepository } from '$lib/server/repositories/task-repository';
+import { isTaskPast } from '$lib/utils/dates';
 
 export interface DeleteTaskResult {
 	id: string;
@@ -15,6 +16,10 @@ export class DeleteTask {
 	execute(id: string): DeleteTaskResult {
 		const existing = this.taskRepo.findById(id);
 		if (!existing) throw new NotFoundError('Task', id);
+
+		if (isTaskPast(existing.weekStart, existing.dayIndex)) {
+			throw new ValidationError('Cannot delete past tasks; use cancel instead');
+		}
 
 		this.taskRepo.delete(id);
 

@@ -6,6 +6,7 @@ import type { Task, Habit, Member, ThemeConfig } from '$lib/domain/types';
 
 export type {
 	DayIndex,
+	TaskStatus,
 	ThemeVariant,
 	ThemeConfig,
 	MemberData,
@@ -56,6 +57,7 @@ export interface FamilyHabitProgress {
 export type WSMessage =
 	| { type: 'task:created'; payload: Task }
 	| { type: 'task:updated'; payload: Task }
+	| { type: 'task:cancelled'; payload: Task }
 	| { type: 'task:deleted'; payload: { id: string; memberId: string | null; weekStart: string; dayIndex: number } }
 	| { type: 'task:reordered'; payload: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] } }
 	| { type: 'task:moved'; payload: { task: Task; fromDay: number; fromWeek?: string } }

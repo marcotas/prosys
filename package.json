@@ -34,6 +34,7 @@
     "bits-ui": "^2.16.2",
     "bonjour-service": "^1.3.0",
     "drizzle-orm": "^0.45.1",
+    "phosphor-svelte": "^3.1.0",
     "qrcode": "^1.5.4",
     "svelte": "^5.0.0",
     "svelte-dnd-action": "^0.9.69",

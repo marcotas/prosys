@@ -21,6 +21,8 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active',
+		cancelledAt: null,
 		...overrides
 	};
 }
@@ -40,6 +42,12 @@ describe('Task.create', () => {
 		expect(task.isCompleted).toBe(false);
 		expect(task.completed).toBe(false);
 		expect(task.sortOrder).toBe(0);
+	});
+
+	it('defaults status to active and cancelledAt to null', () => {
+		const task = Task.create(validInput);
+		expect(task.status).toBe('active');
+		expect(task.cancelledAt).toBeNull();
 	});
 
 	it('generates a unique id', () => {
@@ -222,6 +230,27 @@ describe('Task mutations', () => {
 		const task = Task.fromData(makeTaskData({ memberId: 'member-1' }));
 		task.assignTo(null);
 		expect(task.memberId).toBeNull();
+	});
+
+	it('cancel() sets status to cancelled and sets cancelledAt', () => {
+		const task = Task.fromData(makeTaskData());
+		expect(task.isCancelled).toBe(false);
+
+		task.cancel();
+
+		expect(task.status).toBe('cancelled');
+		expect(task.isCancelled).toBe(true);
+		expect(task.cancelledAt).toBeTruthy();
+	});
+
+	it('isCancelled returns true for cancelled task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' }));
+		expect(task.isCancelled).toBe(true);
+	});
+
+	it('isCancelled returns false for active task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'active' }));
+		expect(task.isCancelled).toBe(false);
 	});
 });
 

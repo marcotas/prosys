@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { UpdateTask } from './update-task';
 import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
+import { Task } from '$lib/domain/task';
 import { NotFoundError } from '$lib/server/domain/errors';
 
 // ── Mock Repository ────────────────────────────────────
@@ -30,8 +31,14 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active',
+		cancelledAt: null,
 		...overrides
 	};
+}
+
+function makeTask(overrides: Partial<TaskData> = {}): Task {
+	return Task.fromData(makeTaskData(overrides));
 }
 
 // ── Tests ──────────────────────────────────────────────
@@ -46,16 +53,15 @@ describe('UpdateTask', () => {
 	});
 
 	it('updates a task and returns updated data', () => {
-		const existing = makeTaskData();
-		const updated = makeTaskData({ title: 'Updated title' });
+		const updatedData = makeTaskData({ title: 'Updated title' });
 
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing) // first call: check existence
-			.mockReturnValueOnce(updated); // second call: return updated
+			.mockReturnValueOnce(makeTask()) // first call: check existence
+			.mockReturnValueOnce(makeTask({ title: 'Updated title' })); // second call: return updated
 
 		const result = useCase.execute('task-1', { title: 'Updated title' });
 
-		expect(result.task).toEqual(updated);
+		expect(result.task).toEqual(updatedData);
 		expect(repo.updatePartial).toHaveBeenCalledWith('task-1', { title: 'Updated title' });
 	});
 
@@ -67,12 +73,9 @@ describe('UpdateTask', () => {
 	});
 
 	it('detects move when dayIndex changes', () => {
-		const existing = makeTaskData({ dayIndex: 0 });
-		const updated = makeTaskData({ dayIndex: 3 });
-
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing)
-			.mockReturnValueOnce(updated);
+			.mockReturnValueOnce(makeTask({ dayIndex: 0 }))
+			.mockReturnValueOnce(makeTask({ dayIndex: 3 }));
 
 		const result = useCase.execute('task-1', { dayIndex: 3 });
 
@@ -82,12 +85,9 @@ describe('UpdateTask', () => {
 	});
 
 	it('detects move when weekStart changes', () => {
-		const existing = makeTaskData({ weekStart: '2026-03-01' });
-		const updated = makeTaskData({ weekStart: '2026-03-08' });
-
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing)
-			.mockReturnValueOnce(updated);
+			.mockReturnValueOnce(makeTask({ weekStart: '2026-03-01' }))
+			.mockReturnValueOnce(makeTask({ weekStart: '2026-03-08' }));
 
 		const result = useCase.execute('task-1', { weekStart: '2026-03-08' });
 
@@ -96,12 +96,9 @@ describe('UpdateTask', () => {
 	});
 
 	it('does not detect move when only title changes', () => {
-		const existing = makeTaskData();
-		const updated = makeTaskData({ title: 'New title' });
-
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing)
-			.mockReturnValueOnce(updated);
+			.mockReturnValueOnce(makeTask())
+			.mockReturnValueOnce(makeTask({ title: 'New title' }));
 
 		const result = useCase.execute('task-1', { title: 'New title' });
 
@@ -109,12 +106,9 @@ describe('UpdateTask', () => {
 	});
 
 	it('does not detect move when same dayIndex is provided', () => {
-		const existing = makeTaskData({ dayIndex: 2 });
-		const updated = makeTaskData({ dayIndex: 2, title: 'Changed' });
-
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing)
-			.mockReturnValueOnce(updated);
+			.mockReturnValueOnce(makeTask({ dayIndex: 2 }))
+			.mockReturnValueOnce(makeTask({ dayIndex: 2, title: 'Changed' }));
 
 		const result = useCase.execute('task-1', { dayIndex: 2, title: 'Changed' });
 
@@ -122,12 +116,9 @@ describe('UpdateTask', () => {
 	});
 
 	it('handles completion toggle', () => {
-		const existing = makeTaskData({ completed: false });
-		const updated = makeTaskData({ completed: true });
-
 		vi.mocked(repo.findById)
-			.mockReturnValueOnce(existing)
-			.mockReturnValueOnce(updated);
+			.mockReturnValueOnce(makeTask({ completed: false }))
+			.mockReturnValueOnce(makeTask({ completed: true }));
 
 		const result = useCase.execute('task-1', { completed: true });
 

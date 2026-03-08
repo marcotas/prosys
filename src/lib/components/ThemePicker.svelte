@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Check, CaretDown } from 'phosphor-svelte';
 	import type { ThemeConfig, ThemeVariant } from '$lib/types';
 	import { themePresets, emojiOptions } from '$lib/types';
 
@@ -96,12 +97,10 @@
 						{preset.label}
 					</span>
 					{#if isSelected}
-						<div class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs"
+						<div class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-white"
 							style="background-color: {preset.color}"
 						>
-							<svg class="w-3 h-3" viewBox="0 0 12 12" fill="none">
-								<path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
+							<Check size="12" weight="bold" color="currentColor" />
 						</div>
 					{/if}
 				</button>
@@ -122,9 +121,9 @@
 				>
 					<span class="text-2xl">{emoji}</span>
 					<span class="text-sm text-gray-600">Tap to change avatar emoji</span>
-					<svg class="w-4 h-4 text-gray-400 ml-auto transition-transform {showEmojiGrid ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-						<path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round" />
-					</svg>
+					<span class="text-gray-400 ml-auto transition-transform {showEmojiGrid ? 'rotate-180' : ''}" aria-hidden="true">
+						<CaretDown size="16" weight="bold" color="currentColor" />
+					</span>
 				</button>
 
 				{#if showEmojiGrid}
@@ -170,13 +169,13 @@
 			>
 				<div class="flex items-center gap-2">
 					<div
-						class="w-4 h-4 rounded flex items-center justify-center text-white text-xs"
+						class="w-4 h-4 rounded flex items-center justify-center text-white"
 						style="background-color: {currentPreset?.color}"
 					>
-						{#if variant === 'playful'}⭐{:else}
-							<svg class="w-2.5 h-2.5" viewBox="0 0 12 12" fill="none">
-								<path d="M2 6L5 9L10 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-							</svg>
+						{#if variant === 'playful'}
+							<span class="text-xs">⭐</span>
+						{:else}
+							<Check size="10" weight="bold" color="currentColor" />
 						{/if}
 					</div>
 					<span class="text-sm line-through opacity-50">

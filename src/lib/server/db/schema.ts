@@ -33,6 +33,8 @@ export const tasks = sqliteTable(
 		emoji: text('emoji'),
 		completed: integer('completed', { mode: 'boolean' }).notNull().default(false),
 		sortOrder: integer('sort_order').notNull().default(0),
+		status: text('status').notNull().default('active'),
+		cancelledAt: text('cancelled_at'),
 		createdAt: text('created_at').notNull(),
 		updatedAt: text('updated_at').notNull()
 	},

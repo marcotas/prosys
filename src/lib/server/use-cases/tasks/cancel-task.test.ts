@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DeleteTask } from './delete-task';
+import { CancelTask } from './cancel-task';
 import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
 import { Task } from '$lib/domain/task';
-import { NotFoundError, ValidationError } from '$lib/server/domain/errors';
+import { NotFoundError, ValidationError, ConflictError } from '$lib/server/domain/errors';
 import { isTaskPast } from '$lib/utils/dates';
 
 vi.mock('$lib/utils/dates', async () => {
@@ -32,8 +32,8 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 	return {
 		id: 'task-1',
 		memberId: 'member-1',
-		weekStart: '2099-03-02', // future Sunday — deletable
-		dayIndex: 2,
+		weekStart: '2026-03-01',
+		dayIndex: 0,
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
@@ -43,31 +43,32 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 	};
 }
 
+function makeTask(overrides: Partial<TaskData> = {}): Task {
+	return Task.fromData(makeTaskData(overrides));
+}
+
 // ── Tests ──────────────────────────────────────────────
 
-describe('DeleteTask', () => {
+describe('CancelTask', () => {
 	let repo: ReturnType<typeof makeMockRepo>;
-	let useCase: DeleteTask;
+	let useCase: CancelTask;
 
 	beforeEach(() => {
 		repo = makeMockRepo();
-		useCase = new DeleteTask(repo);
-		vi.mocked(isTaskPast).mockReturnValue(false); // default: future task (deletable)
+		useCase = new CancelTask(repo);
+		vi.mocked(isTaskPast).mockReturnValue(true);
 	});
 
-	it('deletes a task and returns its context info', () => {
-		const existing = makeTaskData({ memberId: 'member-1', weekStart: '2099-03-02', dayIndex: 2 });
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(existing));
+	it('cancels a past task and returns updated data', () => {
+		vi.mocked(repo.findById).mockReturnValue(makeTask());
 
 		const result = useCase.execute('task-1');
 
-		expect(result).toEqual({
-			id: 'task-1',
-			memberId: 'member-1',
-			weekStart: '2099-03-02',
-			dayIndex: 2
-		});
-		expect(repo.delete).toHaveBeenCalledWith('task-1');
+		expect(result.status).toBe('cancelled');
+		expect(result.cancelledAt).toBeTruthy();
+		expect(repo.update).toHaveBeenCalledWith(
+			expect.objectContaining({ status: 'cancelled' })
+		);
 	});
 
 	it('throws NotFoundError when task does not exist', () => {
@@ -77,7 +78,24 @@ describe('DeleteTask', () => {
 		expect(() => useCase.execute('nonexistent')).toThrow('Task not found: nonexistent');
 	});
 
-	it('does not call delete when task not found', () => {
+	it('throws ValidationError when task is not past', () => {
+		vi.mocked(repo.findById).mockReturnValue(makeTask());
+		vi.mocked(isTaskPast).mockReturnValue(false);
+
+		expect(() => useCase.execute('task-1')).toThrow(ValidationError);
+		expect(() => useCase.execute('task-1')).toThrow('Only past tasks can be cancelled');
+	});
+
+	it('throws ConflictError when task is already cancelled', () => {
+		vi.mocked(repo.findById).mockReturnValue(
+			makeTask({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' })
+		);
+
+		expect(() => useCase.execute('task-1')).toThrow(ConflictError);
+		expect(() => useCase.execute('task-1')).toThrow('Task is already cancelled');
+	});
+
+	it('does not call update when task is not found', () => {
 		vi.mocked(repo.findById).mockReturnValue(null);
 
 		try {
@@ -86,29 +104,12 @@ describe('DeleteTask', () => {
 			// expected
 		}
 
-		expect(repo.delete).not.toHaveBeenCalled();
+		expect(repo.update).not.toHaveBeenCalled();
 	});
 
-	it('handles task with null memberId', () => {
-		const existing = makeTaskData({ memberId: null });
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(existing));
-
-		const result = useCase.execute('task-1');
-
-		expect(result.memberId).toBeNull();
-	});
-
-	it('throws ValidationError when deleting a past task', () => {
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(makeTaskData()));
-		vi.mocked(isTaskPast).mockReturnValue(true);
-
-		expect(() => useCase.execute('task-1')).toThrow(ValidationError);
-		expect(() => useCase.execute('task-1')).toThrow('Cannot delete past tasks; use cancel instead');
-	});
-
-	it('does not call delete for past tasks', () => {
-		vi.mocked(repo.findById).mockReturnValue(Task.fromData(makeTaskData()));
-		vi.mocked(isTaskPast).mockReturnValue(true);
+	it('does not call update when task is not past', () => {
+		vi.mocked(repo.findById).mockReturnValue(makeTask());
+		vi.mocked(isTaskPast).mockReturnValue(false);
 
 		try {
 			useCase.execute('task-1');
@@ -116,6 +117,6 @@ describe('DeleteTask', () => {
 			// expected
 		}
 
-		expect(repo.delete).not.toHaveBeenCalled();
+		expect(repo.update).not.toHaveBeenCalled();
 	});
 });
