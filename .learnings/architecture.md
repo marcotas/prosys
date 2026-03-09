@@ -119,6 +119,28 @@ Both use the shared `UpdateBanner.svelte` component. Dynamic imports guard Tauri
 
 See `.learnings/update-notifications.md` for implementation details.
 
+## Entity vs Use Case Responsibilities (DDD)
+
+**Entity methods** enforce all domain invariants and contain business logic:
+- Validation rules that must always hold (e.g., "only past tasks can be rescheduled",
+  "target date must be today or future")
+- State transitions (e.g., status changes)
+- Pure domain computations (e.g., building reschedule history from entity state)
+- Factory logic for creating related entities (e.g., Task.reschedule() returns the new Task)
+
+**Use cases** orchestrate infrastructure:
+- Find entities from repositories
+- Call entity methods (which do the real work)
+- Persist changes
+- Compute infrastructure-dependent values (e.g., sort order from repository)
+- Broadcast events
+
+**Litmus test:** If you're writing validation or business logic in a use case,
+ask: "Would this rule need to hold if called from a different use case?"
+If yes, move it to the entity.
+
+**Gold standard:** CancelTask use case — 3 lines: find, entity.cancel(), persist.
+
 ## Build-Time Version Injection
 
 The app version is injected by Vite at build time from `package.json`:

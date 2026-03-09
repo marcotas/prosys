@@ -147,24 +147,47 @@ export class Task {
 		this.data.memberId = memberId;
 	}
 
-	reschedule(today: Date): void {
+	reschedule(today: Date, toWeekStart: string, toDayIndex: number): Task {
 		if (!this.isPast(today)) {
 			throw new ValidationError('Only past tasks can be rescheduled');
 		}
 		if (this.data.status !== 'active') {
 			throw new ConflictError('Only active tasks can be rescheduled');
 		}
-		this.data.status = 'rescheduled';
-	}
 
-	setRescheduleInfo(
-		count: number,
-		history: RescheduleEntry[] | null,
-		fromId: string | null
-	): void {
-		this.data.rescheduleCount = count;
-		this.data.rescheduleHistory = history;
-		this.data.rescheduledFromId = fromId;
+		// Validate target: must be today or future
+		const targetDate = isoToDate(toWeekStart);
+		targetDate.setDate(targetDate.getDate() + toDayIndex);
+		const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+		if (targetDate.getTime() < todayMidnight.getTime()) {
+			throw new ValidationError('Target date must be today or in the future');
+		}
+
+		// Mark source as rescheduled
+		this.data.status = 'rescheduled';
+
+		// Build reschedule history
+		const originalDate = isoToDate(this.data.weekStart);
+		originalDate.setDate(originalDate.getDate() + this.data.dayIndex);
+		const dateStr = `${originalDate.getFullYear()}-${String(originalDate.getMonth() + 1).padStart(2, '0')}-${String(originalDate.getDate()).padStart(2, '0')}`;
+
+		const prevHistory = this.data.rescheduleHistory ?? [];
+		const newCount = this.data.rescheduleCount + 1;
+		const updatedHistory = [...prevHistory, { date: dateStr, count: newCount }];
+
+		// Create and return new task with reschedule info
+		const newTask = Task.create({
+			title: this.data.title,
+			emoji: this.data.emoji,
+			memberId: this.data.memberId ?? undefined,
+			weekStart: toWeekStart,
+			dayIndex: toDayIndex
+		});
+		newTask.data.rescheduleCount = newCount;
+		newTask.data.rescheduleHistory = updatedHistory;
+		newTask.data.rescheduledFromId = this.data.id;
+
+		return newTask;
 	}
 
 	cancel(today: Date): void {
