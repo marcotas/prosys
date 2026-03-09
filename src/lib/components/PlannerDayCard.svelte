@@ -335,7 +335,7 @@
 						>
 							<!-- Drag handle (hidden for inactive tasks) -->
 							{#if !taskInactive}
-								<div class="mt-1.25"><DragHandle theme={THEME} /></div>
+								<div class="mt-0.5"><DragHandle theme={THEME} /></div>
 							{:else}
 								<div class="w-5 shrink-0"></div>
 							{/if}

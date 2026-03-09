@@ -50,6 +50,10 @@ export const load = async () => {
 			emoji: tasks.emoji,
 			completed: tasks.completed,
 			sortOrder: tasks.sortOrder,
+			status: tasks.status,
+			cancelledAt: tasks.cancelledAt,
+			rescheduleCount: tasks.rescheduleCount,
+			rescheduledFromId: tasks.rescheduledFromId,
 			memberName: familyMembers.name,
 			memberThemeVariant: familyMembers.themeVariant,
 			memberThemeAccent: familyMembers.themeAccent,
@@ -75,6 +79,10 @@ export const load = async () => {
 		emoji: row.emoji ?? undefined,
 		completed: row.completed,
 		sortOrder: row.sortOrder,
+		status: row.status as PlannerTask['status'],
+		cancelledAt: row.cancelledAt ?? null,
+		rescheduleCount: row.rescheduleCount,
+		rescheduledFromId: row.rescheduledFromId ?? null,
 		memberName: row.memberName ?? undefined,
 		memberTheme: row.memberName
 			? {
