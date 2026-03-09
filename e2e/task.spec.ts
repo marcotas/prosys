@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember, addTask, waitForHydration } from './helpers';
+import { cleanData, createMember, addTask, waitForHydration, getTodayName } from './helpers';
 
 test.describe('Task management', () => {
+	// Use today's day so the task is never "past" on the current week
+	const today = getTodayName();
+
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
 		await page.goto('/');
@@ -10,15 +13,14 @@ test.describe('Task management', () => {
 	});
 
 	test('adds a task to a day card', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
-		// Task should appear in the Sunday card
-		const sundayCard = page.getByLabel('Sunday tasks');
-		await expect(sundayCard.getByText('Buy groceries')).toBeVisible();
+		const todayCard = page.getByLabel(`${today} tasks`);
+		await expect(todayCard.getByText('Buy groceries')).toBeVisible();
 	});
 
 	test('completes and uncompletes a task', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Complete the task
 		const checkbox = page.getByLabel('Mark Buy groceries as complete');
@@ -31,24 +33,24 @@ test.describe('Task management', () => {
 	});
 
 	test('deletes a task via context menu', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Right-click to open context menu
-		const taskText = page.getByLabel('Sunday tasks').getByText('Buy groceries');
+		const taskText = page.getByLabel(`${today} tasks`).getByText('Buy groceries');
 		await taskText.click({ button: 'right' });
 
 		// Click Delete in context menu
 		await page.getByRole('menuitem', { name: 'Delete' }).click();
 
 		// Task should be removed
-		await expect(page.getByLabel('Sunday tasks').getByText('Buy groceries')).not.toBeVisible();
+		await expect(page.getByLabel(`${today} tasks`).getByText('Buy groceries')).not.toBeVisible();
 	});
 
 	test('shows Delete (not Cancel) for current-week tasks', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Right-click to open context menu
-		const taskText = page.getByLabel('Sunday tasks').getByText('Buy groceries');
+		const taskText = page.getByLabel(`${today} tasks`).getByText('Buy groceries');
 		await taskText.click({ button: 'right' });
 
 		// Should show "Delete", not "Cancel"
