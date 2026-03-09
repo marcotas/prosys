@@ -8,10 +8,10 @@
 	const { days } = $props<{ days: DayData[] }>();
 
 	const totalTasks = $derived(
-		days.reduce((sum: number, d: DayData) => sum + d.tasks.length, 0)
+		days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t) => t.status === 'active').length, 0)
 	);
 	const totalCompleted = $derived(
-		days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t: { completed: boolean }) => t.completed).length, 0)
+		days.reduce((sum: number, d: DayData) => sum + d.tasks.filter((t) => t.status === 'active' && t.completed).length, 0)
 	);
 	const overallPercent = $derived(
 		totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0

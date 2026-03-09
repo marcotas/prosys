@@ -1,5 +1,5 @@
 import { eq, and, asc, max } from 'drizzle-orm';
-import type { TaskData, TaskStatus, ThemeVariant } from '$lib/domain/types';
+import type { TaskData, TaskStatus, ThemeVariant, RescheduleEntry } from '$lib/domain/types';
 import type * as schema from '$lib/server/db/schema';
 import type { Database } from 'better-sqlite3';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -10,6 +10,15 @@ import { tasks, familyMembers } from '$lib/server/db/schema';
 // ── Row-to-Domain Mapper ────────────────────────────────
 
 type TaskRow = typeof tasks.$inferSelect;
+
+function parseRescheduleHistory(raw: string | null): RescheduleEntry[] | null {
+	if (!raw) return null;
+	try {
+		return JSON.parse(raw) as RescheduleEntry[];
+	} catch {
+		return null;
+	}
+}
 
 function rowToTaskData(row: TaskRow): TaskData {
 	return {
@@ -22,7 +31,10 @@ function rowToTaskData(row: TaskRow): TaskData {
 		completed: row.completed,
 		sortOrder: row.sortOrder,
 		status: row.status as TaskStatus,
-		cancelledAt: row.cancelledAt ?? null
+		cancelledAt: row.cancelledAt ?? null,
+		rescheduleCount: row.rescheduleCount ?? 0,
+		rescheduleHistory: parseRescheduleHistory(row.rescheduleHistory),
+		rescheduledFromId: row.rescheduledFromId ?? null
 	};
 }
 
@@ -58,6 +70,9 @@ interface TaskInsertRow {
 	sortOrder: number;
 	status: string;
 	cancelledAt: string | null;
+	rescheduleCount: number;
+	rescheduleHistory: string | null;
+	rescheduledFromId: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -107,6 +122,9 @@ export class TaskRepository {
 				sortOrder: tasks.sortOrder,
 				status: tasks.status,
 				cancelledAt: tasks.cancelledAt,
+				rescheduleCount: tasks.rescheduleCount,
+				rescheduleHistory: tasks.rescheduleHistory,
+				rescheduledFromId: tasks.rescheduledFromId,
 				memberName: familyMembers.name,
 				memberThemeVariant: familyMembers.themeVariant,
 				memberThemeAccent: familyMembers.themeAccent,
@@ -134,6 +152,9 @@ export class TaskRepository {
 			sortOrder: row.sortOrder,
 			status: row.status as TaskStatus,
 			cancelledAt: row.cancelledAt ?? null,
+			rescheduleCount: row.rescheduleCount ?? 0,
+			rescheduleHistory: parseRescheduleHistory(row.rescheduleHistory),
+			rescheduledFromId: row.rescheduledFromId ?? null,
 			memberName: row.memberName ?? undefined,
 			memberTheme: row.memberName
 				? {
@@ -184,6 +205,9 @@ export class TaskRepository {
 			sortOrder: data.sortOrder,
 			status: data.status,
 			cancelledAt: data.cancelledAt,
+			rescheduleCount: data.rescheduleCount,
+			rescheduleHistory: data.rescheduleHistory ? JSON.stringify(data.rescheduleHistory) : null,
+			rescheduledFromId: data.rescheduledFromId,
 			createdAt: now,
 			updatedAt: now
 		};
@@ -208,6 +232,9 @@ export class TaskRepository {
 				sortOrder: data.sortOrder,
 				status: data.status,
 				cancelledAt: data.cancelledAt,
+				rescheduleCount: data.rescheduleCount,
+				rescheduleHistory: data.rescheduleHistory ? JSON.stringify(data.rescheduleHistory) : null,
+				rescheduledFromId: data.rescheduledFromId,
 				updatedAt: now
 			})
 			.where(eq(tasks.id, data.id))
@@ -232,6 +259,10 @@ export class TaskRepository {
 		if (fields.weekStart !== undefined) updates.weekStart = fields.weekStart;
 		if (fields.status !== undefined) updates.status = fields.status;
 		if (fields.cancelledAt !== undefined) updates.cancelledAt = fields.cancelledAt ?? null;
+		if (fields.rescheduleCount !== undefined) updates.rescheduleCount = fields.rescheduleCount;
+		if (fields.rescheduleHistory !== undefined)
+			updates.rescheduleHistory = fields.rescheduleHistory ? JSON.stringify(fields.rescheduleHistory) : null;
+		if (fields.rescheduledFromId !== undefined) updates.rescheduledFromId = fields.rescheduledFromId ?? null;
 
 		this.db.update(tasks).set(updates).where(eq(tasks.id, id)).run();
 	}

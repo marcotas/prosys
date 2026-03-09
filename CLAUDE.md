@@ -90,6 +90,7 @@ Tauri (Rust) → spawns Node.js server (server.js)
 - **optimisticAction**: snapshot → apply → notify → request → onSuccess / rollback+rethrow / enqueue-offline
 - **Constructor DI**: Controllers receive infra via constructor for testability (mock ApiClient, OfflineQueue, WebSocketClient)
 - **WS self-registration**: Controllers register their own WebSocket handlers in the constructor (no fragile manual wiring)
+- **Entity owns invariants**: Domain validation and business rules live in entity methods, not use cases. Use cases orchestrate (find → entity method → persist → broadcast). If a rule must always hold regardless of caller, it belongs in the entity. Compare: `task.cancel(today)` and `task.reschedule(today, toWeek, toDay)` own all validation; their use cases are thin orchestration wrappers.
 
 ### Database Schema
 

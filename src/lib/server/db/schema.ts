@@ -35,6 +35,9 @@ export const tasks = sqliteTable(
 		sortOrder: integer('sort_order').notNull().default(0),
 		status: text('status').notNull().default('active'),
 		cancelledAt: text('cancelled_at'),
+		rescheduleCount: integer('reschedule_count').notNull().default(0),
+		rescheduleHistory: text('reschedule_history'),
+		rescheduledFromId: text('rescheduled_from_id'),
 		createdAt: text('created_at').notNull(),
 		updatedAt: text('updated_at').notNull()
 	},

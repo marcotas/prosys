@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { ValidationError, ConflictError } from './errors';
 import { Task } from './task';
 import type { TaskData } from './types';
 
@@ -23,6 +24,9 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
@@ -243,19 +247,39 @@ describe('Task mutations', () => {
 		expect(task.memberId).toBeNull();
 	});
 
-	it('cancel() sets status to cancelled and sets cancelledAt', () => {
+	it('cancel(today) sets status to cancelled and sets cancelledAt for past task', () => {
+		// weekStart 2026-03-01 dayIndex 0 = Mar 1 (past relative to Mar 7)
 		const task = Task.fromData(makeTaskData());
+		const today = new Date(2026, 2, 7);
 		expect(task.isCancelled).toBe(false);
 
-		task.cancel();
+		task.cancel(today);
 
 		expect(task.status).toBe('cancelled');
 		expect(task.isCancelled).toBe(true);
 		expect(task.cancelledAt).toBeTruthy();
 	});
 
+	it('cancel(today) throws ValidationError when task is not past', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-08', dayIndex: 0 }));
+		const today = new Date(2026, 2, 7);
+		expect(() => task.cancel(today)).toThrow(ValidationError);
+		expect(() => task.cancel(today)).toThrow('Only past tasks can be cancelled');
+	});
+
+	it('cancel(today) throws ConflictError when already cancelled', () => {
+		const task = Task.fromData(
+			makeTaskData({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' })
+		);
+		const today = new Date(2026, 2, 7);
+		expect(() => task.cancel(today)).toThrow(ConflictError);
+		expect(() => task.cancel(today)).toThrow('Task is already cancelled');
+	});
+
 	it('isCancelled returns true for cancelled task', () => {
-		const task = Task.fromData(makeTaskData({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' }));
+		const task = Task.fromData(
+			makeTaskData({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' })
+		);
 		expect(task.isCancelled).toBe(true);
 	});
 
@@ -268,44 +292,38 @@ describe('Task mutations', () => {
 // ── isPast ───────────────────────────────────────────────
 
 describe('Task.isPast', () => {
-	afterEach(() => {
-		vi.useRealTimers();
-	});
+	const today = new Date(2026, 2, 7, 12, 0, 0); // Mar 7
 
 	it('returns true for a day before today', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
-		expect(task.isPast).toBe(true);
+		expect(task.isPast(today)).toBe(true);
 	});
 
 	it('returns true for yesterday', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
-		expect(task.isPast).toBe(true);
+		expect(task.isPast(today)).toBe(true);
 	});
 
 	it('returns false for today', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
-		expect(task.isPast).toBe(false);
+		expect(task.isPast(today)).toBe(false);
 	});
 
 	it('returns false for a future day', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-08', dayIndex: 0 }));
-		expect(task.isPast).toBe(false);
+		expect(task.isPast(today)).toBe(false);
 	});
 
 	it('returns false for today at end of day', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 23, 59, 59) });
+		const endOfDay = new Date(2026, 2, 7, 23, 59, 59);
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 6 }));
-		expect(task.isPast).toBe(false);
+		expect(task.isPast(endOfDay)).toBe(false);
 	});
 
 	it('returns true for yesterday at midnight', () => {
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 0, 0, 0) });
+		const midnight = new Date(2026, 2, 7, 0, 0, 0);
 		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 5 }));
-		expect(task.isPast).toBe(true);
+		expect(task.isPast(midnight)).toBe(true);
 	});
 });
 
@@ -340,6 +358,145 @@ describe('Task.isMove', () => {
 	it('returns true when both change', () => {
 		const task = Task.fromData(makeTaskData({ dayIndex: 0, weekStart: '2026-03-01' }));
 		expect(task.isMove({ dayIndex: 3, weekStart: '2026-03-08' })).toBe(true);
+	});
+});
+
+// ── reschedule() ────────────────────────────────────────
+
+describe('Task.reschedule', () => {
+	const today = new Date(2026, 2, 7); // Mar 7
+
+	// ── Source validation ──
+
+	it('sets status to rescheduled for a past active task', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		task.reschedule(today, '2026-03-08', 1);
+		expect(task.status).toBe('rescheduled');
+		expect(task.isRescheduled).toBe(true);
+	});
+
+	it('throws ValidationError if task is not past', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-08', dayIndex: 0 }));
+		expect(() => task.reschedule(today, '2026-03-15', 0)).toThrow(ValidationError);
+		expect(() => task.reschedule(today, '2026-03-15', 0)).toThrow('Only past tasks can be rescheduled');
+	});
+
+	it('throws ConflictError if task is cancelled', () => {
+		const task = Task.fromData(
+			makeTaskData({ weekStart: '2026-03-01', dayIndex: 0, status: 'cancelled' })
+		);
+		expect(() => task.reschedule(today, '2026-03-08', 0)).toThrow(ConflictError);
+		expect(() => task.reschedule(today, '2026-03-08', 0)).toThrow('Only active tasks can be rescheduled');
+	});
+
+	it('throws ConflictError if task is already rescheduled', () => {
+		const task = Task.fromData(
+			makeTaskData({ weekStart: '2026-03-01', dayIndex: 0, status: 'rescheduled' })
+		);
+		expect(() => task.reschedule(today, '2026-03-08', 0)).toThrow(ConflictError);
+		expect(() => task.reschedule(today, '2026-03-08', 0)).toThrow('Only active tasks can be rescheduled');
+	});
+
+	// ── Target date validation ──
+
+	it('throws ValidationError when target date is in the past', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		// Target Mar 1 is past relative to Mar 7
+		expect(() => task.reschedule(today, '2026-03-01', 0)).toThrow(ValidationError);
+		expect(() => task.reschedule(today, '2026-03-01', 0)).toThrow('Target date must be today or in the future');
+	});
+
+	it('allows target date of today', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		// Today is Mar 7 = dayIndex 6 in week starting 2026-03-01
+		const newTask = task.reschedule(today, '2026-03-01', 6);
+		expect(newTask.weekStart).toBe('2026-03-01');
+		expect(newTask.dayIndex).toBe(6);
+	});
+
+	// ── Returned new task properties ──
+
+	it('returns a new task with correct title, emoji, and memberId', () => {
+		const task = Task.fromData(makeTaskData({ title: 'Buy milk', emoji: '🥛', memberId: 'member-1' }));
+		const newTask = task.reschedule(today, '2026-03-08', 1);
+
+		expect(newTask.title).toBe('Buy milk');
+		expect(newTask.emoji).toBe('🥛');
+		expect(newTask.memberId).toBe('member-1');
+		expect(newTask.weekStart).toBe('2026-03-08');
+		expect(newTask.dayIndex).toBe(1);
+		expect(newTask.status).toBe('active');
+	});
+
+	it('sets rescheduleCount, rescheduledFromId, and history on new task', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		const newTask = task.reschedule(today, '2026-03-08', 1);
+
+		expect(newTask.rescheduleCount).toBe(1);
+		expect(newTask.rescheduledFromId).toBe('task-1');
+		expect(newTask.rescheduleHistory).toEqual([
+			{ date: '2026-03-01', count: 1 }
+		]);
+	});
+
+	it('returns a new task with a different id', () => {
+		const task = Task.fromData(makeTaskData());
+		const newTask = task.reschedule(today, '2026-03-08', 0);
+		expect(newTask.id).not.toBe(task.id);
+	});
+
+	it('handles null memberId on source task', () => {
+		const task = Task.fromData(makeTaskData({ memberId: null }));
+		const newTask = task.reschedule(today, '2026-03-08', 0);
+		expect(newTask.memberId).toBeNull();
+	});
+
+	// ── History accumulation ──
+
+	it('accumulates reschedule history across multiple reschedules', () => {
+		const prevHistory = [{ date: '2026-02-22', count: 1 }];
+		const task = Task.fromData(
+			makeTaskData({
+				weekStart: '2026-03-01',
+				dayIndex: 2, // Mar 3
+				rescheduleCount: 1,
+				rescheduleHistory: prevHistory,
+				rescheduledFromId: 'original-id'
+			})
+		);
+
+		const newTask = task.reschedule(today, '2026-03-08', 0);
+
+		expect(newTask.rescheduleCount).toBe(2);
+		expect(newTask.rescheduleHistory).toEqual([
+			{ date: '2026-02-22', count: 1 },
+			{ date: '2026-03-03', count: 2 }
+		]);
+		expect(newTask.rescheduledFromId).toBe('task-1');
+	});
+
+	it('serializes reschedule info in toJSON()', () => {
+		const task = Task.fromData(makeTaskData({ weekStart: '2026-03-01', dayIndex: 0 }));
+		const newTask = task.reschedule(today, '2026-03-08', 1);
+
+		const json = newTask.toJSON();
+		expect(json.rescheduleCount).toBe(1);
+		expect(json.rescheduleHistory).toEqual([{ date: '2026-03-01', count: 1 }]);
+		expect(json.rescheduledFromId).toBe('task-1');
+	});
+});
+
+// ── isRescheduled ───────────────────────────────────────
+
+describe('Task.isRescheduled', () => {
+	it('returns true for rescheduled task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'rescheduled' }));
+		expect(task.isRescheduled).toBe(true);
+	});
+
+	it('returns false for active task', () => {
+		const task = Task.fromData(makeTaskData({ status: 'active' }));
+		expect(task.isRescheduled).toBe(false);
 	});
 });
 

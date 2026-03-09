@@ -42,6 +42,10 @@ export class TaskController extends ChangeNotifier {
 			'task:moved',
 			(p: { task: TaskData; fromDay: number; fromWeek?: string }) => this.applyRemoteMove(p)
 		);
+		ws.onMessage(
+			'task:rescheduled',
+			(p: { original: TaskData; newTask: TaskData }) => this.applyRemoteReschedule(p)
+		);
 	}
 
 	get loading(): boolean {
@@ -214,23 +218,40 @@ export class TaskController extends ChangeNotifier {
 		return this.update(id, { completed: !task.isCompleted });
 	}
 
-	async delete(id: string): Promise<void> {
+	async delete(id: string): Promise<{ cancelledInstead?: boolean }> {
 		const task = this.tasks.findById(id);
-		if (!task) return;
+		if (!task) return {};
 
-		await optimisticAction<void>(
+		let cancelledInstead = false;
+
+		await optimisticAction<{ success?: boolean; cancelledInstead?: boolean; task?: TaskData }>(
 			this.tasks,
 			this.offlineQueue,
 			() => this.notifyChanges(),
 			{
 				apply: () => {
+					// Optimistically remove (will be restored if server cancels instead)
 					this.removeFromAll(id);
 				},
-				request: () => this.api.delete<void>(`/api/tasks/${id}`),
-				onSuccess: () => {},
+				request: () => this.api.delete<{ success?: boolean; cancelledInstead?: boolean; task?: TaskData }>(`/api/tasks/${id}`),
+				onSuccess: (response) => {
+					if (response?.cancelledInstead && response.task) {
+						// Server cancelled instead of deleting — restore with cancelled data
+						cancelledInstead = true;
+						const serverTask = Task.fromData(response.task);
+						if (serverTask.memberId) {
+							const mKey = cacheKey(serverTask.memberId, serverTask.weekStart);
+							if (this.tasks.has(mKey)) this.tasks.insert(mKey, serverTask);
+						}
+						const fKey = familyKey(serverTask.weekStart);
+						if (this.tasks.has(fKey)) this.tasks.insert(fKey, serverTask.clone());
+					}
+				},
 				offlinePayload: { method: 'DELETE', url: `/api/tasks/${id}`, headers: this.api.getHeaders() }
 			}
 		);
+
+		return { cancelledInstead: cancelledInstead || undefined };
 	}
 
 	async cancel(id: string): Promise<void> {
@@ -243,8 +264,9 @@ export class TaskController extends ChangeNotifier {
 			() => this.notifyChanges(),
 			{
 				apply: () => {
+					const now = new Date();
 					for (const t of this.tasks.findAllById(id)) {
-						t.cancel();
+						t.cancel(now);
 					}
 				},
 				request: () => this.api.post<TaskData>(`/api/tasks/${id}/cancel`),
@@ -254,12 +276,74 @@ export class TaskController extends ChangeNotifier {
 		);
 	}
 
-	async deleteOrCancel(id: string): Promise<void> {
+	async reschedule(id: string, toWeekStart: string, toDayIndex: number): Promise<{ original: TaskData; newTask: TaskData } | null> {
 		const task = this.tasks.findById(id);
-		if (!task) return;
+		if (!task) return null;
 
-		if (task.isPast) {
-			return this.cancel(id);
+		const memberId = task.memberId;
+
+		// Build temp new task data for optimistic UI
+		const tempId = `temp-${Date.now()}`;
+		const tempNewTask = Task.fromData({
+			...task.toJSON(),
+			id: tempId,
+			weekStart: toWeekStart,
+			dayIndex: toDayIndex,
+			status: 'active',
+			rescheduleCount: task.rescheduleCount + 1,
+			rescheduledFromId: task.id
+		});
+
+		return optimisticAction<{ original: TaskData; newTask: TaskData }>(
+			this.tasks,
+			this.offlineQueue,
+			() => this.notifyChanges(),
+			{
+				apply: () => {
+					// Mark original as rescheduled via replaceTask
+					this.replaceTask(id, { ...task.toJSON(), status: 'rescheduled' });
+					// Insert temp new task in target caches
+					if (memberId) {
+						const targetMKey = cacheKey(memberId, toWeekStart);
+						if (this.tasks.has(targetMKey)) this.tasks.insert(targetMKey, tempNewTask);
+					}
+					const targetFKey = familyKey(toWeekStart);
+					if (this.tasks.has(targetFKey)) this.tasks.insert(targetFKey, tempNewTask.clone());
+				},
+				request: () =>
+					this.api.post<{ original: TaskData; newTask: TaskData }>(
+						`/api/tasks/${id}/reschedule`,
+						{ toWeekStart, toDayIndex }
+					),
+				onSuccess: (data) => {
+					// Replace temp task with server response
+					this.removeFromAll(tempId);
+					this.replaceTask(id, data.original);
+					const serverNew = Task.fromData(data.newTask);
+					if (serverNew.memberId) {
+						const mKey = cacheKey(serverNew.memberId, serverNew.weekStart);
+						if (this.tasks.has(mKey)) this.tasks.insert(mKey, serverNew);
+					}
+					const fKey = familyKey(serverNew.weekStart);
+					if (this.tasks.has(fKey)) this.tasks.insert(fKey, serverNew.clone());
+				},
+				offlinePayload: {
+					method: 'POST',
+					url: `/api/tasks/${id}/reschedule`,
+					body: { toWeekStart, toDayIndex },
+					headers: this.api.getHeaders()
+				}
+			}
+		);
+	}
+
+	async deleteOrCancel(id: string): Promise<{ cancelledInstead?: boolean }> {
+		const task = this.tasks.findById(id);
+		if (!task) return {};
+
+		if (task.isPast(new Date())) {
+			await this.cancel(id);
+			return {};
 		}
 		return this.delete(id);
 	}
@@ -306,6 +390,12 @@ export class TaskController extends ChangeNotifier {
 		const task = this.tasks.findById(taskId);
 		if (!task) return;
 		if (task.dayIndex === toDayIndex && task.weekStart === toWeekStart) return;
+
+		// Past tasks get rescheduled instead of moved
+		if (task.isPast(new Date())) {
+			await this.reschedule(taskId, toWeekStart, toDayIndex);
+			return;
+		}
 
 		const isCrossWeek = task.weekStart !== toWeekStart;
 		const memberId = task.memberId;
@@ -439,6 +529,22 @@ export class TaskController extends ChangeNotifier {
 			);
 		}
 		this.tasks.reorder(familyKey(payload.weekStart), payload.dayIndex, payload.taskIds);
+		this.notifyChanges();
+	}
+
+	applyRemoteReschedule(payload: { original: TaskData; newTask: TaskData }): void {
+		// Update original task in caches (now rescheduled)
+		this.replaceTask(payload.original.id, payload.original);
+
+		// Insert new task into caches
+		const newTask = Task.fromData(payload.newTask);
+		if (newTask.memberId) {
+			const mKey = cacheKey(newTask.memberId, newTask.weekStart);
+			if (this.tasks.has(mKey)) this.tasks.insert(mKey, newTask);
+		}
+		const fKey = familyKey(newTask.weekStart);
+		if (this.tasks.has(fKey)) this.tasks.insert(fKey, newTask.clone());
+
 		this.notifyChanges();
 	}
 

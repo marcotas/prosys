@@ -5,7 +5,12 @@
 
 export type DayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
-export type TaskStatus = 'active' | 'cancelled';
+export type TaskStatus = 'active' | 'cancelled' | 'rescheduled';
+
+export interface RescheduleEntry {
+	date: string;
+	count: number;
+}
 
 export type ThemeVariant = 'default' | 'playful';
 
@@ -44,6 +49,9 @@ export interface TaskData {
 	sortOrder: number;
 	status: TaskStatus;
 	cancelledAt: string | null;
+	rescheduleCount: number;
+	rescheduleHistory: RescheduleEntry[] | null;
+	rescheduledFromId: string | null;
 }
 
 export interface HabitData {
@@ -82,6 +90,9 @@ export type UpdateTaskInput = {
 	weekStart?: string;
 	status?: TaskStatus;
 	cancelledAt?: string | null;
+	rescheduleCount?: number;
+	rescheduleHistory?: RescheduleEntry[] | null;
+	rescheduledFromId?: string | null;
 };
 
 export type CreateHabitInput = {

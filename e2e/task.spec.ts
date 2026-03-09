@@ -1,7 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { cleanData, createMember, addTask, waitForHydration } from './helpers';
+import { cleanData, createMember, addTask, waitForHydration, getTodayName } from './helpers';
 
 test.describe('Task management', () => {
+	// Use today's day so the task is never "past" on the current week
+	const today = getTodayName();
+
 	test.beforeEach(async ({ page }) => {
 		await cleanData(page);
 		await page.goto('/');
@@ -10,15 +13,14 @@ test.describe('Task management', () => {
 	});
 
 	test('adds a task to a day card', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
-		// Task should appear in the Sunday card
-		const sundayCard = page.getByLabel('Sunday tasks');
-		await expect(sundayCard.getByText('Buy groceries')).toBeVisible();
+		const todayCard = page.getByLabel(`${today} tasks`);
+		await expect(todayCard.getByText('Buy groceries')).toBeVisible();
 	});
 
 	test('completes and uncompletes a task', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Complete the task
 		const checkbox = page.getByLabel('Mark Buy groceries as complete');
@@ -31,24 +33,24 @@ test.describe('Task management', () => {
 	});
 
 	test('deletes a task via context menu', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Right-click to open context menu
-		const taskText = page.getByLabel('Sunday tasks').getByText('Buy groceries');
+		const taskText = page.getByLabel(`${today} tasks`).getByText('Buy groceries');
 		await taskText.click({ button: 'right' });
 
 		// Click Delete in context menu
 		await page.getByRole('menuitem', { name: 'Delete' }).click();
 
 		// Task should be removed
-		await expect(page.getByLabel('Sunday tasks').getByText('Buy groceries')).not.toBeVisible();
+		await expect(page.getByLabel(`${today} tasks`).getByText('Buy groceries')).not.toBeVisible();
 	});
 
 	test('shows Delete (not Cancel) for current-week tasks', async ({ page }) => {
-		await addTask(page, 'Sunday', 'Buy groceries');
+		await addTask(page, today, 'Buy groceries');
 
 		// Right-click to open context menu
-		const taskText = page.getByLabel('Sunday tasks').getByText('Buy groceries');
+		const taskText = page.getByLabel(`${today} tasks`).getByText('Buy groceries');
 		await taskText.click({ button: 'right' });
 
 		// Should show "Delete", not "Cancel"
@@ -127,5 +129,102 @@ test.describe('Task cancellation', () => {
 
 		// Cancelled icon should be present instead
 		await expect(sundayCard.getByLabel('Cancelled')).toBeVisible();
+	});
+});
+
+test.describe('Task rescheduling', () => {
+	test.beforeEach(async ({ page }) => {
+		await cleanData(page);
+		await page.goto('/');
+		await waitForHydration(page);
+		await createMember(page, 'Alice');
+
+		// Navigate to previous week so all days are in the past
+		await page.getByLabel('Previous week').click();
+	});
+
+	test('reschedules a past task via context menu', async ({ page }) => {
+		await addTask(page, 'Sunday', 'Clean house');
+
+		const sundayCard = page.getByLabel('Sunday tasks');
+
+		// Right-click to open context menu and click Reschedule
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Reschedule…' }).click();
+
+		// Reschedule picker dialog should appear
+		const dialog = page.getByRole('dialog', { name: 'Reschedule' });
+		await expect(dialog).toBeVisible();
+
+		// Navigate to next month to pick a future date, then click the 15th
+		await dialog.getByLabel('Next month').click();
+		await dialog.getByRole('button', { name: '15' }).click();
+
+		// Original task should show rescheduled icon
+		await expect(sundayCard.getByLabel('Rescheduled')).toBeVisible();
+
+		// Title should have line-through styling
+		const titleSpan = sundayCard.getByText('Clean house');
+		await expect(titleSpan).toHaveClass(/line-through/);
+	});
+
+	test('rescheduled task hides context menu actions', async ({ page }) => {
+		await addTask(page, 'Sunday', 'Clean house');
+
+		const sundayCard = page.getByLabel('Sunday tasks');
+
+		// Reschedule the task
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Reschedule…' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Reschedule' });
+		await dialog.getByLabel('Next month').click();
+		await dialog.getByRole('button', { name: '15' }).click();
+		await expect(sundayCard.getByLabel('Rescheduled')).toBeVisible();
+
+		// Right-click the rescheduled task
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+
+		// Context menu should not show Reschedule or Cancel/Delete actions
+		await expect(page.getByRole('menuitem', { name: 'Reschedule…' })).not.toBeVisible();
+		await expect(page.getByRole('menuitem', { name: 'Cancel' })).not.toBeVisible();
+	});
+
+	test('rescheduled task cannot be toggled', async ({ page }) => {
+		await addTask(page, 'Sunday', 'Clean house');
+
+		const sundayCard = page.getByLabel('Sunday tasks');
+
+		// Reschedule the task
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Reschedule…' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Reschedule' });
+		await dialog.getByLabel('Next month').click();
+		await dialog.getByRole('button', { name: '15' }).click();
+		await expect(sundayCard.getByLabel('Rescheduled')).toBeVisible();
+
+		// Checkbox should not be present for rescheduled tasks
+		await expect(page.getByLabel('Mark Clean house as complete')).not.toBeVisible();
+	});
+
+	test('rescheduled task is excluded from progress', async ({ page }) => {
+		// Add two tasks
+		await addTask(page, 'Sunday', 'Clean house');
+		await addTask(page, 'Sunday', 'Cook dinner');
+
+		const sundayCard = page.getByLabel('Sunday tasks');
+
+		// Header should show 0/2
+		await expect(sundayCard.getByText('0/2')).toBeVisible();
+
+		// Reschedule one task
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Reschedule…' }).click();
+		const dialog = page.getByRole('dialog', { name: 'Reschedule' });
+		await dialog.getByLabel('Next month').click();
+		await dialog.getByRole('button', { name: '15' }).click();
+		await expect(sundayCard.getByLabel('Rescheduled')).toBeVisible();
+
+		// Header should now show 0/1 (rescheduled task excluded)
+		await expect(sundayCard.getByText('0/1')).toBeVisible();
 	});
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CancelTask } from './cancel-task';
 import type { TaskData } from '$lib/domain/types';
 import type { TaskRepository } from '$lib/server/repositories/task-repository';
@@ -33,6 +33,9 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
@@ -48,14 +51,8 @@ describe('CancelTask', () => {
 	let useCase: CancelTask;
 
 	beforeEach(() => {
-		// Freeze to 2026-03-07 so default task data (2026-03-01 dayIndex 0) is past
-		vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 		repo = makeMockRepo();
 		useCase = new CancelTask(repo);
-	});
-
-	afterEach(() => {
-		vi.useRealTimers();
 	});
 
 	it('cancels a past task and returns updated data', () => {
@@ -77,7 +74,7 @@ describe('CancelTask', () => {
 		expect(() => useCase.execute('nonexistent')).toThrow('Task not found: nonexistent');
 	});
 
-	it('throws ValidationError when task is not past', () => {
+	it('throws ValidationError when task is not past (entity validates)', () => {
 		// Use a future date so isPast returns false
 		vi.mocked(repo.findById).mockReturnValue(makeTask({ weekStart: '2099-03-02', dayIndex: 0 }));
 
@@ -85,7 +82,7 @@ describe('CancelTask', () => {
 		expect(() => useCase.execute('task-1')).toThrow('Only past tasks can be cancelled');
 	});
 
-	it('throws ConflictError when task is already cancelled', () => {
+	it('throws ConflictError when task is already cancelled (entity validates)', () => {
 		vi.mocked(repo.findById).mockReturnValue(
 			makeTask({ status: 'cancelled', cancelledAt: '2026-03-01T00:00:00.000Z' })
 		);

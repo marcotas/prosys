@@ -61,6 +61,7 @@ export type WSMessage =
 	| { type: 'task:deleted'; payload: { id: string; memberId: string | null; weekStart: string; dayIndex: number } }
 	| { type: 'task:reordered'; payload: { memberId: string | null; weekStart: string; dayIndex: number; taskIds: string[] } }
 	| { type: 'task:moved'; payload: { task: Task; fromDay: number; fromWeek?: string } }
+	| { type: 'task:rescheduled'; payload: { original: Task; newTask: Task } }
 	| { type: 'habit:created'; payload: Habit }
 	| { type: 'habit:updated'; payload: Habit }
 	| { type: 'habit:deleted'; payload: { id: string; memberId: string } }

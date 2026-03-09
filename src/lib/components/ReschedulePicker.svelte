@@ -18,10 +18,12 @@
 	let {
 		task,
 		open = $bindable(false),
+		isPastTask = false,
 		onReschedule
 	}: {
 		task: Task | null;
 		open: boolean;
+		isPastTask?: boolean;
 		onReschedule: (toWeekStart: string, toDayIndex: number) => void;
 	} = $props();
 	/* eslint-enable prefer-const */
@@ -128,12 +130,15 @@
 						{@const iso = dateToISO(cell)}
 						{@const isTaskDay = iso === taskDate}
 						{@const isToday = iso === todayISO}
+						{@const isPastDate = isPastTask && iso < todayISO}
 						<button
 							onclick={() => selectDate(cell)}
-							disabled={isTaskDay}
+							disabled={isTaskDay || isPastDate}
 							class="relative w-full aspect-square flex flex-col items-center justify-center text-sm rounded-lg transition-colors
 								{isTaskDay
 									? 'ring-2 ring-indigo-400 font-semibold text-indigo-600 cursor-default'
+									: isPastDate
+									? 'text-gray-300 cursor-not-allowed'
 									: 'hover:bg-gray-200 text-gray-700 cursor-pointer'}"
 						>
 							{cell.getDate()}

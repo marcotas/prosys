@@ -34,7 +34,11 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 		title: row.title,
 		emoji: row.emoji ?? undefined,
 		completed: row.completed,
-		sortOrder: row.sortOrder
+		sortOrder: row.sortOrder,
+		status: row.status as Task['status'],
+		cancelledAt: row.cancelledAt ?? null,
+		rescheduleCount: row.rescheduleCount,
+		rescheduledFromId: row.rescheduledFromId ?? null
 	};
 }
 

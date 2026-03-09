@@ -1,5 +1,6 @@
+import { ValidationError, ConflictError } from './errors';
 import { ID } from './id';
-import type { TaskData, TaskStatus, CreateTaskInput } from './types';
+import type { TaskData, TaskStatus, CreateTaskInput, RescheduleEntry } from './types';
 import { isoToDate } from '$lib/utils/dates';
 
 export class Task {
@@ -32,7 +33,10 @@ export class Task {
 			completed: false,
 			sortOrder: 0,
 			status: 'active',
-			cancelledAt: null
+			cancelledAt: null,
+			rescheduleCount: 0,
+			rescheduleHistory: null,
+			rescheduledFromId: null
 		});
 	}
 
@@ -40,7 +44,10 @@ export class Task {
 		return new Task({
 			...data,
 			status: data.status ?? 'active',
-			cancelledAt: data.cancelledAt ?? null
+			cancelledAt: data.cancelledAt ?? null,
+			rescheduleCount: data.rescheduleCount ?? 0,
+			rescheduleHistory: data.rescheduleHistory ?? null,
+			rescheduledFromId: data.rescheduledFromId ?? null
 		});
 	}
 
@@ -83,12 +90,23 @@ export class Task {
 	get cancelledAt(): string | null {
 		return this.data.cancelledAt;
 	}
-	get isPast(): boolean {
+	get isRescheduled(): boolean {
+		return this.data.status === 'rescheduled';
+	}
+	get rescheduleCount(): number {
+		return this.data.rescheduleCount;
+	}
+	get rescheduleHistory(): RescheduleEntry[] | null {
+		return this.data.rescheduleHistory;
+	}
+	get rescheduledFromId(): string | null {
+		return this.data.rescheduledFromId;
+	}
+	isPast(today: Date): boolean {
 		const taskDate = isoToDate(this.data.weekStart);
 		taskDate.setDate(taskDate.getDate() + this.data.dayIndex);
-		const now = new Date();
-		const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-		return taskDate.getTime() < today.getTime();
+		const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+		return taskDate.getTime() < todayMidnight.getTime();
 	}
 
 	// ── Mutations ────────────────────────────────────────
@@ -129,9 +147,58 @@ export class Task {
 		this.data.memberId = memberId;
 	}
 
-	cancel(): void {
+	reschedule(today: Date, toWeekStart: string, toDayIndex: number): Task {
+		if (!this.isPast(today)) {
+			throw new ValidationError('Only past tasks can be rescheduled');
+		}
+		if (this.data.status !== 'active') {
+			throw new ConflictError('Only active tasks can be rescheduled');
+		}
+
+		// Validate target: must be today or future
+		const targetDate = isoToDate(toWeekStart);
+		targetDate.setDate(targetDate.getDate() + toDayIndex);
+		const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+		if (targetDate.getTime() < todayMidnight.getTime()) {
+			throw new ValidationError('Target date must be today or in the future');
+		}
+
+		// Mark source as rescheduled
+		this.data.status = 'rescheduled';
+
+		// Build reschedule history
+		const originalDate = isoToDate(this.data.weekStart);
+		originalDate.setDate(originalDate.getDate() + this.data.dayIndex);
+		const dateStr = `${originalDate.getFullYear()}-${String(originalDate.getMonth() + 1).padStart(2, '0')}-${String(originalDate.getDate()).padStart(2, '0')}`;
+
+		const prevHistory = this.data.rescheduleHistory ?? [];
+		const newCount = this.data.rescheduleCount + 1;
+		const updatedHistory = [...prevHistory, { date: dateStr, count: newCount }];
+
+		// Create and return new task with reschedule info
+		const newTask = Task.create({
+			title: this.data.title,
+			emoji: this.data.emoji,
+			memberId: this.data.memberId ?? undefined,
+			weekStart: toWeekStart,
+			dayIndex: toDayIndex
+		});
+		newTask.data.rescheduleCount = newCount;
+		newTask.data.rescheduleHistory = updatedHistory;
+		newTask.data.rescheduledFromId = this.data.id;
+
+		return newTask;
+	}
+
+	cancel(today: Date): void {
+		if (!this.isPast(today)) {
+			throw new ValidationError('Only past tasks can be cancelled');
+		}
+		if (this.isCancelled) {
+			throw new ConflictError('Task is already cancelled');
+		}
 		this.data.status = 'cancelled';
-		this.data.cancelledAt = new Date().toISOString();
+		this.data.cancelledAt = today.toISOString();
 	}
 
 	// ── Query ────────────────────────────────────────────

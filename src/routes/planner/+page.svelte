@@ -32,6 +32,7 @@
 				memberStore.hydrate(data.members, data.members[0].id);
 				taskController.hydrateFamilyWeek(data.weekStart, data.tasks);
 				habitStore.hydrateFamilyWeek(data.weekStart, data.habitProgress);
+				clientHydrated = true;
 			});
 		}
 	});
@@ -39,6 +40,7 @@
 	let dialogOpen = $state(false);
 	let editingMember = $state<Member | null>(null);
 	let weekOffset = $state(getTodayWeekOffset());
+	let clientHydrated = $state(false);
 
 	const todayOffset = $derived(getTodayWeekOffset());
 	const isTodayWeek = $derived(weekOffset === todayOffset);
@@ -137,8 +139,8 @@
 			tasks: $tasks.getFamilyTasksForDay(weekStart, i).map(t => t.toJSON())
 		}));
 		const hasStoreTasks = storeTasks.some((d) => d.tasks.length > 0);
-		if (hasStoreTasks) return storeTasks;
-		// SSR fallback
+		if (hasStoreTasks || clientHydrated) return storeTasks;
+		// SSR fallback (first render only, before client hydration)
 		return computeWeekDays(weekOffset).map((d, i) => ({
 			dayName: d.dayName,
 			date: d.date,
@@ -173,8 +175,12 @@
 		});
 	}
 
-	function deleteTask(taskId: string) {
-		taskController.deleteOrCancel(taskId);
+	async function deleteTask(taskId: string) {
+		const result = await taskController.deleteOrCancel(taskId);
+		if (result.cancelledInstead) {
+			const { toast } = await import('svelte-sonner');
+			toast.info('Task was cancelled instead of deleted (it has been rescheduled before)');
+		}
 	}
 
 	function updateTask(taskId: string, updates: { title?: string; emoji?: string }) {

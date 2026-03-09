@@ -1,5 +1,12 @@
 import type { Page } from '@playwright/test';
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** Return today's day name (e.g. "Monday"). */
+export function getTodayName(): string {
+	return DAY_NAMES[new Date().getDay()];
+}
+
 /**
  * Wait for SvelteKit hydration to complete.
  * The layout sets data-hydrated on the root div in onMount,

@@ -77,6 +77,9 @@ function taskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
@@ -104,6 +107,7 @@ describe('TaskController', () => {
 			expect(ws.onMessage).toHaveBeenCalledWith('task:deleted', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:reordered', expect.any(Function));
 			expect(ws.onMessage).toHaveBeenCalledWith('task:moved', expect.any(Function));
+			expect(ws.onMessage).toHaveBeenCalledWith('task:rescheduled', expect.any(Function));
 		});
 
 		it('starts with loading=false', () => {
@@ -544,6 +548,15 @@ describe('TaskController', () => {
 	});
 
 	describe('moveToDate()', () => {
+		beforeEach(() => {
+			// Freeze to Mar 1 so WEEK (2026-03-01) tasks are not past
+			vi.useFakeTimers({ now: new Date(2026, 2, 1, 12, 0, 0) });
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('moves task within same week', async () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
 			(api.patch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -728,6 +741,14 @@ describe('TaskController', () => {
 	});
 
 	describe('moveToDay()', () => {
+		beforeEach(() => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 1, 12, 0, 0) });
+		});
+
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('delegates to moveToDate with current weekStart', async () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
 			(api.patch as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -894,7 +915,12 @@ describe('TaskController', () => {
 	});
 
 	describe('cancel()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
 		it('cancels task optimistically and calls cancel API', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
 			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
@@ -907,6 +933,7 @@ describe('TaskController', () => {
 		});
 
 		it('cancels in both member and family caches', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
 			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
@@ -924,6 +951,7 @@ describe('TaskController', () => {
 		});
 
 		it('enqueues on network error', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(
 				new TypeError('Failed to fetch')
@@ -938,6 +966,7 @@ describe('TaskController', () => {
 		});
 
 		it('rolls back on server error', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
 			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server error'));
 
@@ -981,6 +1010,195 @@ describe('TaskController', () => {
 			await ctrl.deleteOrCancel('nonexistent');
 			expect(api.post).not.toHaveBeenCalled();
 			expect(api.delete).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('reschedule()', () => {
+		it('reschedules task optimistically and replaces with server response', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const newWeek = '2026-03-08';
+			const serverResponse = {
+				original: taskData({ status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', weekStart: newWeek, dayIndex: 2, rescheduleCount: 1, rescheduledFromId: 'task-1' })
+			};
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverResponse);
+
+			const result = await ctrl.reschedule('task-1', newWeek, 2);
+
+			expect(result).toEqual(serverResponse);
+			expect(api.post).toHaveBeenCalledWith('/api/tasks/task-1/reschedule', { toWeekStart: newWeek, toDayIndex: 2 });
+			// Original marked as rescheduled
+			const original = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(original[0].status).toBe('rescheduled');
+		});
+
+		it('inserts new task in both member and family caches', async () => {
+			const newWeek = '2026-03-08';
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+			ctrl.hydrateWeek(MEMBER_ID, newWeek, []);
+			ctrl.hydrateFamilyWeek(newWeek, []);
+			const serverResponse = {
+				original: taskData({ status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', weekStart: newWeek, dayIndex: 2, rescheduleCount: 1, rescheduledFromId: 'task-1' })
+			};
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverResponse);
+
+			await ctrl.reschedule('task-1', newWeek, 2);
+
+			expect(ctrl.getTasksForDay(MEMBER_ID, newWeek, 2)).toHaveLength(1);
+			expect(ctrl.getTasksForDay(MEMBER_ID, newWeek, 2)[0].id).toBe('new-task-1');
+			expect(ctrl.getFamilyTasksForDay(newWeek, 2)).toHaveLength(1);
+			expect(ctrl.getFamilyTasksForDay(newWeek, 2)[0].id).toBe('new-task-1');
+		});
+
+		it('does nothing if task not found', async () => {
+			const result = await ctrl.reschedule('nonexistent', '2026-03-08', 2);
+			expect(result).toBeNull();
+			expect(api.post).not.toHaveBeenCalled();
+		});
+
+		it('enqueues on network error', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError('Failed to fetch'));
+
+			const result = await ctrl.reschedule('task-1', '2026-03-08', 2);
+
+			expect(result).toBeNull();
+			expect(queue.enqueue).toHaveBeenCalledWith({
+				method: 'POST',
+				url: '/api/tasks/task-1/reschedule',
+				body: { toWeekStart: '2026-03-08', toDayIndex: 2 },
+				headers: { 'X-WS-Client-Id': 'test-id' }
+			});
+		});
+
+		it('rolls back on server error', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Server error'));
+
+			await expect(ctrl.reschedule('task-1', '2026-03-08', 2)).rejects.toThrow('Server error');
+			// Original should be restored to active
+			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(tasks).toHaveLength(1);
+			expect(tasks[0].status).toBe('active');
+		});
+	});
+
+	describe('delete() — cancelledInstead', () => {
+		it('returns cancelledInstead when server cancels instead of deleting', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const cancelledTask = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+				cancelledInstead: true,
+				task: cancelledTask
+			});
+
+			const result = await ctrl.delete('task-1');
+
+			expect(result).toEqual({ cancelledInstead: true });
+		});
+
+		it('restores cancelled task in member and family caches', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+			const cancelledTask = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.delete as ReturnType<typeof vi.fn>).mockResolvedValue({
+				cancelledInstead: true,
+				task: cancelledTask
+			});
+
+			await ctrl.delete('task-1');
+
+			// Task should be restored as cancelled in both caches
+			const memberTasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(memberTasks).toHaveLength(1);
+			expect(memberTasks[0].isCancelled).toBe(true);
+			const familyTasks = ctrl.getFamilyTasksForDay(WEEK, 0);
+			expect(familyTasks).toHaveLength(1);
+			expect(familyTasks[0].isCancelled).toBe(true);
+		});
+	});
+
+	describe('moveToDate() — past task reschedule', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('delegates to reschedule for past tasks', async () => {
+			// Freeze to 2026-03-07 so WEEK (2026-03-01) dayIndex 0 is past
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const serverResponse = {
+				original: taskData({ status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', weekStart: '2026-03-08', dayIndex: 2 })
+			};
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverResponse);
+
+			await ctrl.moveToDate('task-1', '2026-03-08', 2);
+
+			expect(api.post).toHaveBeenCalledWith('/api/tasks/task-1/reschedule', {
+				toWeekStart: '2026-03-08',
+				toDayIndex: 2
+			});
+			expect(api.patch).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('remote sync — reschedule', () => {
+		it('applyRemoteReschedule updates original and inserts new task', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+			const newWeek = '2026-03-08';
+			ctrl.hydrateWeek(MEMBER_ID, newWeek, []);
+			ctrl.hydrateFamilyWeek(newWeek, []);
+
+			(ws as any)._dispatch('task:rescheduled', {
+				original: taskData({ status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', weekStart: newWeek, dayIndex: 2 })
+			});
+
+			// Original updated
+			const origMember = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(origMember[0].status).toBe('rescheduled');
+			const origFamily = ctrl.getFamilyTasksForDay(WEEK, 0);
+			expect(origFamily[0].status).toBe('rescheduled');
+
+			// New task inserted
+			expect(ctrl.getTasksForDay(MEMBER_ID, newWeek, 2)).toHaveLength(1);
+			expect(ctrl.getTasksForDay(MEMBER_ID, newWeek, 2)[0].id).toBe('new-task-1');
+			expect(ctrl.getFamilyTasksForDay(newWeek, 2)).toHaveLength(1);
+		});
+
+		it('applyRemoteReschedule works when target caches not loaded', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			const listener = vi.fn();
+			ctrl.onChange(listener);
+
+			(ws as any)._dispatch('task:rescheduled', {
+				original: taskData({ status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', weekStart: '2026-03-08', dayIndex: 2 })
+			});
+
+			// Should not crash, and should notify
+			expect(listener).toHaveBeenCalled();
+			// Original updated in member cache
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].status).toBe('rescheduled');
+		});
+
+		it('applyRemoteReschedule handles task without memberId', () => {
+			ctrl.hydrateFamilyWeek(WEEK, [taskData({ memberId: null })]);
+			const newWeek = '2026-03-08';
+			ctrl.hydrateFamilyWeek(newWeek, []);
+
+			(ws as any)._dispatch('task:rescheduled', {
+				original: taskData({ memberId: null, status: 'rescheduled' }),
+				newTask: taskData({ id: 'new-task-1', memberId: null, weekStart: newWeek, dayIndex: 2 })
+			});
+
+			expect(ctrl.getFamilyTasksForDay(WEEK, 0)[0].status).toBe('rescheduled');
+			expect(ctrl.getFamilyTasksForDay(newWeek, 2)).toHaveLength(1);
 		});
 	});
 

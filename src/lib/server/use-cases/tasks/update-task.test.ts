@@ -33,6 +33,9 @@ function makeTaskData(overrides: Partial<TaskData> = {}): TaskData {
 		sortOrder: 0,
 		status: 'active',
 		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		...overrides
 	};
 }
