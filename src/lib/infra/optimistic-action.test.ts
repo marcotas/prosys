@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { optimisticAction, isNetworkError } from './optimistic-action';
 import type { OfflineQueue } from './offline-queue';
 import type { MutationPlan } from './optimistic-action';
+import { ApiError } from '$lib/utils/api-error';
 
 // ── isNetworkError ──────────────────────────────────────
 
@@ -106,5 +107,65 @@ describe('optimisticAction', () => {
 		expect(notify).toHaveBeenCalledTimes(2); // once for apply, once for rollback
 		expect(offlineQueue.enqueue).not.toHaveBeenCalled();
 		expect(plan.onSuccess).not.toHaveBeenCalled();
+	});
+
+	it('404 with onNotFound: calls handler, notifies, returns null, does NOT rollback', async () => {
+		const { collection, offlineQueue, notify } = createMocks();
+		const onNotFound = vi.fn();
+
+		const plan: MutationPlan<unknown> = {
+			apply: vi.fn(),
+			request: vi.fn().mockRejectedValue(new ApiError('Not found', 404)),
+			onSuccess: vi.fn(),
+			offlinePayload: { method: 'DELETE', url: '/api/tasks/1' },
+			onNotFound
+		};
+
+		const result = await optimisticAction(collection, offlineQueue, notify, plan);
+
+		expect(result).toBeNull();
+		expect(onNotFound).toHaveBeenCalledOnce();
+		expect(notify).toHaveBeenCalledTimes(2); // apply + onNotFound
+		expect(collection.restore).not.toHaveBeenCalled();
+		expect(offlineQueue.enqueue).not.toHaveBeenCalled();
+		expect(plan.onSuccess).not.toHaveBeenCalled();
+	});
+
+	it('404 without onNotFound: falls through to normal rollback', async () => {
+		const { collection, offlineQueue, notify } = createMocks();
+
+		const plan: MutationPlan<unknown> = {
+			apply: vi.fn(),
+			request: vi.fn().mockRejectedValue(new ApiError('Not found', 404)),
+			onSuccess: vi.fn(),
+			offlinePayload: { method: 'DELETE', url: '/api/tasks/1' }
+		};
+
+		await expect(optimisticAction(collection, offlineQueue, notify, plan)).rejects.toThrow(
+			'Not found'
+		);
+
+		expect(collection.restore).toHaveBeenCalledWith('snap');
+		expect(notify).toHaveBeenCalledTimes(2); // apply + rollback
+	});
+
+	it('non-404 ApiError with onNotFound: still rolls back normally', async () => {
+		const { collection, offlineQueue, notify } = createMocks();
+		const onNotFound = vi.fn();
+
+		const plan: MutationPlan<unknown> = {
+			apply: vi.fn(),
+			request: vi.fn().mockRejectedValue(new ApiError('Server error', 500)),
+			onSuccess: vi.fn(),
+			offlinePayload: { method: 'PATCH', url: '/api/tasks/1' },
+			onNotFound
+		};
+
+		await expect(optimisticAction(collection, offlineQueue, notify, plan)).rejects.toThrow(
+			'Server error'
+		);
+
+		expect(onNotFound).not.toHaveBeenCalled();
+		expect(collection.restore).toHaveBeenCalledWith('snap');
 	});
 });

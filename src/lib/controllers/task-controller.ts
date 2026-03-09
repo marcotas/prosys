@@ -207,7 +207,8 @@ export class TaskController extends ChangeNotifier {
 				},
 				request: () => this.api.patch<TaskData>(`/api/tasks/${id}`, data),
 				onSuccess: (serverData) => this.replaceTask(id, serverData),
-				offlinePayload: { method: 'PATCH', url: `/api/tasks/${id}`, body: data, headers: this.api.getHeaders() }
+				offlinePayload: { method: 'PATCH', url: `/api/tasks/${id}`, body: data, headers: this.api.getHeaders() },
+				onNotFound: () => this.removeFromAll(id)
 			}
 		);
 	}
@@ -247,7 +248,8 @@ export class TaskController extends ChangeNotifier {
 						if (this.tasks.has(fKey)) this.tasks.insert(fKey, serverTask.clone());
 					}
 				},
-				offlinePayload: { method: 'DELETE', url: `/api/tasks/${id}`, headers: this.api.getHeaders() }
+				offlinePayload: { method: 'DELETE', url: `/api/tasks/${id}`, headers: this.api.getHeaders() },
+				onNotFound: () => {}
 			}
 		);
 
@@ -271,7 +273,8 @@ export class TaskController extends ChangeNotifier {
 				},
 				request: () => this.api.post<TaskData>(`/api/tasks/${id}/cancel`),
 				onSuccess: (data) => this.replaceTask(id, data),
-				offlinePayload: { method: 'POST', url: `/api/tasks/${id}/cancel`, headers: this.api.getHeaders() }
+				offlinePayload: { method: 'POST', url: `/api/tasks/${id}/cancel`, headers: this.api.getHeaders() },
+				onNotFound: () => this.removeFromAll(id)
 			}
 		);
 	}
@@ -332,6 +335,10 @@ export class TaskController extends ChangeNotifier {
 					url: `/api/tasks/${id}/reschedule`,
 					body: { toWeekStart, toDayIndex },
 					headers: this.api.getHeaders()
+				},
+				onNotFound: () => {
+					this.removeFromAll(id);
+					this.removeFromAll(tempId);
 				}
 			}
 		);
@@ -381,7 +388,8 @@ export class TaskController extends ChangeNotifier {
 					url: '/api/tasks/reorder',
 					body: { memberId, weekStart, dayIndex, taskIds },
 					headers: this.api.getHeaders()
-				}
+				},
+				onNotFound: () => {}
 			}
 		);
 	}
@@ -462,7 +470,8 @@ export class TaskController extends ChangeNotifier {
 					url: `/api/tasks/${taskId}`,
 					body: patchBody,
 					headers: this.api.getHeaders()
-				}
+				},
+				onNotFound: () => this.removeFromAll(taskId)
 			}
 		);
 	}

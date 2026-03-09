@@ -128,18 +128,36 @@
 		}
 	});
 
-	// ── Register sync callback for offline queue drain ──
-  // Re-registers whenever member or week changes so we refresh the right data
+	// ── Register sync callback for offline queue drain + visibility refresh ──
+	// Re-registers whenever member or week changes so we refresh the right data
 	$effect(() => {
 		const memberId = memberStore.selectedMemberId;
 		const weekStart = currentWeekStart;
 		if (!memberId) return;
 
-		return wsClient.onSync(async () => {
+		let lastRefresh = 0;
+		const COOLDOWN_MS = 5000;
+
+		async function refresh() {
 			await memberStore.load();
 			await taskController.reloadWeek(memberId, weekStart);
 			await habitStore.reloadWeek(memberId, weekStart);
-		});
+			lastRefresh = Date.now();
+		}
+
+		const unsubSync = wsClient.onSync(refresh);
+
+		function onVisibilityChange() {
+			if (document.visibilityState === 'visible' && Date.now() - lastRefresh > COOLDOWN_MS) {
+				refresh();
+			}
+		}
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
+		return () => {
+			unsubSync();
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
 	});
 
 	// ── Week data with tasks from store (SSR fallback via data prop) ──
