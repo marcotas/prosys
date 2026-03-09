@@ -1,4 +1,5 @@
 import type { OfflineQueue } from './offline-queue';
+import { ApiError } from '$lib/utils/api-error';
 
 export type OfflinePayload = {
 	method: string;
@@ -12,6 +13,7 @@ export interface MutationPlan<T> {
 	request(): Promise<T>;
 	onSuccess(result: T): void;
 	offlinePayload: OfflinePayload;
+	onNotFound?: () => void;
 }
 
 /**
@@ -53,6 +55,11 @@ export async function optimisticAction<T>(
 	} catch (err) {
 		if (isNetworkError(err)) {
 			await offlineQueue.enqueue(plan.offlinePayload);
+			return null;
+		}
+		if (err instanceof ApiError && err.status === 404 && plan.onNotFound) {
+			plan.onNotFound();
+			notify();
 			return null;
 		}
 		// Server error — rollback

@@ -115,14 +115,33 @@
 		habitStore.loadFamilyWeek(weekStart);
 	});
 
-	// ── Sync callback ──
+	// ── Sync callback + visibility refresh ──
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		return wsClient.onSync(async () => {
+
+		let lastRefresh = 0;
+		const COOLDOWN_MS = 5000;
+
+		async function refresh() {
 			await memberStore.load();
 			await taskController.reloadFamilyWeek(weekStart);
 			await habitStore.reloadFamilyWeek(weekStart);
-		});
+			lastRefresh = Date.now();
+		}
+
+		const unsubSync = wsClient.onSync(refresh);
+
+		function onVisibilityChange() {
+			if (document.visibilityState === 'visible' && Date.now() - lastRefresh > COOLDOWN_MS) {
+				refresh();
+			}
+		}
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
+		return () => {
+			unsubSync();
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
 	});
 
 	// ── Build days from family tasks ──

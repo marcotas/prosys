@@ -4,6 +4,7 @@ import type { TaskData, CreateTaskInput } from '$lib/domain/types';
 import type { ApiClient } from '$lib/infra/api-client';
 import type { OfflineQueue } from '$lib/infra/offline-queue';
 import type { WebSocketClient } from '$lib/infra/ws-client';
+import { ApiError } from '$lib/utils/api-error';
 
 // ── Mock factories ──────────────────────────────────────
 
@@ -431,6 +432,14 @@ describe('TaskController', () => {
 			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
 			expect(ctrl.getTasksForDay('member-2', WEEK, 0)).toHaveLength(1);
 		});
+
+		it('handles 404 by removing task from caches', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.patch as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			await ctrl.update('task-1', { title: 'Updated' });
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
+		});
 	});
 
 	describe('toggle()', () => {
@@ -485,6 +494,14 @@ describe('TaskController', () => {
 
 			await expect(ctrl.delete('task-1')).rejects.toThrow('Server error');
 			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(1);
+		});
+
+		it('handles 404 by keeping task removed', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.delete as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			await ctrl.delete('task-1');
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
 		});
 	});
 
@@ -544,6 +561,19 @@ describe('TaskController', () => {
 			await expect(ctrl.reorder(MEMBER_ID, WEEK, 0, ['t2', 't1'])).rejects.toThrow('fail');
 			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
 			expect(tasks[0].id).toBe('t1');
+		});
+
+		it('handles 404 gracefully without rollback', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [
+				taskData({ id: 't1', sortOrder: 0 }),
+				taskData({ id: 't2', sortOrder: 1 })
+			]);
+			(api.put as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			await ctrl.reorder(MEMBER_ID, WEEK, 0, ['t2', 't1']);
+			// Keeps optimistic reorder (no rollback)
+			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(tasks[0].id).toBe('t2');
 		});
 	});
 
@@ -737,6 +767,15 @@ describe('TaskController', () => {
 				dayIndex: 3,
 				sortOrder: 3
 			});
+		});
+
+		it('handles 404 by removing task from caches', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData({ dayIndex: 0 })]);
+			(api.patch as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			await ctrl.moveToDate('task-1', WEEK, 3);
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 3)).toHaveLength(0);
 		});
 	});
 
@@ -973,6 +1012,16 @@ describe('TaskController', () => {
 			await expect(ctrl.cancel('task-1')).rejects.toThrow('Server error');
 			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].isCancelled).toBe(false);
 		});
+
+		it('handles 404 by removing task from caches', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			await ctrl.cancel('task-1');
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
+		});
 	});
 
 	describe('deleteOrCancel()', () => {
@@ -1082,6 +1131,18 @@ describe('TaskController', () => {
 			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
 			expect(tasks).toHaveLength(1);
 			expect(tasks[0].status).toBe('active');
+		});
+
+		it('handles 404 by removing original and temp tasks', async () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateWeek(MEMBER_ID, '2026-03-08', []);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new ApiError('Not found', 404));
+
+			const result = await ctrl.reschedule('task-1', '2026-03-08', 2);
+
+			expect(result).toBeNull();
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
+			expect(ctrl.getTasksForDay(MEMBER_ID, '2026-03-08', 2)).toHaveLength(0);
 		});
 	});
 
