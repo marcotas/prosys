@@ -228,3 +228,67 @@ test.describe('Task rescheduling', () => {
 		await expect(sundayCard.getByText('0/1')).toBeVisible();
 	});
 });
+
+test.describe('Stale task self-healing (F-170)', () => {
+	const today = getTodayName();
+
+	test.beforeEach(async ({ page }) => {
+		await cleanData(page);
+		await page.goto('/');
+		await waitForHydration(page);
+		await createMember(page, 'Alice');
+	});
+
+	test('removes stale task when server returns 404 on toggle', async ({ page }) => {
+		await addTask(page, today, 'Phantom task');
+
+		const todayCard = page.getByLabel(`${today} tasks`);
+		await expect(todayCard.getByText('Phantom task')).toBeVisible();
+
+		// Intercept the next PATCH to return 404 (simulates task deleted on another device)
+		await page.route('**/api/tasks/*', async (route) => {
+			if (route.request().method() === 'PATCH') {
+				await route.fulfill({
+					status: 404,
+					contentType: 'application/json',
+					body: JSON.stringify({ error: 'Task not found' })
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Toggle the task — PATCH returns 404, onNotFound removes it
+		await page.getByLabel('Mark Phantom task as complete').click();
+
+		// Task should disappear (self-healed via 404 handling)
+		await expect(todayCard.getByText('Phantom task')).not.toBeVisible();
+	});
+
+	test('removes stale task when server returns 404 on delete', async ({ page }) => {
+		await addTask(page, today, 'Ghost task');
+
+		const todayCard = page.getByLabel(`${today} tasks`);
+		await expect(todayCard.getByText('Ghost task')).toBeVisible();
+
+		// Intercept the next DELETE to return 404
+		await page.route('**/api/tasks/*', async (route) => {
+			if (route.request().method() === 'DELETE') {
+				await route.fulfill({
+					status: 404,
+					contentType: 'application/json',
+					body: JSON.stringify({ error: 'Task not found' })
+				});
+			} else {
+				await route.continue();
+			}
+		});
+
+		// Delete via context menu — DELETE returns 404, handled gracefully
+		await todayCard.getByText('Ghost task').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Delete' }).click();
+
+		// Task should disappear
+		await expect(todayCard.getByText('Ghost task')).not.toBeVisible();
+	});
+});
