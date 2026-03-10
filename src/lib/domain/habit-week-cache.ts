@@ -35,22 +35,40 @@ export class HabitWeekCache {
 		this.cache.set(key, data);
 	}
 
-	/** Return habits with days for a member-scoped key, or empty array. */
+	/**
+	 * Return habits with days for a member-scoped key, or empty array.
+	 * Returns a shallow copy so Svelte's $derived sees a new reference after mutations.
+	 */
 	getHabitsWithDays(key: string): HabitWithDays[] {
-		return (this.cache.get(key) as HabitWithDays[]) ?? [];
+		const data = this.cache.get(key) as HabitWithDays[] | undefined;
+		return data ? [...data] : [];
 	}
 
-	/** Return family habit progress for a family-scoped key, or empty array. */
+	/**
+	 * Return family habit progress for a family-scoped key, or empty array.
+	 * Returns a shallow copy so Svelte's $derived sees a new reference after mutations.
+	 */
 	getFamilyHabitProgress(key: string): FamilyHabitProgress[] {
-		return (this.cache.get(key) as FamilyHabitProgress[]) ?? [];
+		const data = this.cache.get(key) as FamilyHabitProgress[] | undefined;
+		return data ? [...data] : [];
 	}
 
-	/** Add a habit to ALL cached weeks for a given member. */
-	insertHabit(memberId: string, habit: HabitWithDays): void {
+	/**
+	 * Add a habit to ALL cached weeks for a given member.
+	 * If no cache entries exist yet, creates one for the given weekStart.
+	 */
+	insertHabit(memberId: string, habit: HabitWithDays, weekStart?: string): void {
+		let found = false;
 		for (const [key, value] of this.cache) {
 			if (key.startsWith(`${memberId}:`)) {
 				(value as HabitWithDays[]).push({ ...habit, days: [...habit.days] });
+				found = true;
 			}
+		}
+		// If no cache entries exist for this member, create one so the habit is visible
+		if (!found && weekStart) {
+			const key = HabitWeekCache.memberKey(memberId, weekStart);
+			this.cache.set(key, [{ ...habit, days: [...habit.days] }]);
 		}
 	}
 

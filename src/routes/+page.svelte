@@ -239,7 +239,7 @@
 	function addHabit(name: string, emoji?: string) {
 		const memberId = $members.selectedMemberId;
 		if (!memberId) return;
-		habitController.create(memberId, name, emoji);
+		habitController.create(memberId, name, emoji, currentWeekStart);
 	}
 	function updateHabit(
 		habitId: string,

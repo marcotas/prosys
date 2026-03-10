@@ -144,6 +144,27 @@ describe('HabitWeekCache', () => {
 			// Family cache should be untouched (still 1 FamilyHabitProgress entry)
 			expect(cache.getFamilyHabitProgress(fk)).toHaveLength(1);
 		});
+
+		it('creates cache entry when no entries exist for member and weekStart is provided', () => {
+			const habit = makeHabit({ id: 'h-new' });
+			cache.insertHabit('m1', habit, '2026-03-08');
+
+			const key = HabitWeekCache.memberKey('m1', '2026-03-08');
+			expect(cache.has(key)).toBe(true);
+			expect(cache.getHabitsWithDays(key)).toHaveLength(1);
+			expect(cache.getHabitsWithDays(key)[0].id).toBe('h-new');
+		});
+
+		it('does not create cache entry when entries exist even if weekStart is provided', () => {
+			const k1 = HabitWeekCache.memberKey('m1', '2026-03-08');
+			cache.hydrate(k1, []);
+
+			cache.insertHabit('m1', makeHabit(), '2026-03-15');
+
+			// Should add to existing key, not create new one
+			expect(cache.getHabitsWithDays(k1)).toHaveLength(1);
+			expect(cache.has(HabitWeekCache.memberKey('m1', '2026-03-15'))).toBe(false);
+		});
 	});
 
 	// ── updateHabit ─────────────────────────────────────

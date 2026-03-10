@@ -105,7 +105,7 @@ export class HabitController extends ChangeNotifier {
 
 	// ── Mutations ────────────────────────────────────────────
 
-	async create(memberId: string, name: string, emoji?: string): Promise<HabitData | null> {
+	async create(memberId: string, name: string, emoji?: string, weekStart?: string): Promise<HabitData | null> {
 		// Compute sortOrder from any cached week for this member
 		let sortOrder = 0;
 		for (const [, habits] of this.cache.memberEntries(memberId)) {
@@ -124,7 +124,7 @@ export class HabitController extends ChangeNotifier {
 
 		return optimisticAction<HabitData>(this.cache, this.offlineQueue, () => this.notifyChanges(), {
 			apply: () => {
-				this.cache.insertHabit(memberId, tempHabit);
+				this.cache.insertHabit(memberId, tempHabit, weekStart);
 				this.cache.invalidateFamilyCaches();
 			},
 			request: () => this.api.post<HabitData>('/api/habits', { memberId, name, emoji }),
