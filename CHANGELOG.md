@@ -1,5 +1,67 @@
 # prosys
 
+## 0.8.0
+
+### Minor Changes
+
+- d309f20: Centralized API error handling with domain-driven error types and client-side toast notifications
+
+  - Added `apiHandler` wrapper to eliminate repetitive try-catch boilerplate across all 13 API route handlers
+  - Added `ConflictError` domain error type (409) and `SyntaxError` handling for malformed JSON (400)
+  - Expanded `handleDomainError` to map all domain errors to proper HTTP status codes including a catch-all for the base `DomainError` class
+  - Added svelte-sonner toast notifications so API errors are surfaced to users instead of being silently swallowed
+  - Stores now parse server error responses via `ApiError`/`throwApiError` and show toasts after optimistic rollback
+
+- 77af6a4: Migrate HabitStore and MemberStore to controller architecture (F-172)
+
+  - Added HabitController with HabitWeekCache domain class, replacing the Svelte 5 rune-based HabitStore
+  - Added MemberController with MemberCollection, replacing the Svelte 5 rune-based MemberStore
+  - Controllers self-register WebSocket handlers (no manual wiring in layout)
+  - All mutations use optimisticAction for offline-first support
+  - Deleted legacy stores (habits.svelte.ts, members.svelte.ts, profiles.svelte.ts) and stores/ directory
+  - 810 unit tests, 24 e2e tests all passing
+
+- b72a132: Add task cancellation for past tasks with status tracking
+
+  - Added `cancel()` method to Task entity with `status` ('active' | 'cancelled') and `cancelledAt` fields
+  - Added `CancelTask` use case with validation (must be past, not already cancelled)
+  - Added `isTaskPast()` utility to check if a task's date is before today
+  - Updated `DeleteTask` to prevent deletion of past tasks (directs to cancel instead)
+  - Added `POST /api/tasks/:id/cancel` API endpoint with WebSocket broadcast
+  - Updated `TaskController.deleteOrCancel()` to route to correct action based on task date
+  - Updated `TaskRepository` with `updatePartial()` and status/cancelledAt field mapping
+  - Added DB migration for `status` and `cancelled_at` columns
+  - Updated DayCard and PlannerDayCard to filter cancelled tasks from progress and disable interactions
+  - Updated TaskContextMenu to hide actions for cancelled tasks
+  - Added vitest include pattern for `src/lib/utils/**/*.test.ts`
+
+- 0fcdbc7: Add task rescheduling with history tracking (F-165)
+
+  - Added `reschedule(today)` method to Task entity with `rescheduled` status, `rescheduleCount`, and `rescheduledFromId` fields
+  - Added `RescheduleTask` use case: marks original as rescheduled, creates new task with incremented reschedule count
+  - Added `POST /api/tasks/:id/reschedule` API endpoint with WebSocket broadcast (`task:rescheduled`)
+  - Updated `DeleteTask` to cancel (instead of delete) tasks that have been rescheduled before
+  - Added `TaskController.reschedule()` with optimistic UI and `moveToDate()` delegation for past tasks
+  - Added DB migration for `reschedule_count`, `rescheduled_from_id` columns
+  - Updated DayCard/PlannerDayCard: rescheduled tasks show clock icon, dimmed/line-through, excluded from progress
+  - Updated TaskContextMenu to hide actions for rescheduled tasks
+  - Added ReschedulePicker date constraint: past dates disabled when rescheduling past tasks
+  - Fixed week navigation bug: planner page no longer shows stale SSR tasks when navigating to empty weeks
+  - Added SSR loader support for new status/reschedule fields
+
+- 39401b7: Add undo toast for task deletion and cancellation (F-167)
+
+  - Swipe-to-delete and context menu delete/cancel now show an undo toast for 5 seconds
+  - Clicking Undo restores the task; letting the toast expire commits the API call
+  - Offline queue support: if offline when timeout fires, the mutation is queued for replay
+
+### Patch Changes
+
+- 57def5f: Fix task deletion not syncing to other devices (F-170)
+
+  - Added `onNotFound` callback to `optimisticAction` — when server returns 404, gracefully removes stale tasks instead of rolling back (which left tasks stuck in UI)
+  - Added `visibilitychange` listener on both dashboard and planner pages — refreshes tasks, habits, and members when PWA returns to foreground (catches missed WebSocket broadcasts on mobile)
+
 ## 0.7.0
 
 ### Minor Changes
