@@ -50,6 +50,26 @@ select,
 	}
 }
 
+/* SortableJS drag-and-drop visual states */
+.sortable-ghost {
+	opacity: 0.35;
+	border: 2px dashed #9ca3af;
+	border-radius: 8px;
+	background: #f9fafb;
+}
+.sortable-ghost > * {
+	visibility: hidden;
+}
+/* Table rows: border/border-radius don't apply to <tr>, so just fade the row */
+tr.sortable-ghost {
+	border: none;
+	border-radius: 0;
+	background: transparent;
+}
+tr.sortable-ghost > * {
+	visibility: visible;
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,

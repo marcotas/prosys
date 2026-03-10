@@ -1,15 +1,10 @@
 <script lang="ts">
 	import { CaretDown, Check, Trash } from 'phosphor-svelte';
-	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
-	import {
-		dragHandleZone,
-		SHADOW_ITEM_MARKER_PROPERTY_NAME,
-		type DndEvent
-	} from 'svelte-dnd-action';
 	import DragHandle from './DragHandle.svelte';
 	import type { HabitWithDays, ThemeConfig } from '$lib/types';
 	import { dayAbbreviations } from '$lib/utils/dates';
+	import { sortable } from '$lib/utils/sortable';
 	import { createSwipeController } from '$lib/utils/swipe.svelte';
 
 	function getHabitProgress(habit: HabitWithDays): number {
@@ -94,28 +89,13 @@
 		newHabitName = '';
 	}
 
-	// ── Drag & Drop (svelte-dnd-action) ───────────────────
-	const FLIP_DURATION = 200;
+	// ── Drag & Drop (SortableJS) ─────────────────────────
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let dndItems = $state<HabitWithDays[]>([]);
 
 	$effect(() => {
 		dndItems = [...habits];
 	});
-
-	function handleDndConsider(e: CustomEvent<DndEvent<HabitWithDays>>) {
-		dndItems = e.detail.items;
-	}
-
-	function handleDndFinalize(e: CustomEvent<DndEvent<HabitWithDays>>) {
-		const items = e.detail.items.filter(
-			(h: HabitWithDays) => !(h as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
-		);
-		dndItems = items;
-
-		const habitIds = items.map((h) => h.id);
-		onReorderHabits?.(habitIds);
-	}
 
 	// ── Swipe to delete ───────────────────────────────────
 	const DELETE_ZONE = 64;
@@ -201,16 +181,11 @@
 						</tr>
 					</thead>
 					<!-- Sortable habit rows -->
-					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<tbody
-						use:dragHandleZone={{
+						use:sortable={{
 							items: dndItems,
-							flipDurationMs: FLIP_DURATION,
-							type: 'habit',
-							dropTargetStyle: {}
+							onReorder: (habitIds) => onReorderHabits?.(habitIds)
 						}}
-						onconsider={handleDndConsider}
-						onfinalize={handleDndFinalize}
 					>
 						{#each dndItems as habit (habit.id)}
 							{@const progress = getHabitProgress(habit)}
@@ -220,14 +195,9 @@
 									swipe.swipeState?.locked}
 							{@const isRevealed =
 								offset < 0 || swipe.swipedOpenId === habit.id}
-							{@const isShadow = (habit as unknown as Record<string, unknown>)[
-								SHADOW_ITEM_MARKER_PROPERTY_NAME
-							]}
 							<tr
-								animate:flip={{ duration: FLIP_DURATION }}
-								class="border-b last:border-b-0 hover:bg-gray-50/40 transition-colors {isShadow
-									? 'dnd-shadow-row'
-									: ''}"
+								data-sort-id={habit.id}
+								class="border-b last:border-b-0 hover:bg-gray-50/40 transition-colors"
 								style="border-color: {playful
 									? `${theme.accent}06`
 									: '#f9fafb'}"
@@ -449,24 +419,3 @@
 		</div>
 	{/if}
 </section>
-
-<style>
-    /* Dragged row: lifted with shadow */
-    :global(tr[aria-grabbed="true"]) {
-        box-shadow:
-            0 8px 24px rgba(0, 0, 0, 0.15),
-            0 2px 8px rgba(0, 0, 0, 0.1);
-        background: white;
-        opacity: 0.95;
-        z-index: 50;
-    }
-
-    /* Shadow placeholder row */
-    .dnd-shadow-row {
-        opacity: 0.3;
-        background: #f9fafb;
-    }
-    .dnd-shadow-row > * {
-        visibility: hidden;
-    }
-</style>
