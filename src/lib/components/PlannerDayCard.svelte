@@ -250,7 +250,7 @@
 				{@const _taskMember = getTaskMember(task)}
 				<div
 					data-sort-id={task.id}
-					class="relative overflow-hidden"
+					class="relative overflow-hidden rounded-lg"
 					role="listitem"
 				>
 					<TaskContextMenu

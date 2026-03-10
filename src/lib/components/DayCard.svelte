@@ -235,7 +235,7 @@
 				{@const isRevealed = !taskInactive && (offset < 0 || swipe.swipedOpenId === task.id)}
 				<div
 					data-sort-id={task.id}
-					class="relative overflow-hidden"
+					class="relative overflow-hidden rounded-lg"
 					role="listitem"
 				>
 					<TaskContextMenu
