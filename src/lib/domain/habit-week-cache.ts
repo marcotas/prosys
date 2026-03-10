@@ -49,7 +49,7 @@ export class HabitWeekCache {
 	insertHabit(memberId: string, habit: HabitWithDays): void {
 		for (const [key, value] of this.cache) {
 			if (key.startsWith(`${memberId}:`)) {
-				(value as HabitWithDays[]).push(habit);
+				(value as HabitWithDays[]).push({ ...habit, days: [...habit.days] });
 			}
 		}
 	}
@@ -187,7 +187,7 @@ export class HabitWeekCache {
 			const habits = value as HabitWithDays[];
 			const idx = habits.findIndex((h) => h.id === tempId);
 			if (idx !== -1) {
-				habits[idx] = serverHabit;
+				habits[idx] = { ...serverHabit, days: [...serverHabit.days] };
 			}
 		}
 	}
