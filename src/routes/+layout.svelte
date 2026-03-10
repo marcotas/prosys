@@ -2,14 +2,11 @@
 	import '../app.css';
 	import { onMount } from 'svelte';
 	import { Toaster } from 'svelte-sonner';
-	import type { Habit, Member } from '$lib/types';
 	import { browser } from '$app/environment';
 	import { useNotifier } from '$lib/adapters/svelte';
 	import PwaInstallBanner from '$lib/components/PwaInstallBanner.svelte';
 	import UpdateBanner from '$lib/components/UpdateBanner.svelte';
 	import { wsClient, offlineQueue } from '$lib/infra';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import { memberStore } from '$lib/stores/members.svelte';
 
 	const { children } = $props();
 
@@ -40,19 +37,6 @@
 			(window as Window & { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<void> } }).__TAURI_INTERNALS__.invoke('show_main_window');
 		}
 
-		// Register WS message handlers for stores not yet migrated to controllers.
-		// Task handlers are self-registered by TaskController's constructor.
-		const unsubs = [
-			wsClient.onMessage('habit:created', (p: Habit) => habitStore.applyRemoteCreate(p)),
-			wsClient.onMessage('habit:updated', (p: Habit) => habitStore.applyRemoteUpdate(p)),
-			wsClient.onMessage('habit:deleted', (p: { id: string; memberId: string }) => habitStore.applyRemoteDelete(p)),
-			wsClient.onMessage('habit:toggled', (p: { habitId: string; weekStart: string; dayIndex: number; completed: boolean }) => habitStore.applyRemoteToggle(p)),
-			wsClient.onMessage('habit:reordered', (p: { memberId: string; habitIds: string[] }) => habitStore.applyRemoteReorder(p)),
-			wsClient.onMessage('member:created', (p: Member) => memberStore.applyRemoteCreate(p)),
-			wsClient.onMessage('member:updated', (p: Member) => memberStore.applyRemoteUpdate(p)),
-			wsClient.onMessage('member:deleted', (p: { id: string }) => memberStore.applyRemoteDelete(p))
-		];
-
 		// ── Tauri updater (desktop only) ────────────────────
 		// Tauri v2 injects __TAURI_INTERNALS__ (not __TAURI__) into the WebView
 		if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
@@ -73,10 +57,7 @@
 			});
 		}
 
-		return () => {
-			unsubs.forEach((fn) => fn());
-			wsClient.destroy();
-		};
+		return () => wsClient.destroy();
 	});
 
 	async function checkTauriUpdate() {

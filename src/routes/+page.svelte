@@ -9,11 +9,9 @@
 	import OverallProgress from '$lib/components/OverallProgress.svelte';
 	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
 	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
-	import { taskController } from '$lib/controllers';
+	import { habitController, memberController, taskController } from '$lib/controllers';
 	import { UNDO_DELAY_MS } from '$lib/controllers/task-controller';
 	import { wsClient } from '$lib/infra';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import { memberStore } from '$lib/stores/members.svelte';
 	import {
 		computeWeekDays,
 		getWeekStart,
@@ -24,16 +22,18 @@
 	// SSR data from +page.server.ts
 	const { data } = $props();
 
-	// Reactive bridge for framework-agnostic TaskController
+	// Reactive bridges for framework-agnostic controllers
 	const tasks = useNotifier(taskController);
+	const habits = useNotifier(habitController);
+	const members = useNotifier(memberController);
 
-	// Hydrate stores on the client with server data (skips if already cached)
+	// Hydrate controllers on the client with server data (skips if already cached)
 	$effect(() => {
 		if (data.members.length > 0) {
 			untrack(() => {
-				memberStore.hydrate(data.members, data.defaultMemberId);
+				memberController.hydrate(data.members, data.defaultMemberId);
 				taskController.hydrateWeek(data.defaultMemberId, data.weekStart, data.tasks);
-				habitStore.hydrateWeek(
+				habitController.hydrateWeek(
 					data.defaultMemberId,
 					data.weekStart,
 					data.habits
@@ -46,9 +46,9 @@
 	let editingMember = $state<Member | null>(null);
 	let weekOffset = $state(getTodayWeekOffset());
 
-	// currentMember: use store value (CSR) with data fallback (SSR)
+	// currentMember: use controller value (CSR) with data fallback (SSR)
 	const currentMember = $derived(
-		memberStore.selectedMember ??
+		$members.selectedMember ??
 		data.members.find((m: Member) => m.id === data.defaultMemberId)
 	);
 	const playful = $derived(currentMember?.theme.variant === 'playful');
@@ -113,7 +113,7 @@
 
 	// ── Load tasks when member or week changes ──
 	$effect(() => {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		const weekStart = currentWeekStart;
 		if (memberId) {
 			taskController.loadWeek(memberId, weekStart);
@@ -122,17 +122,17 @@
 
 	// ── Load habits when member or week changes ──
 	$effect(() => {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		const weekStart = currentWeekStart;
 		if (memberId) {
-			habitStore.loadWeek(memberId, weekStart);
+			habitController.loadWeek(memberId, weekStart);
 		}
 	});
 
 	// ── Register sync callback for offline queue drain + visibility refresh ──
 	// Re-registers whenever member or week changes so we refresh the right data
 	$effect(() => {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		const weekStart = currentWeekStart;
 		if (!memberId) return;
 
@@ -140,9 +140,9 @@
 		const COOLDOWN_MS = 5000;
 
 		async function refresh() {
-			await memberStore.load();
+			await memberController.load();
 			await taskController.reloadWeek(memberId, weekStart);
-			await habitStore.reloadWeek(memberId, weekStart);
+			await habitController.reloadWeek(memberId, weekStart);
 			lastRefresh = Date.now();
 		}
 
@@ -163,7 +163,7 @@
 
 	// ── Week data with tasks from store (SSR fallback via data prop) ──
 	const visibleDays = $derived.by(() => {
-		const memberId = memberStore.selectedMemberId || data.defaultMemberId;
+		const memberId = $members.selectedMemberId || data.defaultMemberId;
 		const weekStart = currentWeekStart;
 		// Build day shells, attach tasks from store (or SSR data for initial render)
 		const storeTasks = memberId
@@ -176,7 +176,7 @@
 			: null;
 		// If store has tasks loaded, use them; otherwise fall back to SSR data
 		const hasStoreTasks = storeTasks?.some((d) => d.tasks.length > 0) || false;
-		if (hasStoreTasks || memberStore.selectedMemberId) {
+		if (hasStoreTasks || $members.selectedMemberId) {
 			return storeTasks!;
 		}
 		// SSR fallback: build days from server-loaded tasks
@@ -190,10 +190,10 @@
 
 	// ── Habit data from store (SSR fallback via data prop) ──
 	const visibleHabits = $derived.by(() => {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		const weekStart = currentWeekStart;
 		if (memberId) {
-			return habitStore.getHabitsWithDays(memberId, weekStart);
+			return $habits.getHabitsWithDays(memberId, weekStart);
 		}
 		// SSR fallback
 		return data.habits;
@@ -204,7 +204,7 @@
 		taskController.toggle(taskId);
 	}
 	function addTask(dayIndex: number, title: string, emoji?: string) {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		if (!memberId) return;
 		taskController.create({
 			memberId,
@@ -232,23 +232,23 @@
 		taskController.update(taskId, updates);
 	}
 
-	// Habit operations — wired to habit store
+	// Habit operations — wired to habit controller
 	function toggleHabit(habitId: string, dayIndex: number) {
-		habitStore.toggle(habitId, currentWeekStart, dayIndex);
+		habitController.toggle(habitId, currentWeekStart, dayIndex);
 	}
 	function addHabit(name: string, emoji?: string) {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		if (!memberId) return;
-		habitStore.create(memberId, name, emoji);
+		habitController.create(memberId, name, emoji, currentWeekStart);
 	}
 	function updateHabit(
 		habitId: string,
 		updates: { name?: string; emoji?: string }
 	) {
-		habitStore.update(habitId, updates);
+		habitController.update(habitId, updates);
 	}
 	function deleteHabit(habitId: string) {
-		habitStore.delete(habitId);
+		habitController.delete(habitId);
 	}
 
 	// ── Reschedule (cross-week move) ──
@@ -259,7 +259,7 @@
 	// ── Reorder operations (drag & drop) ──
 
 	function reorderTasks(dayIndex: number, taskIds: string[]) {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		if (!memberId) return;
 		taskController.reorder(memberId, currentWeekStart, dayIndex, taskIds);
 	}
@@ -269,7 +269,7 @@
 		toDayIndex: number,
 		orderedTaskIds: string[]
 	) {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		await taskController.moveToDay(taskId, toDayIndex);
 		// If we have the drop-position order, reorder so the task lands where it was dropped
 		if (memberId && orderedTaskIds.length > 0) {
@@ -283,9 +283,9 @@
 	}
 
 	function reorderHabits(habitIds: string[]) {
-		const memberId = memberStore.selectedMemberId;
+		const memberId = $members.selectedMemberId;
 		if (!memberId) return;
-		habitStore.reorder(memberId, habitIds);
+		habitController.reorder(memberId, habitIds);
 	}
 
 	// ── Profile dialog handlers ──
@@ -306,14 +306,14 @@
 		quote: { text: string; author: string };
 	}) {
 		if (editingMember) {
-			await memberStore.update(editingMember.id, data);
+			await memberController.update(editingMember.id, data);
 		} else {
-			await memberStore.create(data);
+			await memberController.create(data);
 		}
 	}
 
 	async function handleDelete(id: string) {
-		await memberStore.delete(id);
+		await memberController.delete(id);
 	}
 </script>
 
@@ -374,15 +374,15 @@
 
 				<div class="flex items-center gap-3">
 					<FamilySwitcher
-						members={memberStore.members.length > 0
-							? memberStore.members
+						members={$members.allMembers.length > 0
+							? $members.allMembers
 							: data.members}
-						selectedId={memberStore.selectedMemberId || data.defaultMemberId}
+						selectedId={$members.selectedMemberId || data.defaultMemberId}
 						onSelect={(id) => {
 							if (id === '__family__') {
 								goto('/planner');
 							} else {
-								memberStore.select(id);
+								memberController.select(id);
 							}
 						}}
 						onAdd={openCreateDialog}
