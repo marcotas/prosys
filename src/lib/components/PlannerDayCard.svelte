@@ -1,11 +1,5 @@
 <script lang="ts">
 	import { ArrowRight, Check, ClockCounterClockwise, Prohibit, Trash, XCircle } from 'phosphor-svelte';
-	import { flip } from 'svelte/animate';
-	import {
-		dragHandleZone,
-		SHADOW_ITEM_MARKER_PROPERTY_NAME,
-		type DndEvent
-	} from 'svelte-dnd-action';
 	import AssignPicker from './AssignPicker.svelte';
 	import DragHandle from './DragHandle.svelte';
 	import ProgressRing from './ProgressRing.svelte';
@@ -17,6 +11,7 @@
 		Member,
 		ThemeConfig
 	} from '$lib/types';
+	import { sortable } from '$lib/utils/sortable';
 	import { createSwipeController } from '$lib/utils/swipe.svelte';
 
 	const {
@@ -100,36 +95,13 @@
 		return member?.theme ?? THEME;
 	}
 
-	// ── Drag & Drop ──────────────────────────────────────
-	const FLIP_DURATION = 200;
+	// ── Drag & Drop (SortableJS) ─────────────────────────
 	// eslint-disable-next-line svelte/prefer-writable-derived
 	let dndItems = $state<Task[]>([]);
 
 	$effect(() => {
 		dndItems = [...day.tasks];
 	});
-
-	function handleDndConsider(e: CustomEvent<DndEvent<Task>>) {
-		dndItems = e.detail.items;
-	}
-
-	function handleDndFinalize(e: CustomEvent<DndEvent<Task>>) {
-		const items = e.detail.items.filter(
-			(t: Task) => !(t as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
-		);
-		dndItems = items;
-
-		const movedTask = items.find((t) => t.dayIndex !== dayIndex);
-		if (movedTask) {
-			const taskIds = items.map((t) => t.id);
-			onMoveTask?.(movedTask.id, dayIndex, taskIds);
-			return;
-		}
-
-		if (items.length === 0) return;
-		const taskIds = items.map((t) => t.id);
-		onReorderTasks?.(taskIds);
-	}
 
 	// ── Swipe to reveal ──────────────────────────────────
 	const SWIPE_ZONE = 120;
@@ -252,17 +224,17 @@
 			</h4>
 		</div>
 
-		<!-- Task list (sortable dnd zone) -->
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<!-- Task list (sortable zone) -->
 		<div
-			use:dragHandleZone={{
+			use:sortable={{
 				items: dndItems,
-				flipDurationMs: FLIP_DURATION,
-				type: 'task',
-				dropTargetStyle: {}
+				group: { name: 'tasks', pull: true, put: true },
+				onReorder: (taskIds) => onReorderTasks?.(taskIds),
+				onMove: (taskId, toGroupId, targetTaskIds) => {
+					onMoveTask?.(taskId, Number(toGroupId), targetTaskIds);
+				}
 			}}
-			onconsider={handleDndConsider}
-			onfinalize={handleDndFinalize}
+			data-sort-group-id={String(dayIndex)}
 			class="pb-1 flex-1"
 			role="list"
 		>
@@ -274,14 +246,11 @@
 				{@const isSwiping =
 					!taskInactive && swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
 				{@const isRevealed = !taskInactive && (offset < 0 || swipe.swipedOpenId === task.id)}
-				{@const isShadow = (task as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				{@const taskTheme = getTaskTheme(task)}
 				{@const _taskMember = getTaskMember(task)}
 				<div
-					animate:flip={{ duration: FLIP_DURATION }}
-					class="relative overflow-hidden {isShadow
-						? 'dnd-shadow-item'
-						: ''}"
+					data-sort-id={task.id}
+					class="relative overflow-hidden"
 					role="listitem"
 				>
 					<TaskContextMenu
@@ -463,24 +432,3 @@
 		onReschedule={handleReschedule}
 	/>
 </article>
-
-<style>
-  :global([aria-grabbed="true"]) {
-    box-shadow:
-      0 8px 24px rgba(0, 0, 0, 0.15),
-      0 2px 8px rgba(0, 0, 0, 0.1);
-    border-radius: 12px;
-    opacity: 0.95;
-    z-index: 50;
-  }
-
-  .dnd-shadow-item {
-    opacity: 0.35;
-    border: 2px dashed #9ca3af;
-    border-radius: 8px;
-    background: #f9fafb;
-  }
-  .dnd-shadow-item > * {
-    visibility: hidden;
-  }
-</style>

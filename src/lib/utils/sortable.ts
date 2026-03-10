@@ -6,8 +6,8 @@ export interface SortableOptions {
 	items: Array<{ id: string }>;
 	/** Called after a within-list reorder with the new ordered item IDs. */
 	onReorder?: (itemIds: string[]) => void;
-	/** Called when an item from another list lands in this list. */
-	onMove?: (itemId: string, newIndex: number) => void;
+	/** Called after a cross-list move. Fires on the source list's action with the target's item IDs (including the moved item spliced in). */
+	onMove?: (itemId: string, toGroupId: string, targetItemIds: string[]) => void;
 	/** Cross-list drag group config (string name or SortableJS GroupOptions). */
 	group?: string | Sortable.GroupOptions;
 	/** CSS selector for the drag handle element (default: '.drag-handle'). */
@@ -132,17 +132,26 @@ export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOpti
 
 	/**
 	 * Cross-list move: revert the DOM (remove from target, re-insert into source),
-	 * then call onMove on the receiving list.
+	 * then call onMove with the target group ID.
 	 */
 	function handleCrossListMove(
 		item: HTMLElement,
 		source: HTMLElement,
 		target: HTMLElement,
 		oldIndex: number,
-		newIndex: number
+		_newIndex: number
 	) {
 		const itemId = item.getAttribute(DATA_ID_ATTR);
 		if (!itemId) return;
+
+		// Read the target container's group identifier (e.g., dayIndex for tasks).
+		const toGroupId = target.getAttribute('data-sort-group-id') ?? '';
+
+		// Read the target list's current item IDs (including the moved item at newIndex).
+		// We read this BEFORE reverting so the moved item is in the target DOM.
+		const targetItemIds = Array.from(target.children)
+			.map((el) => (el as HTMLElement).getAttribute(DATA_ID_ATTR))
+			.filter((id): id is string => id !== null);
 
 		// Revert: SortableJS moved the item from source to target.
 		// Remove it from target and put it back in source at its original position.
@@ -155,7 +164,7 @@ export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOpti
 			source.appendChild(item);
 		}
 
-		// Notify the receiving list's action about the move.
-		currentOptions.onMove?.(itemId, newIndex);
+		// Notify the source list's action about the move.
+		currentOptions.onMove?.(itemId, toGroupId, targetItemIds);
 	}
 };

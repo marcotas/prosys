@@ -50,6 +50,25 @@ select,
 	}
 }
 
+/* SortableJS drag-and-drop visual states */
+.sortable-ghost {
+	opacity: 0.35;
+	border: 2px dashed #9ca3af;
+	border-radius: 8px;
+	background: #f9fafb;
+}
+.sortable-ghost > * {
+	visibility: hidden;
+}
+.sortable-fallback {
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
+	border-radius: 12px;
+	opacity: 0.95;
+}
+tr.sortable-ghost {
+	border-radius: 0;
+}
+
 /* Respect reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
 	*,
