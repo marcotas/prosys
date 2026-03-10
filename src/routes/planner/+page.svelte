@@ -9,11 +9,9 @@
 	import PlannerDayCard from '$lib/components/PlannerDayCard.svelte';
 	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
 	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
-	import { taskController } from '$lib/controllers';
+	import { habitController, memberController, taskController } from '$lib/controllers';
 	import { UNDO_DELAY_MS } from '$lib/controllers/task-controller';
 	import { wsClient } from '$lib/infra';
-	import { habitStore } from '$lib/stores/habits.svelte';
-	import { memberStore } from '$lib/stores/members.svelte';
 	import {
 		computeWeekDays,
 		getWeekStart,
@@ -23,16 +21,18 @@
 
 	const { data } = $props();
 
-	// Reactive bridge for framework-agnostic TaskController
+	// Reactive bridges for framework-agnostic controllers
 	const tasks = useNotifier(taskController);
+	const habits = useNotifier(habitController);
+	const members = useNotifier(memberController);
 
-	// Hydrate stores
+	// Hydrate controllers
 	$effect(() => {
 		if (data.members.length > 0) {
 			untrack(() => {
-				memberStore.hydrate(data.members, data.members[0].id);
+				memberController.hydrate(data.members, data.members[0].id);
 				taskController.hydrateFamilyWeek(data.weekStart, data.tasks);
-				habitStore.hydrateFamilyWeek(data.weekStart, data.habitProgress);
+				habitController.hydrateFamilyWeek(data.weekStart, data.habitProgress);
 				clientHydrated = true;
 			});
 		}
@@ -113,7 +113,7 @@
 
 	$effect(() => {
 		const weekStart = currentWeekStart;
-		habitStore.loadFamilyWeek(weekStart);
+		habitController.loadFamilyWeek(weekStart);
 	});
 
 	// ── Sync callback + visibility refresh ──
@@ -124,9 +124,9 @@
 		const COOLDOWN_MS = 5000;
 
 		async function refresh() {
-			await memberStore.load();
+			await memberController.load();
 			await taskController.reloadFamilyWeek(weekStart);
-			await habitStore.reloadFamilyWeek(weekStart);
+			await habitController.reloadFamilyWeek(weekStart);
 			lastRefresh = Date.now();
 		}
 
@@ -146,8 +146,8 @@
 	});
 
 	// ── Build days from family tasks ──
-	const members = $derived(
-		memberStore.members.length > 0 ? memberStore.members : data.members
+	const memberList = $derived(
+		$members.allMembers.length > 0 ? $members.allMembers : data.members
 	);
 
 	const visibleDays = $derived.by(() => {
@@ -171,7 +171,7 @@
 
 	const visibleHabitProgress = $derived.by(() => {
 		const weekStart = currentWeekStart;
-		const storeData = habitStore.getFamilyHabitProgress(weekStart);
+		const storeData = $habits.getFamilyHabitProgress(weekStart);
 		if (storeData.length > 0) return storeData;
 		return data.habitProgress;
 	});
@@ -238,14 +238,14 @@
 
 	async function handleSave(saveData: { name: string; theme: ThemeConfig; quote: { text: string; author: string } }) {
 		if (editingMember) {
-			await memberStore.update(editingMember.id, saveData);
+			await memberController.update(editingMember.id, saveData);
 		} else {
-			await memberStore.create(saveData);
+			await memberController.create(saveData);
 		}
 	}
 
 	async function handleDelete(id: string) {
-		await memberStore.delete(id);
+		await memberController.delete(id);
 	}
 </script>
 
@@ -271,11 +271,11 @@
 
 			<div class="flex items-center gap-3">
 				<FamilySwitcher
-					{members}
+					members={memberList}
 					selectedId="__family__"
 					onSelect={(id) => {
 						if (id !== '__family__') {
-							memberStore.select(id);
+							memberController.select(id);
 							goto('/');
 						}
 					}}
@@ -343,7 +343,7 @@
 						{dayIndex}
 						{isToday}
 						isPast={!isToday && day.isoDate < todayISO}
-						{members}
+						members={memberList}
 						onToggleTask={(taskId) => toggleTask(taskId)}
 						onAddTask={(title, emoji) => addTask(dayIndex, title, emoji)}
 						onDeleteTask={(taskId) => deleteTask(taskId)}

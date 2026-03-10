@@ -16,8 +16,3 @@ export const offlineQueue = new OfflineQueue();
 export const wsClient = new WebSocketClient(offlineQueue);
 
 apiClient.setClientId(wsClient.clientId);
-
-/** Backward-compat helper for stores not yet migrated to ApiClient. */
-export function wsHeaders(): Record<string, string> {
-	return wsClient.clientId ? { 'X-WS-Client-Id': wsClient.clientId } : {};
-}
