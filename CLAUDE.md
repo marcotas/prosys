@@ -16,9 +16,9 @@ A family weekly task manager and habit tracker that runs entirely on the local n
 | `pnpm tauri:build` | Production macOS app (runs build + server bundle + Rust compile) |
 | `pnpm db:generate` | Generate Drizzle migration from schema changes |
 | `pnpm db:migrate` | Apply pending migrations |
-| `pnpm test` | Run all tests (vitest) |
+| `pnpm test:coverage` | **Always use this** — run tests with Istanbul coverage (enforces thresholds) |
+| `pnpm test` | Run tests without coverage (use `test:coverage` instead) |
 | `pnpm test:watch` | Run tests in watch mode |
-| `pnpm test:coverage` | Run tests with Istanbul coverage (enforces thresholds) |
 
 ## Tech Stack
 
