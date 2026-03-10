@@ -229,6 +229,68 @@ test.describe('Task rescheduling', () => {
 	});
 });
 
+test.describe('Undo delete/cancel (F-167)', () => {
+	const today = getTodayName();
+
+	test.beforeEach(async ({ page }) => {
+		await cleanData(page);
+		await page.goto('/');
+		await waitForHydration(page);
+		await createMember(page, 'Alice');
+	});
+
+	test('shows undo toast on delete and restores task when undo is clicked', async ({ page }) => {
+		await addTask(page, today, 'Buy groceries');
+
+		const todayCard = page.getByLabel(`${today} tasks`);
+		await expect(todayCard.getByText('Buy groceries')).toBeVisible();
+
+		// Delete via context menu
+		await todayCard.getByText('Buy groceries').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Delete' }).click();
+
+		// Task should be removed immediately
+		await expect(todayCard.getByText('Buy groceries')).not.toBeVisible();
+
+		// Undo toast should appear
+		const undoToast = page.getByText('Task deleted');
+		await expect(undoToast).toBeVisible();
+
+		// Click Undo
+		await page.getByRole('button', { name: 'Undo' }).click();
+
+		// Task should reappear
+		await expect(todayCard.getByText('Buy groceries')).toBeVisible();
+	});
+
+	test('shows undo toast on cancel and restores task when undo is clicked', async ({ page }) => {
+		// Navigate to previous week so tasks are in the past
+		await page.getByLabel('Previous week').click();
+
+		await addTask(page, 'Sunday', 'Clean house');
+
+		const sundayCard = page.getByLabel('Sunday tasks');
+
+		// Cancel via context menu
+		await sundayCard.getByText('Clean house').click({ button: 'right' });
+		await page.getByRole('menuitem', { name: 'Cancel' }).click();
+
+		// Task should be marked as cancelled
+		await expect(sundayCard.getByLabel('Cancelled')).toBeVisible();
+
+		// Undo toast should appear
+		const undoToast = page.getByText('Task cancelled');
+		await expect(undoToast).toBeVisible();
+
+		// Click Undo
+		await page.getByRole('button', { name: 'Undo' }).click();
+
+		// Task should be restored to active state (no cancelled icon)
+		await expect(sundayCard.getByLabel('Cancelled')).not.toBeVisible();
+		await expect(sundayCard.getByText('Clean house')).toBeVisible();
+	});
+});
+
 test.describe('Stale task self-healing (F-170)', () => {
 	const today = getTodayName();
 

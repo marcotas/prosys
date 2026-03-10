@@ -10,6 +10,7 @@
 	import ProfileDialog from '$lib/components/ProfileDialog.svelte';
 	import WeekNavigator from '$lib/components/WeekNavigator.svelte';
 	import { taskController } from '$lib/controllers';
+	import { UNDO_DELAY_MS } from '$lib/controllers/task-controller';
 	import { wsClient } from '$lib/infra';
 	import { habitStore } from '$lib/stores/habits.svelte';
 	import { memberStore } from '$lib/stores/members.svelte';
@@ -195,11 +196,14 @@
 	}
 
 	async function deleteTask(taskId: string) {
-		const result = await taskController.deleteOrCancel(taskId);
-		if (result.cancelledInstead) {
-			const { toast } = await import('svelte-sonner');
-			toast.info('Task was cancelled instead of deleted (it has been rescheduled before)');
-		}
+		const result = taskController.deleteOrCancelWithUndo(taskId);
+		if (!result) return;
+
+		const { toast } = await import('svelte-sonner');
+		toast.info(`Task ${result.action}`, {
+			action: { label: 'Undo', onClick: () => result.undo() },
+			duration: UNDO_DELAY_MS
+		});
 	}
 
 	function updateTask(taskId: string, updates: { title?: string; emoji?: string }) {
