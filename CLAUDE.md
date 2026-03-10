@@ -130,6 +130,12 @@ Four tables: `family_members`, `tasks` (scoped to member + weekStart + dayIndex)
 
 See `docs/plans/2026-03-05-controllers-design.md` for the full DDD architecture design document.
 
+## Before Finishing Work
+
+- Add a **changeset** (`pnpm changeset`) for user-facing changes — the `.changeset/` directory has examples
+- Add **e2e tests** (`e2e/*.spec.ts`) for new user-facing behavior — uses Playwright with accessibility queries
+- Run `pnpm test` (unit) and `pnpm test:e2e` (e2e) before creating PRs
+
 ## Learnings
 
 **Always consult `.learnings/` before modifying related code.** These contain detailed root-cause analysis, code examples, and affected file paths for each gotcha above.

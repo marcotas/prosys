@@ -1062,6 +1062,205 @@ describe('TaskController', () => {
 		});
 	});
 
+	describe('deleteWithUndo()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('removes task from UI immediately', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+
+			ctrl.deleteWithUndo('task-1');
+
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(0);
+			expect(ctrl.getFamilyTasksForDay(WEEK, 0)).toHaveLength(0);
+		});
+
+		it('restores task when undo is called', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+
+			const result = ctrl.deleteWithUndo('task-1');
+			expect(result).not.toBeNull();
+
+			result!.undo();
+
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)).toHaveLength(1);
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].id).toBe('task-1');
+			expect(ctrl.getFamilyTasksForDay(WEEK, 0)).toHaveLength(1);
+		});
+
+		it('fires API delete after timeout expires', async () => {
+			vi.useFakeTimers();
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.delete as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+
+			ctrl.deleteWithUndo('task-1');
+
+			expect(api.delete).not.toHaveBeenCalled();
+
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(api.delete).toHaveBeenCalledWith('/api/tasks/task-1');
+		});
+
+		it('does not fire API call when undo is called before timeout', async () => {
+			vi.useFakeTimers();
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			const result = ctrl.deleteWithUndo('task-1');
+			result!.undo();
+
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(api.delete).not.toHaveBeenCalled();
+		});
+
+		it('returns null if task not found', () => {
+			expect(ctrl.deleteWithUndo('nonexistent')).toBeNull();
+		});
+
+		it('notifies listeners on removal and on undo', () => {
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const listener = vi.fn();
+			ctrl.onChange(listener);
+
+			const result = ctrl.deleteWithUndo('task-1');
+			expect(listener).toHaveBeenCalledTimes(1);
+
+			listener.mockClear();
+			result!.undo();
+			expect(listener).toHaveBeenCalledTimes(1);
+		});
+	});
+
+	describe('cancelWithUndo()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('marks task as cancelled in UI immediately', () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			ctrl.cancelWithUndo('task-1');
+
+			const tasks = ctrl.getTasksForDay(MEMBER_ID, WEEK, 0);
+			expect(tasks[0].isCancelled).toBe(true);
+		});
+
+		it('restores task to original state when undo is called', () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			ctrl.hydrateFamilyWeek(WEEK, [taskData()]);
+
+			const result = ctrl.cancelWithUndo('task-1');
+			result!.undo();
+
+			expect(ctrl.getTasksForDay(MEMBER_ID, WEEK, 0)[0].isCancelled).toBe(false);
+			expect(ctrl.getFamilyTasksForDay(WEEK, 0)[0].isCancelled).toBe(false);
+		});
+
+		it('fires API cancel after timeout expires', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			const serverData = taskData({ status: 'cancelled', cancelledAt: '2026-03-07T00:00:00Z' });
+			(api.post as ReturnType<typeof vi.fn>).mockResolvedValue(serverData);
+
+			ctrl.cancelWithUndo('task-1');
+
+			expect(api.post).not.toHaveBeenCalled();
+
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(api.post).toHaveBeenCalledWith('/api/tasks/task-1/cancel');
+		});
+
+		it('does not fire API call when undo is called before timeout', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			const result = ctrl.cancelWithUndo('task-1');
+			result!.undo();
+
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(api.post).not.toHaveBeenCalled();
+		});
+
+		it('returns null if task not found', () => {
+			expect(ctrl.cancelWithUndo('nonexistent')).toBeNull();
+		});
+	});
+
+	describe('deleteOrCancelWithUndo()', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('returns action "deleted" for future tasks', () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			const futureWeek = '2099-03-02';
+			ctrl.hydrateWeek(MEMBER_ID, futureWeek, [taskData({ weekStart: futureWeek })]);
+
+			const result = ctrl.deleteOrCancelWithUndo('task-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.action).toBe('deleted');
+		});
+
+		it('returns action "cancelled" for past tasks', () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+
+			const result = ctrl.deleteOrCancelWithUndo('task-1');
+
+			expect(result).not.toBeNull();
+			expect(result!.action).toBe('cancelled');
+		});
+
+		it('returns null if task not found', () => {
+			expect(ctrl.deleteOrCancelWithUndo('nonexistent')).toBeNull();
+		});
+	});
+
+	describe('undo offline queue support', () => {
+		afterEach(() => {
+			vi.useRealTimers();
+		});
+
+		it('enqueues delete to offline queue on network error', async () => {
+			vi.useFakeTimers();
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.delete as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError('Failed to fetch'));
+
+			ctrl.deleteWithUndo('task-1');
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(queue.enqueue).toHaveBeenCalledWith({
+				method: 'DELETE',
+				url: '/api/tasks/task-1',
+				headers: { 'X-WS-Client-Id': 'test-id' }
+			});
+		});
+
+		it('enqueues cancel to offline queue on network error', async () => {
+			vi.useFakeTimers({ now: new Date(2026, 2, 7, 12, 0, 0) });
+			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);
+			(api.post as ReturnType<typeof vi.fn>).mockRejectedValue(new TypeError('Failed to fetch'));
+
+			ctrl.cancelWithUndo('task-1');
+			await vi.advanceTimersByTimeAsync(5000);
+
+			expect(queue.enqueue).toHaveBeenCalledWith({
+				method: 'POST',
+				url: '/api/tasks/task-1/cancel',
+				headers: { 'X-WS-Client-Id': 'test-id' }
+			});
+		});
+	});
+
 	describe('reschedule()', () => {
 		it('reschedules task optimistically and replaces with server response', async () => {
 			ctrl.hydrateWeek(MEMBER_ID, WEEK, [taskData()]);

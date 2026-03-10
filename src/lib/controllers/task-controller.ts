@@ -5,9 +5,12 @@ import type { WebSocketClient } from '$lib/infra/ws-client';
 import { ChangeNotifier } from '$lib/domain/change-notifier';
 import { Task } from '$lib/domain/task';
 import { TaskCollection } from '$lib/domain/task-collection';
-import { optimisticAction } from '$lib/infra/optimistic-action';
+import { optimisticAction, isNetworkError } from '$lib/infra/optimistic-action';
 
 const FAMILY_KEY_PREFIX = '__family__';
+
+/** Duration (ms) for undo toast before committing the API call. */
+export const UNDO_DELAY_MS = 5000;
 
 function cacheKey(memberId: string, weekStart: string): string {
 	return `${memberId}:${weekStart}`;
@@ -353,6 +356,80 @@ export class TaskController extends ChangeNotifier {
 			return {};
 		}
 		return this.delete(id);
+	}
+
+	deleteWithUndo(id: string): { undo: () => void } | null {
+		const task = this.tasks.findById(id);
+		if (!task) return null;
+
+		const taskData = task.toJSON();
+
+		this.removeFromAll(id);
+		this.notifyChanges();
+
+		let undone = false;
+
+		const timeout = setTimeout(() => {
+			if (undone) return;
+			this.api.delete(`/api/tasks/${id}`).catch((err) => {
+				if (isNetworkError(err)) {
+					this.offlineQueue.enqueue({ method: 'DELETE', url: `/api/tasks/${id}`, headers: this.api.getHeaders() });
+				}
+			});
+		}, UNDO_DELAY_MS);
+
+		return {
+			undo: () => {
+				undone = true;
+				clearTimeout(timeout);
+				this.replaceTask(id, taskData);
+				this.notifyChanges();
+			}
+		};
+	}
+
+	cancelWithUndo(id: string): { undo: () => void } | null {
+		const task = this.tasks.findById(id);
+		if (!task) return null;
+
+		const taskData = task.toJSON();
+
+		const now = new Date();
+		for (const t of this.tasks.findAllById(id)) {
+			t.cancel(now);
+		}
+		this.notifyChanges();
+
+		let undone = false;
+
+		const timeout = setTimeout(() => {
+			if (undone) return;
+			this.api.post(`/api/tasks/${id}/cancel`).catch((err) => {
+				if (isNetworkError(err)) {
+					this.offlineQueue.enqueue({ method: 'POST', url: `/api/tasks/${id}/cancel`, headers: this.api.getHeaders() });
+				}
+			});
+		}, UNDO_DELAY_MS);
+
+		return {
+			undo: () => {
+				undone = true;
+				clearTimeout(timeout);
+				this.replaceTask(id, taskData);
+				this.notifyChanges();
+			}
+		};
+	}
+
+	deleteOrCancelWithUndo(id: string): { undo: () => void; action: 'deleted' | 'cancelled' } | null {
+		const task = this.tasks.findById(id);
+		if (!task) return null;
+
+		const isPast = task.isPast(new Date());
+		const result = isPast ? this.cancelWithUndo(id) : this.deleteWithUndo(id);
+		if (!result) return null;
+
+		return { undo: result.undo, action: isPast ? 'cancelled' : 'deleted' };
 	}
 
 	async reorder(
