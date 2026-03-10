@@ -132,7 +132,7 @@ See `docs/plans/2026-03-05-controllers-design.md` for the full DDD architecture 
 
 ## Before Finishing Work
 
-- Add a **changeset** (`pnpm changeset`) for user-facing changes — the `.changeset/` directory has examples
+- Add a **changeset** (`pnpm changeset`) for user-facing changes — the `.changeset/` directory has examples. **Changeset descriptions must be written from the user's perspective** (e.g., "Fix habits not saving on mobile", "Add weekly progress summary") — never reference internal class names, technical refactors, or implementation details
 - Add **e2e tests** (`e2e/*.spec.ts`) for new user-facing behavior — uses Playwright with accessibility queries
 - Run `pnpm test` (unit) and `pnpm test:e2e` (e2e) before creating PRs
 

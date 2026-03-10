@@ -1,18 +1,18 @@
 <script lang="ts">
-	import type { DayData, ThemeConfig } from '$lib/types';
+	import type { DayData, Task, ThemeConfig } from '$lib/types';
 	import { dayAbbreviations } from '$lib/utils/dates';
 
 	const { days, theme } = $props<{ days: DayData[]; theme: ThemeConfig }>();
 
-	const maxTasks = $derived(Math.max(...days.map((d: DayData) => d.tasks.filter((t) => t.status === 'active').length), 1));
+	const maxTasks = $derived(Math.max(...days.map((d: DayData) => d.tasks.filter((t: Task) => t.status === 'active').length), 1));
 	const playful = $derived(theme.variant === 'playful');
 </script>
 
 <div class="flex items-end gap-1.5 h-24">
 	{#each days as day, i (i)}
-		{@const activeTasks = day.tasks.filter((t) => t.status === 'active')}
+		{@const activeTasks = day.tasks.filter((t: Task) => t.status === 'active')}
 		{@const total = activeTasks.length}
-		{@const completed = activeTasks.filter((t) => t.completed).length}
+		{@const completed = activeTasks.filter((t: Task) => t.completed).length}
 		{@const heightPercent = (total / maxTasks) * 100}
 		{@const completedHeight = total > 0 ? (completed / total) * heightPercent : 0}
 		<div class="flex-1 flex flex-col items-center gap-1">

@@ -34,7 +34,11 @@ function createMockQueue(): OfflineQueue {
 	} as unknown as OfflineQueue;
 }
 
-function createMockWs(): WebSocketClient {
+interface MockWebSocketClient extends WebSocketClient {
+	__dispatch: (type: string, payload: unknown) => void;
+}
+
+function createMockWs(): MockWebSocketClient {
 	const handlers = new Map<string, Set<(payload: unknown) => void>>();
 	return {
 		clientId: 'test-client',
@@ -59,7 +63,7 @@ function createMockWs(): WebSocketClient {
 			const set = handlers.get(type);
 			if (set) for (const h of set) h(payload);
 		}
-	} as unknown as WebSocketClient & { __dispatch: (type: string, payload: unknown) => void };
+	} as unknown as MockWebSocketClient;
 }
 
 const defaultTheme: ThemeConfig = {

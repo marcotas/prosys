@@ -31,7 +31,7 @@ function rowToMemberData(row: MemberRow): MemberData {
 	};
 }
 
-function themeToColumns(theme: ThemeConfig): Record<string, string> {
+function themeToColumns(theme: ThemeConfig) {
 	return {
 		themeVariant: theme.variant,
 		themeAccent: theme.accent,
@@ -44,7 +44,7 @@ function themeToColumns(theme: ThemeConfig): Record<string, string> {
 	};
 }
 
-function quoteToColumns(quote: { text: string; author: string }): Record<string, string> {
+function quoteToColumns(quote: { text: string; author: string }) {
 	return {
 		quoteText: quote.text,
 		quoteAuthor: quote.author

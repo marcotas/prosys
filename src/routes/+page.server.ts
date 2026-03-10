@@ -38,6 +38,7 @@ function rowToTask(row: typeof tasks.$inferSelect): Task {
 		status: row.status as Task['status'],
 		cancelledAt: row.cancelledAt ?? null,
 		rescheduleCount: row.rescheduleCount,
+		rescheduleHistory: row.rescheduleHistory ? JSON.parse(row.rescheduleHistory) : null,
 		rescheduledFromId: row.rescheduledFromId ?? null
 	};
 }

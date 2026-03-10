@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { ContextMenu } from 'bits-ui';
-	import CalendarBlank from 'phosphor-svelte/lib/CalendarBlank.svelte';
-	import Prohibit from 'phosphor-svelte/lib/Prohibit.svelte';
-	import Trash from 'phosphor-svelte/lib/Trash.svelte';
+	import { CalendarBlank, Prohibit, Trash } from 'phosphor-svelte';
 	import type { Snippet } from 'svelte';
 
 	const {

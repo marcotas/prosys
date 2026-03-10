@@ -1,10 +1,5 @@
 <script lang="ts">
-	import ArrowRight from 'phosphor-svelte/lib/ArrowRight.svelte';
-	import Check from 'phosphor-svelte/lib/Check.svelte';
-	import ClockCounterClockwise from 'phosphor-svelte/lib/ClockCounterClockwise.svelte';
-	import Prohibit from 'phosphor-svelte/lib/Prohibit.svelte';
-	import Trash from 'phosphor-svelte/lib/Trash.svelte';
-	import XCircle from 'phosphor-svelte/lib/XCircle.svelte';
+	import { ArrowRight, Check, ClockCounterClockwise, Prohibit, Trash, XCircle } from 'phosphor-svelte';
 	import { flip } from 'svelte/animate';
 	import {
 		dragHandleZone,
@@ -93,7 +88,7 @@
 	function handleDndFinalize(e: CustomEvent<DndEvent<Task>>) {
 		// Filter out any shadow/placeholder items
 		const items = e.detail.items.filter(
-			(t: Task) => !(t as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
+			(t: Task) => !(t as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
 		);
 		dndItems = items;
 
@@ -269,7 +264,7 @@
 				{@const isSwiping =
 					!taskInactive && swipe.swipeState?.itemId === task.id && swipe.swipeState?.locked}
 				{@const isRevealed = !taskInactive && (offset < 0 || swipe.swipedOpenId === task.id)}
-				{@const isShadow = (task as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
+				{@const isShadow = (task as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
 				<div
 					animate:flip={{ duration: FLIP_DURATION }}
 					class="relative overflow-hidden {isShadow

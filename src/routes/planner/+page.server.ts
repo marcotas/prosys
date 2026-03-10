@@ -53,6 +53,7 @@ export const load = async () => {
 			status: tasks.status,
 			cancelledAt: tasks.cancelledAt,
 			rescheduleCount: tasks.rescheduleCount,
+			rescheduleHistory: tasks.rescheduleHistory,
 			rescheduledFromId: tasks.rescheduledFromId,
 			memberName: familyMembers.name,
 			memberThemeVariant: familyMembers.themeVariant,
@@ -82,6 +83,7 @@ export const load = async () => {
 		status: row.status as PlannerTask['status'],
 		cancelledAt: row.cancelledAt ?? null,
 		rescheduleCount: row.rescheduleCount,
+		rescheduleHistory: row.rescheduleHistory ? JSON.parse(row.rescheduleHistory) : null,
 		rescheduledFromId: row.rescheduledFromId ?? null,
 		memberName: row.memberName ?? undefined,
 		memberTheme: row.memberName

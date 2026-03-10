@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { Dialog } from 'bits-ui';
-	import CaretLeft from 'phosphor-svelte/lib/CaretLeft.svelte';
-	import CaretRight from 'phosphor-svelte/lib/CaretRight.svelte';
+	import { CaretLeft, CaretRight } from 'phosphor-svelte';
 	import { fly, fade, scale } from 'svelte/transition';
 	import type { Task } from '$lib/types';
 	import {

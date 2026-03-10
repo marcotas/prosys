@@ -2,5 +2,8 @@
 echo "Running lint..."
 pnpm lint || exit 1
 
+echo "Running type check..."
+pnpm check || exit 1
+
 echo "Running tests..."
 pnpm test || exit 1

@@ -1,9 +1,9 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 
-/** App version injected by Vite at build time from package.json */
-declare const __APP_VERSION__: string;
-
 declare global {
+	/** App version injected by Vite at build time from package.json */
+	const __APP_VERSION__: string;
+
 	namespace App {
 		// interface Error {}
 		interface Locals {

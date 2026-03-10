@@ -1,7 +1,5 @@
 <script lang="ts">
-	import CaretDown from 'phosphor-svelte/lib/CaretDown.svelte';
-	import Check from 'phosphor-svelte/lib/Check.svelte';
-	import Trash from 'phosphor-svelte/lib/Trash.svelte';
+	import { CaretDown, Check, Trash } from 'phosphor-svelte';
 	import { flip } from 'svelte/animate';
 	import { slide } from 'svelte/transition';
 	import {
@@ -111,7 +109,7 @@
 
 	function handleDndFinalize(e: CustomEvent<DndEvent<HabitWithDays>>) {
 		const items = e.detail.items.filter(
-			(h: HabitWithDays) => !(h as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
+			(h: HabitWithDays) => !(h as unknown as Record<string, unknown>)[SHADOW_ITEM_MARKER_PROPERTY_NAME]
 		);
 		dndItems = items;
 
@@ -222,7 +220,7 @@
 									swipe.swipeState?.locked}
 							{@const isRevealed =
 								offset < 0 || swipe.swipedOpenId === habit.id}
-							{@const isShadow = (habit as Record<string, unknown>)[
+							{@const isShadow = (habit as unknown as Record<string, unknown>)[
 								SHADOW_ITEM_MARKER_PROPERTY_NAME
 							]}
 							<tr

@@ -281,7 +281,7 @@ export class TaskRepository {
 	reorder(taskIds: string[], now: string): void {
 		// Access the underlying better-sqlite3 instance for raw SQL transaction
 		// since Drizzle's .transaction() has overhead for bulk updates.
-		const client = this.db.$client as Database;
+		const client = (this.db as unknown as { $client: Database }).$client;
 		const stmt = client.prepare(
 			'UPDATE tasks SET sort_order = ?, updated_at = ? WHERE id = ?'
 		);
