@@ -1,5 +1,5 @@
 <script lang="ts">
-	import DotsSixVertical from 'phosphor-svelte/lib/DotsSixVertical.svelte';
+	import { DotsSixVertical } from 'phosphor-svelte';
 	import { dragHandle } from 'svelte-dnd-action';
 
 	const { theme }: { theme?: { accent?: string } } = $props();

@@ -143,7 +143,7 @@ describe('UpdateMember', () => {
 	});
 
 	it('throws NotFoundError when member does not exist', () => {
-		vi.mocked(repo.findById).mockReturnValue(undefined);
+		vi.mocked(repo.findById).mockReturnValue(null);
 
 		expect(() => useCase.execute('nonexistent', { name: 'Bob' })).toThrow(NotFoundError);
 		expect(() => useCase.execute('nonexistent', { name: 'Bob' })).toThrow(
@@ -152,7 +152,7 @@ describe('UpdateMember', () => {
 	});
 
 	it('does not call updatePartial when member is not found', () => {
-		vi.mocked(repo.findById).mockReturnValue(undefined);
+		vi.mocked(repo.findById).mockReturnValue(null);
 
 		try {
 			useCase.execute('nonexistent', { name: 'Bob' });

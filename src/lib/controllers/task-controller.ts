@@ -158,7 +158,10 @@ export class TaskController extends ChangeNotifier {
 			completed: false,
 			sortOrder,
 			status: 'active' as const,
-			cancelledAt: null
+			cancelledAt: null,
+			rescheduleCount: 0,
+			rescheduleHistory: null,
+			rescheduledFromId: null
 		});
 
 		return optimisticAction<TaskData>(

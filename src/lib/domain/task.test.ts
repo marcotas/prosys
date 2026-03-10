@@ -149,12 +149,13 @@ describe('Task.fromData', () => {
 	it('defaults status to active when undefined (backward compat)', () => {
 		const data = makeTaskData();
 		// Simulate legacy data without status/cancelledAt
-		const legacy = { ...data } as Record<string, unknown>;
-		delete legacy.status;
-		delete legacy.cancelledAt;
-		const task = Task.fromData(legacy as TaskData);
+		const { status: _s, cancelledAt: _c, rescheduleCount: _rc, rescheduleHistory: _rh, rescheduledFromId: _rf, ...rest } = data;
+		const task = Task.fromData(rest as TaskData);
 		expect(task.status).toBe('active');
 		expect(task.cancelledAt).toBeNull();
+		expect(task.rescheduleCount).toBe(0);
+		expect(task.rescheduleHistory).toBeNull();
+		expect(task.rescheduledFromId).toBeNull();
 	});
 });
 

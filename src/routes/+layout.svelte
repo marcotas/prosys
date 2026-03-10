@@ -34,7 +34,7 @@
 		// avoid flashing a blank page or "file not found" error while the
 		// Node.js server starts up.
 		if ('__TAURI_INTERNALS__' in window) {
-			(window as Window & { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<void> } }).__TAURI_INTERNALS__.invoke('show_main_window');
+			(window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<void> } }).__TAURI_INTERNALS__.invoke('show_main_window');
 		}
 
 		// ── Tauri updater (desktop only) ────────────────────
@@ -73,7 +73,7 @@
 						await update.downloadAndInstall();
 						// Kill the Node.js server before relaunch — relaunch() calls
 						// process::exit() which orphans child processes.
-						await (window as Window & { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<void> } }).__TAURI_INTERNALS__.invoke('kill_server');
+						await (window as unknown as { __TAURI_INTERNALS__: { invoke: (cmd: string) => Promise<void> } }).__TAURI_INTERNALS__.invoke('kill_server');
 						await relaunch();
 					}
 				};

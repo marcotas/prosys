@@ -1,6 +1,5 @@
 <script lang="ts">
-	import CaretLeft from 'phosphor-svelte/lib/CaretLeft.svelte';
-	import CaretRight from 'phosphor-svelte/lib/CaretRight.svelte';
+	import { CaretLeft, CaretRight } from 'phosphor-svelte';
 	import type { ThemeConfig } from '$lib/types';
 	import { formatWeekRange } from '$lib/utils/dates';
 

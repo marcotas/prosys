@@ -6,7 +6,6 @@ import tailwindcss from '@tailwindcss/vite';
 import { Bonjour } from 'bonjour-service';
 import { sveltePhosphorOptimize } from 'phosphor-svelte/vite';
 import { defineConfig, type Plugin } from 'vite';
-import type { UserConfig } from 'vitest/config';
 import type { WebSocket } from 'ws';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -155,4 +154,4 @@ export default defineConfig(({ command }) => ({
 			conditions: ['svelte']
 		}
 	}
-} satisfies UserConfig));
+}));

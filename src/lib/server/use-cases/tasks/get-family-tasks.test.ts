@@ -29,6 +29,11 @@ function makePlannerTaskRow(overrides: Partial<PlannerTaskRow> = {}): PlannerTas
 		title: 'Test task',
 		completed: false,
 		sortOrder: 0,
+		status: 'active' as const,
+		cancelledAt: null,
+		rescheduleCount: 0,
+		rescheduleHistory: null,
+		rescheduledFromId: null,
 		memberName: 'Alice',
 		memberTheme: {
 			variant: 'default',

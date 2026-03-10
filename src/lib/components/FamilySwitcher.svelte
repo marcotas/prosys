@@ -1,10 +1,6 @@
 <script lang="ts">
 	import { Popover } from 'bits-ui';
-	import CaretDown from 'phosphor-svelte/lib/CaretDown.svelte';
-	import Check from 'phosphor-svelte/lib/Check.svelte';
-	import House from 'phosphor-svelte/lib/House.svelte';
-	import PencilSimple from 'phosphor-svelte/lib/PencilSimple.svelte';
-	import Plus from 'phosphor-svelte/lib/Plus.svelte';
+	import { CaretDown, Check, House, PencilSimple, Plus } from 'phosphor-svelte';
 	import type { Member } from '$lib/types';
 
 	const { members, selectedId, onSelect, onAdd, onEdit } = $props<{
@@ -16,7 +12,7 @@
 	}>();
 
 	const isFamilySelected = $derived(selectedId === '__family__');
-	const selectedMember = $derived(members.find((m) => m.id === selectedId));
+	const selectedMember = $derived(members.find((m: Member) => m.id === selectedId));
 
 	let isMobile = $state(false);
 	let open = $state(false);

@@ -349,7 +349,10 @@ describe('TaskRepository', () => {
 				completed: true,
 				sortOrder: 5,
 				status: 'active',
-				cancelledAt: null
+				cancelledAt: null,
+				rescheduleCount: 0,
+				rescheduleHistory: null,
+				rescheduledFromId: null
 			};
 
 			repo.update(updatedData);
