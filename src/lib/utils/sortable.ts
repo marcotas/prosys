@@ -143,10 +143,20 @@ export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOpti
 		// SortableJS has already moved the element to its new position.
 		const newOrderIds = readIds(item.parentNode as HTMLElement);
 
+		// Hide the item during DOM revert to prevent visible snap-back.
+		// Svelte re-renders on microtask (before next animation frame),
+		// placing the element at the correct position.
+		item.style.visibility = 'hidden';
+
 		// Revert to exact original position (including Svelte marker nodes).
 		revertToSavedPosition(item);
 
 		currentOptions.onReorder?.(newOrderIds);
+
+		// Restore visibility after Svelte re-render.
+		requestAnimationFrame(() => {
+			item.style.visibility = '';
+		});
 	}
 
 	/**
@@ -163,10 +173,17 @@ export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOpti
 		// We read this BEFORE reverting so the moved item is in the target DOM.
 		const targetItemIds = readIds(target);
 
+		// Hide during revert to prevent visible snap-back.
+		item.style.visibility = 'hidden';
+
 		// Revert to exact original position in source (including Svelte marker nodes).
 		revertToSavedPosition(item);
 
 		// Notify the source list's action about the move.
 		currentOptions.onMove?.(itemId, toGroupId, targetItemIds);
+
+		requestAnimationFrame(() => {
+			item.style.visibility = '';
+		});
 	}
 };

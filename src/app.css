@@ -60,8 +60,14 @@ select,
 .sortable-ghost > * {
 	visibility: hidden;
 }
+/* Table rows: border/border-radius don't apply to <tr>, so just fade the row */
 tr.sortable-ghost {
+	border: none;
 	border-radius: 0;
+	background: transparent;
+}
+tr.sortable-ghost > * {
+	visibility: visible;
 }
 
 /* Respect reduced motion preference */
