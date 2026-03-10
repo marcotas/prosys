@@ -131,7 +131,7 @@
 	/>
 </svelte:head>
 
-<Toaster position="top-center" richColors closeButton />
+<Toaster position="bottom-center" />
 
 <div class="min-h-screen bg-gray-50" data-hydrated={hydrated || undefined}>
 	{@render children()}
