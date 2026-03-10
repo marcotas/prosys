@@ -213,6 +213,17 @@ export class HabitWeekCache {
 		this.cache = snap;
 	}
 
+	/** Return all member-scoped entries for a given memberId. */
+	memberEntries(memberId: string): [string, HabitWithDays[]][] {
+		const results: [string, HabitWithDays[]][] = [];
+		for (const [key, value] of this.cache) {
+			if (key.startsWith(`${memberId}:`)) {
+				results.push([key, value as HabitWithDays[]]);
+			}
+		}
+		return results;
+	}
+
 	/** Remove all data from the cache. */
 	clear(): void {
 		this.cache.clear();

@@ -444,6 +444,17 @@ describe('HabitController', () => {
 
 				expect(ctrl.getHabitsWithDays(MEMBER_ID, WEEK)[0].name).toBe('Original');
 			});
+
+			it('removes stale habit on 404', async () => {
+				ctrl.hydrateWeek(MEMBER_ID, WEEK, [habitData()]);
+				(api.patch as ReturnType<typeof vi.fn>).mockRejectedValue(
+					new ApiError('Not found', 404)
+				);
+
+				await ctrl.update('habit-1', { name: 'Changed' });
+
+				expect(ctrl.getHabitsWithDays(MEMBER_ID, WEEK)).toHaveLength(0);
+			});
 		});
 
 		describe('delete()', () => {
@@ -492,6 +503,17 @@ describe('HabitController', () => {
 				await expect(ctrl.delete('habit-1')).rejects.toThrow('fail');
 
 				expect(ctrl.getHabitsWithDays(MEMBER_ID, WEEK)).toHaveLength(1);
+			});
+
+			it('handles 404 gracefully (already deleted)', async () => {
+				ctrl.hydrateWeek(MEMBER_ID, WEEK, [habitData()]);
+				(api.delete as ReturnType<typeof vi.fn>).mockRejectedValue(
+					new ApiError('Not found', 404)
+				);
+
+				await ctrl.delete('habit-1');
+
+				expect(ctrl.getHabitsWithDays(MEMBER_ID, WEEK)).toHaveLength(0);
 			});
 		});
 

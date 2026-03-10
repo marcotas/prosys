@@ -586,6 +586,38 @@ describe('HabitWeekCache', () => {
 		});
 	});
 
+	// ── memberEntries ───────────────────────────────────
+
+	describe('memberEntries', () => {
+		it('returns all entries for the given member', () => {
+			const k1 = HabitWeekCache.memberKey('m1', '2026-03-08');
+			const k2 = HabitWeekCache.memberKey('m1', '2026-03-15');
+			const k3 = HabitWeekCache.memberKey('m2', '2026-03-08');
+			cache.hydrate(k1, [makeHabit()]);
+			cache.hydrate(k2, [makeHabit({ id: 'h2' })]);
+			cache.hydrate(k3, [makeHabit({ id: 'h3', memberId: 'm2' })]);
+
+			const entries = cache.memberEntries('m1');
+			expect(entries).toHaveLength(2);
+			expect(entries.map(([k]) => k).sort()).toEqual([k1, k2].sort());
+		});
+
+		it('excludes family caches', () => {
+			const mk = HabitWeekCache.memberKey('m1', '2026-03-08');
+			const fk = HabitWeekCache.familyKey('2026-03-08');
+			cache.hydrate(mk, [makeHabit()]);
+			cache.hydrate(fk, [makeFamilyProgress()]);
+
+			const entries = cache.memberEntries('m1');
+			expect(entries).toHaveLength(1);
+			expect(entries[0][0]).toBe(mk);
+		});
+
+		it('returns empty array for unknown member', () => {
+			expect(cache.memberEntries('unknown')).toEqual([]);
+		});
+	});
+
 	// ── clear ───────────────────────────────────────────
 
 	describe('clear', () => {

@@ -69,42 +69,33 @@ export class HabitController extends ChangeNotifier {
 	async loadWeek(memberId: string, weekStart: string): Promise<void> {
 		const key = HabitWeekCache.memberKey(memberId, weekStart);
 		if (this.cache.has(key)) return;
-		await this.fetchWeek(key, `/api/members/${memberId}/habits?week=${weekStart}`);
+		await this.fetchAndCache(key, `/api/members/${memberId}/habits?week=${weekStart}`);
 	}
 
 	async reloadWeek(memberId: string, weekStart: string): Promise<void> {
 		const key = HabitWeekCache.memberKey(memberId, weekStart);
-		await this.fetchWeek(key, `/api/members/${memberId}/habits?week=${weekStart}`);
+		await this.fetchAndCache(key, `/api/members/${memberId}/habits?week=${weekStart}`);
 	}
 
 	async loadFamilyWeek(weekStart: string): Promise<void> {
 		const key = HabitWeekCache.familyKey(weekStart);
 		if (this.cache.has(key)) return;
-		await this.fetchFamilyWeek(key, `/api/family/habits?week=${weekStart}`);
+		await this.fetchAndCache(key, `/api/family/habits?week=${weekStart}`);
 	}
 
 	async reloadFamilyWeek(weekStart: string): Promise<void> {
 		const key = HabitWeekCache.familyKey(weekStart);
-		await this.fetchFamilyWeek(key, `/api/family/habits?week=${weekStart}`);
+		await this.fetchAndCache(key, `/api/family/habits?week=${weekStart}`);
 	}
 
-	private async fetchWeek(key: string, url: string): Promise<void> {
+	private async fetchAndCache<T extends HabitWithDays[] | FamilyHabitProgress[]>(
+		key: string,
+		url: string
+	): Promise<void> {
 		this._loading = true;
 		this.notifyChanges();
 		try {
-			const data = await this.api.get<HabitWithDays[]>(url);
-			this.cache.hydrate(key, data);
-		} finally {
-			this._loading = false;
-			this.notifyChanges();
-		}
-	}
-
-	private async fetchFamilyWeek(key: string, url: string): Promise<void> {
-		this._loading = true;
-		this.notifyChanges();
-		try {
-			const data = await this.api.get<FamilyHabitProgress[]>(url);
+			const data = await this.api.get<T>(url);
 			this.cache.hydrate(key, data);
 		} finally {
 			this._loading = false;
@@ -117,7 +108,7 @@ export class HabitController extends ChangeNotifier {
 	async create(memberId: string, name: string, emoji?: string): Promise<HabitData | null> {
 		// Compute sortOrder from any cached week for this member
 		let sortOrder = 0;
-		for (const [, habits] of this.findMemberCaches(memberId)) {
+		for (const [, habits] of this.cache.memberEntries(memberId)) {
 			sortOrder = Math.max(sortOrder, habits.length);
 		}
 
@@ -167,6 +158,10 @@ export class HabitController extends ChangeNotifier {
 				url: `/api/habits/${id}`,
 				body: data,
 				headers: this.api.getHeaders()
+			},
+			onNotFound: () => {
+				this.cache.removeHabit(id);
+				this.cache.invalidateFamilyCaches();
 			}
 		});
 	}
@@ -183,7 +178,8 @@ export class HabitController extends ChangeNotifier {
 				method: 'DELETE',
 				url: `/api/habits/${id}`,
 				headers: this.api.getHeaders()
-			}
+			},
+			onNotFound: () => {}
 		});
 	}
 
@@ -268,24 +264,4 @@ export class HabitController extends ChangeNotifier {
 		this.notifyChanges();
 	}
 
-	// ── Private helpers ──────────────────────────────────────
-
-	/**
-	 * Find all member-scoped caches for a given memberId.
-	 * Returns entries as [key, habits[]] tuples.
-	 */
-	private findMemberCaches(memberId: string): [string, HabitWithDays[]][] {
-		const results: [string, HabitWithDays[]][] = [];
-		// We need to iterate internal cache — use getHabitsWithDays with known keys
-		// Since HabitWeekCache doesn't expose iteration, check any cached keys
-		// by trying the member key pattern. For sortOrder computation,
-		// we iterate through the cache's snapshot.
-		const snap = this.cache.snapshot();
-		for (const [key, value] of snap) {
-			if (key.startsWith(`${memberId}:`)) {
-				results.push([key, value as HabitWithDays[]]);
-			}
-		}
-		return results;
-	}
 }
