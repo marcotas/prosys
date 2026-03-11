@@ -551,3 +551,22 @@ The `server.js` already reads `PORT` from env (`process.env.PORT`), and the Taur
 **Rule**: Never hardcode a port for a desktop app's internal server. Use OS-assigned ports persisted to disk so they're stable across restarts (for PWA clients) but conflict-free.
 
 **Affected files**: `src-tauri/src/lib.rs`
+
+## 22. bits-ui ContextMenu.Trigger sets inline `pointer-events: auto`
+
+**Symptom**: SortableJS fallback clone (with `pointer-events: none` set by SortableJS internally) still intercepts `elementFromPoint()` hit detection, preventing drag-and-drop swaps.
+
+**Cause**: bits-ui `ContextMenu.Trigger` (and likely other Trigger components) sets `pointer-events: auto` as an inline style on the trigger element. When SortableJS clones the dragged item for its fallback ghost, this inline style overrides both SortableJS's own `pointer-events: none` on the clone and any CSS class-based rules, because inline styles have higher specificity than class selectors.
+
+**Fix**: Use a wildcard CSS rule with `!important` to override inline styles on the fallback clone and all its descendants:
+
+```css
+.sortable-fallback,
+.sortable-fallback * {
+	pointer-events: none !important;
+}
+```
+
+**Rule**: When combining SortableJS (fallback mode) with bits-ui components that set inline `pointer-events`, always use `!important` wildcard CSS on `.sortable-fallback *` to ensure the clone doesn't intercept hit detection.
+
+**Affected files**: `src/app.css`, `src/lib/components/TaskContextMenu.svelte`, `src/lib/components/DayCard.svelte`

@@ -2,16 +2,12 @@ import { test, expect, type Page, type Locator } from '@playwright/test';
 import { cleanData, createMember, addTask, addHabit, waitForHydration, getTodayName } from './helpers';
 
 /**
- * Drag-and-drop via Chrome DevTools Protocol (CDP).
+ * Drag-and-drop via Playwright mouse API.
  *
- * SortableJS uses native HTML5 DnD (forceFallback=false), which requires
- * real drag events (dragstart/dragenter/dragover/drop). Playwright's mouse
- * API only dispatches mouse events which don't trigger the native DnD
- * sequence for cross-container drags.
- *
- * CDP's Input.setInterceptDrags + Input.dispatchDragEvent dispatches
- * trusted drag events at the browser input layer, making this work in
- * headless Chromium.
+ * SortableJS runs in fallback mode (forceFallback=true) for WKWebView
+ * compatibility, so it uses mouse/touch events — not native HTML5 DnD.
+ * Playwright's mouse API dispatches real mouse events that trigger the
+ * fallback drag mechanism.
  */
 async function dragAndDrop(
 	page: Page,
@@ -19,8 +15,6 @@ async function dragAndDrop(
 	target: Locator,
 	options?: { targetOffsetY?: number }
 ) {
-	const cdp = await page.context().newCDPSession(page);
-
 	const sourceBox = await source.boundingBox();
 	const targetBox = await target.boundingBox();
 	if (!sourceBox || !targetBox) throw new Error('Could not get bounding boxes');
@@ -30,75 +24,37 @@ async function dragAndDrop(
 	const targetX = targetBox.x + targetBox.width / 2;
 	const targetY = targetBox.y + (options?.targetOffsetY ?? targetBox.height / 2);
 
-	// Enable drag interception — Chrome will capture drag data and emit
-	// Input.dragIntercepted instead of performing the default drag.
-	await cdp.send('Input.setInterceptDrags', { enabled: true });
+	// Move to source and press to initiate drag
+	await page.mouse.move(sourceX, sourceY);
+	await page.mouse.down();
 
-	// Mouse press on source handle
-	await cdp.send('Input.dispatchMouseEvent', {
-		type: 'mousePressed',
-		x: sourceX,
-		y: sourceY,
-		button: 'left',
-		clickCount: 1
-	});
+	// Small initial move to exceed SortableJS touchStartThreshold (5px)
+	// and trigger _onDragStart → _appendGhost (via _nextTick/setTimeout(0))
+	const dirY = targetY < sourceY ? -10 : 10;
+	await page.mouse.move(sourceX, sourceY + dirY, { steps: 3 });
 
-	// Move slightly to initiate native drag (triggers dragstart)
-	const dragData = await new Promise<{ data: DragData }>((resolve) => {
-		cdp.on('Input.dragIntercepted', (params: { data: DragData }) => resolve(params));
+	// Wait for ghostEl to be created (setTimeout(0) in _dragStarted).
+	// touchEvt is only updated in _onTouchMove when ghostEl exists.
+	await page.waitForTimeout(150);
 
-		// Small movements to trigger the drag threshold
-		void cdp.send('Input.dispatchMouseEvent', {
-			type: 'mouseMoved',
-			x: sourceX,
-			y: sourceY + 10,
-			button: 'left'
-		});
-	});
-
-	// Dispatch drag events on the target
-	await cdp.send('Input.dispatchDragEvent', {
-		type: 'dragEnter',
-		x: targetX,
-		y: targetY,
-		data: dragData.data
-	});
-
-	// Multiple dragOver events for SortableJS to calculate position
-	for (let i = 0; i < 3; i++) {
-		await cdp.send('Input.dispatchDragEvent', {
-			type: 'dragOver',
-			x: targetX,
-			y: targetY,
-			data: dragData.data
-		});
+	// Move toward target in slow incremental steps.
+	// Each step fires pointermove → _onTouchMove → updates touchEvt.
+	// Then _emulateDragOver (50ms interval) calls elementFromPoint
+	// with the updated touchEvt coordinates.
+	const totalSteps = 10;
+	for (let i = 1; i <= totalSteps; i++) {
+		const t = i / totalSteps;
+		const x = sourceX + (targetX - sourceX) * t;
+		const y = (sourceY + dirY) + (targetY - (sourceY + dirY)) * t;
+		await page.mouse.move(x, y);
+		await page.waitForTimeout(60);
 	}
 
-	await cdp.send('Input.dispatchDragEvent', {
-		type: 'drop',
-		x: targetX,
-		y: targetY,
-		data: dragData.data
-	});
+	// Hold at target to let SortableJS process the final position
+	await page.waitForTimeout(200);
 
-	// Release mouse
-	await cdp.send('Input.dispatchMouseEvent', {
-		type: 'mouseReleased',
-		x: targetX,
-		y: targetY,
-		button: 'left',
-		clickCount: 1
-	});
-
-	await cdp.send('Input.setInterceptDrags', { enabled: false });
-	await cdp.detach();
-}
-
-// Type for CDP drag data (not exported by Playwright)
-interface DragData {
-	items: Array<{ mimeType: string; data: string }>;
-	dragOperationsMask: number;
-	files?: string[];
+	// Release
+	await page.mouse.up();
 }
 
 test.describe('Drag and drop — task reorder within day', () => {
@@ -125,13 +81,16 @@ test.describe('Drag and drop — task reorder within day', () => {
 		await expect(items.nth(0)).toContainText('Task A');
 		await expect(items.nth(1)).toContainText('Task B');
 
-		// Drag Task B's handle to Task A's position (above it)
-		const sourceHandle = items.nth(1).locator('.drag-handle');
-		const targetItem = items.nth(0);
+		// Drag Task A's handle DOWN to Task B's position (bottom edge).
+		// We drag downward to avoid triggering SortableJS auto-scroll,
+		// which shifts items and invalidates target coordinates.
+		const sourceHandle = items.nth(0).locator('.drag-handle');
+		const targetItem = items.nth(1);
+		const targetBBox = await targetItem.boundingBox();
 
-		await dragAndDrop(page, sourceHandle, targetItem, { targetOffsetY: 5 });
-
-		// Wait for reorder to complete
+		await dragAndDrop(page, sourceHandle, targetItem, {
+			targetOffsetY: targetBBox!.height - 5
+		});
 		await page.waitForTimeout(500);
 
 		// Verify new order: B before A
