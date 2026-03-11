@@ -570,3 +570,21 @@ The `server.js` already reads `PORT` from env (`process.env.PORT`), and the Taur
 **Rule**: When combining SortableJS (fallback mode) with bits-ui components that set inline `pointer-events`, always use `!important` wildcard CSS on `.sortable-fallback *` to ensure the clone doesn't intercept hit detection.
 
 **Affected files**: `src/app.css`, `src/lib/components/TaskContextMenu.svelte`, `src/lib/components/DayCard.svelte`
+
+## 29. Changeset references wrong package name
+
+**Symptom**: "Version & Tag" GitHub Actions workflow fails with `Error: Found changeset X for package Y which is not in the workspace`.
+
+**Cause**: The changeset file (`.changeset/*.md`) was created with a package name that doesn't match `package.json`. This can happen when working in Conductor workspaces that have different names, or when the package name field is filled in incorrectly. The package name in the changeset YAML front-matter must exactly match the `"name"` field in `package.json`.
+
+**Fix**: Ensure changeset files always reference `"prosys"` as the package name. After creating a changeset, verify the front-matter:
+
+```md
+---
+"prosys": patch
+---
+```
+
+**Rule**: Always use the exact package name from `package.json` (`"prosys"`) in changeset files. Never use workspace names, branch names, or other identifiers.
+
+**Affected files**: `.changeset/*.md`, `package.json`
