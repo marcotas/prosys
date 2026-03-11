@@ -1,5 +1,11 @@
 # prosys
 
+## 0.8.1
+
+### Patch Changes
+
+- 62bb632: Fix drag and drop not working in the Tauri desktop app
+
 ## 0.8.0
 
 ### Minor Changes
