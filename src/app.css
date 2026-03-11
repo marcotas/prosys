@@ -50,6 +50,14 @@ select,
 	}
 }
 
+/* SortableJS fallback clone — must not intercept elementFromPoint().
+ * The wildcard override is needed because bits-ui ContextMenu.Trigger
+ * sets pointer-events: auto inline on cloned children. */
+.sortable-fallback,
+.sortable-fallback * {
+	pointer-events: none !important;
+}
+
 /* SortableJS drag-and-drop visual states */
 .sortable-ghost {
 	opacity: 0.35;

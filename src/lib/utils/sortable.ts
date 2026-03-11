@@ -35,10 +35,11 @@ function readIds(container: HTMLElement): string[] {
  * revert the DOM change using the element's saved nextSibling reference (which
  * accounts for Svelte's marker nodes), so Svelte can re-render correctly.
  *
- * NOTE: forceFallback MUST be false. When enabled, SortableJS appends a fallback
- * clone that interferes with its own elementFromPoint() hit detection — onMove
- * never fires and elements never swap. Native HTML5 DnD handles both desktop
- * mouse and mobile touch correctly without forceFallback.
+ * NOTE: forceFallback MUST be true. WKWebView (Tauri's macOS browser engine)
+ * does not reliably support native HTML5 DnD. The fallback mode uses
+ * mouse/touch events instead, which work across all environments. SortableJS
+ * sets pointer-events:none on the ghost clone, so it doesn't interfere with
+ * elementFromPoint() hit detection on modern browsers.
  */
 export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOptions) => {
 	let currentOptions = initialOptions;
@@ -69,6 +70,11 @@ export const sortable: Action<HTMLElement, SortableOptions> = (node, initialOpti
 
 	function buildSortableConfig(options: SortableOptions): Sortable.Options {
 		return {
+			// WKWebView requires fallback mode — native HTML5 DnD is unreliable there.
+			forceFallback: true,
+			fallbackOnBody: true,
+			fallbackClass: 'sortable-fallback',
+
 			ghostClass: 'sortable-ghost',
 			chosenClass: 'sortable-chosen',
 			dragClass: 'sortable-drag',

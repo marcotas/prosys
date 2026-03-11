@@ -9,7 +9,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
+    "tauri:dev": "mkdir -p src-tauri/server-bundle && touch src-tauri/server-bundle/.dev-placeholder && tauri dev",
     "tauri:build": "tauri build",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
